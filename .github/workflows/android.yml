@@ -85,6 +85,7 @@ jobs:
             echo "WTTC_KEY_ALIAS=$KS_ALIAS"
             echo "WTTC_SIGNED=1"
           } >> "$GITHUB_ENV"
+          echo "Firma: clave estable correcta (el APK se instalará encima de versiones anteriores firmadas con ella)"
 
       - name: Compilar APK
         shell: bash
