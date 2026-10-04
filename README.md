@@ -11,8 +11,26 @@ Sustituye al temporizador original de la calefacción auxiliar **Webasto Thermo 
 fábrica, por ejemplo, las VW T5) por un **ESP32** que habla su protocolo **W-Bus**. Se maneja desde una **app Android**
 por Bluetooth o desde el navegador por Wi-Fi.
 
-> Proyecto personal, sin relación con Webasto ni con Volkswagen. Úsalo bajo tu responsabilidad: es una calefacción
-> de gasoil. La Webasto conserva todas sus protecciones (sobrecalentamiento, llama, tensión, bloqueo por fallos).
+> Proyecto personal, sin relación con Webasto ni con Volkswagen. Úsalo bajo tu responsabilidad (ver el aviso más abajo).
+> La Webasto conserva todas sus protecciones (sobrecalentamiento, llama, tensión, bloqueo por fallos).
+
+## ⚠️ Aviso de responsabilidad
+WTTC es un proyecto personal, hecho por afición y compartido por si a alguien le sirve: **no es un producto**, no tiene
+servicio técnico ni homologación, y se ofrece *tal cual*, sin garantía de ningún tipo (licencia MIT). Mientras la versión
+empiece por 0 es **de prueba**: aún no se ha probado montado con una Webasto real.
+
+Una calefacción de gasoil quema combustible, genera humos y tira de la batería. Un montaje mal hecho o un fallo del
+programa pueden acabar en una batería descargada, en averías de la calefacción o del vehículo, en la pérdida de su
+garantía o incluso en un incendio.
+
+- **Nunca la programes ni la enciendas a distancia con el vehículo en un garaje o lugar cerrado**: el monóxido de carbono
+  no huele y mata.
+- Si no te manejas con seguridad en instalaciones de 12 V, no lo montes tú. Mide cada cable antes de conectar, pon fusible
+  y conserva siempre una forma de apagarla sin la app.
+
+**Si lo montas, el responsable eres tú.** El autor no se hace cargo de ningún daño, avería o perjuicio, directo o indirecto,
+que pueda derivarse de usar, montar o modificar WTTC. Webasto, Thermo Top y Volkswagen son marcas de sus propietarios; WTTC
+no tiene relación con ellos. El texto completo está en https://wttc.favala.es/#responsabilidad
 
 ## Capturas
 Hechas automáticamente: la web con el simulador y la app en un emulador Android con la placa simulada (sin hardware).
