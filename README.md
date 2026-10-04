@@ -14,6 +14,21 @@ por Bluetooth o desde el navegador por Wi-Fi.
 > Proyecto personal, sin relación con Webasto ni con Volkswagen. Úsalo bajo tu responsabilidad: es una calefacción
 > de gasoil. La Webasto conserva todas sus protecciones (sobrecalentamiento, llama, tensión, bloqueo por fallos).
 
+## Capturas
+Hechas automáticamente desde la web pública con el simulador (sin hardware).
+
+| Simulador: la web de la placa y una Webasto virtual |
+|---|
+| ![Simulador](docs/capturas/simulador.png) |
+
+| Web de la placa (móvil) | Esquema de montaje |
+|---|---|
+| ![Web de la placa](docs/capturas/web-placa.png) | ![Esquema de conexiones](docs/capturas/esquema.png) |
+
+| Estadísticas públicas |
+|---|
+| ![Estadísticas](docs/capturas/estadisticas.png) |
+
 ## Qué hace
 - Encender y apagar (15–60 min) y hasta 8 programas semanales.
 - **Estado real**: arrancando, calentando, en pausa (agua caliente) o sin respuesta. Si la Webasto se apaga por su

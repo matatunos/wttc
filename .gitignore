@@ -17,3 +17,5 @@ android/.idea/
 *.p12
 keystore.properties
 .env
+# Dependencias de las capturas (Playwright)
+node_modules/
