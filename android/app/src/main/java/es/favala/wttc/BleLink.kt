@@ -110,6 +110,18 @@ class BleLink(private val ctx: Context, private val listener: Listener) {
         listener.onLink(s, detail)
     }
 
+    // ---------- modo demostración ----------
+    // Placa simulada (DemoDevice) en lugar de la real: sin Bluetooth, para probar la app y para las capturas
+    private var demoDev: DemoDevice? = null
+    val demo: Boolean get() = demoDev != null
+
+    /** Arranca el modo demostración (heating = empezar ya encendida y caliente). */
+    fun startDemo(heating: Boolean) {
+        stop()
+        demoDev = DemoDevice(main, listener, heating).also { it.start() }
+        setState(State.CONNECTED, "modo demostración")
+    }
+
     val savedAddress: String? get() = prefs.getString("addr", null)
     val savedName: String? get() = prefs.getString("name", null)
 
@@ -131,6 +143,7 @@ class BleLink(private val ctx: Context, private val listener: Listener) {
     }
 
     fun stop() {
+        demoDev?.stop(); demoDev = null
         wantConnected = false
         stopScan()
         unregisterBond()
@@ -344,6 +357,7 @@ class BleLink(private val ctx: Context, private val listener: Listener) {
 
     /** Envía una orden al ESP32; la respuesta llega por Listener.onResponse. */
     fun send(cmd: String) {
+        demoDev?.let { it.handle(cmd); return }       // modo demostración: responde la placa simulada
         enqueue {
             val g = gatt ?: return@enqueue false
             val c = g.getService(SVC)?.getCharacteristic(CH_CMD) ?: return@enqueue false
@@ -353,6 +367,7 @@ class BleLink(private val ctx: Context, private val listener: Listener) {
 
     /** Pide el estado completo (lectura de STATE). */
     fun refresh() {
+        demoDev?.let { it.emitState(); return }
         enqueue {
             val g = gatt ?: return@enqueue false
             val c = g.getService(SVC)?.getCharacteristic(CH_STATE) ?: return@enqueue false

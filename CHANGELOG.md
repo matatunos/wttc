@@ -3,9 +3,12 @@
 Todas las versiones de WTTC (firmware del ESP32 y app Android van con el mismo número).
 Formato: la versión más reciente arriba. Cada versión publicada tiene su Release en GitHub con el APK y el firmware.
 
-## 1.1.0 — 2026-10-04
+**Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
+ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
-Primera versión pública como WTTC.
+## 0.1.0 — 2026-10-04
+
+Primera versión pública como WTTC. **Versión de prueba: aún sin probar con una Webasto real.**
 
 ### Firmware
 - **Bluetooth LE** como vía principal, con emparejamiento por PIN de 6 cifras (generado al azar en cada placa) y conexión cifrada.
@@ -24,6 +27,7 @@ Primera versión pública como WTTC.
 - Estado, encendido y apagado, programas, averías, registro, gasoil estimado y configuración de la placa.
 - Avisos del sistema si la calefacción se apaga sola.
 - Estadísticas anónimas opcionales (dos botones iguales en el primer inicio; se cambia en «Ajustes de la app»).
+- **Modo demostración** («Probar sin placa»): una placa simulada dentro de la app, para probarla sin nada montado.
 
 ### Web y proyecto
 - Web pública https://wttc.favala.es: simulador del firmware, esquema de montaje, guías de instalación (Arduino IDE y
@@ -32,6 +36,6 @@ Primera versión pública como WTTC.
 - Compilación automática del firmware y de la app en GitHub Actions, Releases firmadas y capturas del README.
 - Todo el código y el contenido están generados íntegramente con Claude (Anthropic) y van comentados en abundancia.
 
-## 1.0.0 — 2026-09-30
+## 0.0.1 — 2026-09-30
 
-Versión inicial (como `Webastot5.ino`): solo Wi-Fi y web, encendido y apagado, programas semanales, temperatura, tensión, llama, potencia, averías y consola serie.
+Versión inicial (no publicada) (como `Webastot5.ino`): solo Wi-Fi y web, encendido y apagado, programas semanales, temperatura, tensión, llama, potencia, averías y consola serie.

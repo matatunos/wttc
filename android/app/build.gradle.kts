@@ -2,7 +2,7 @@
 // Código generado íntegramente con Claude (Anthropic).
 //  - Sin dependencias: solo el framework de Android y la biblioteca estándar de Kotlin (APK de ~650 KB).
 //  - minSdk 26 (Android 8): incluye la mayoría de radios Android de coche.
-//  - versionName y versionCode los pone la CI (fichero VERSION y número de ejecución); en local, 1.0.0 y 1.
+//  - versionName y versionCode los pone la CI (fichero VERSION y número de ejecución); en local, 0.0.0 y 1.
 //  - La firma de release sale de los secretos del repo (ver .github/workflows/android.yml).
 plugins {
     id("com.android.application")
@@ -21,7 +21,7 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = (System.getenv("WTTC_VERSION_CODE") ?: "1").toInt()
-        versionName = System.getenv("WTTC_VERSION_NAME") ?: "1.0.0"
+        versionName = System.getenv("WTTC_VERSION_NAME") ?: "0.0.0"
     }
 
     signingConfigs {

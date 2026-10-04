@@ -80,6 +80,11 @@ class MainActivity : Activity(), BleLink.Listener {
     private var lastOn = false
     private var lastNote = ""
     private var haveState = false      // hasta el primer estado no se cuentan transiciones
+    // Modo demostración: placa simulada. Se activa con «Probar sin placa» o al abrir la app con el extra
+    // "demo" (lo usan las capturas: adb shell am start … --ez demo true --ez demo_on true --ez capturas true)
+    private var demoMode = false
+    private var demoHeating = false     // empezar ya encendida (para las capturas)
+    private var capturas = false        // sin ventana de estadísticas ni permisos (capturas automáticas)
 
     // Programas: [activo, días (bit0 = lunes), inicio en minutos, duración]
     private data class Prog(var en: Boolean, var days: Int, var start: Int, var dur: Int)
@@ -94,6 +99,7 @@ class MainActivity : Activity(), BleLink.Listener {
     private lateinit var dot: View
     // Caja de emparejamiento y su texto de ayuda
     private lateinit var pairBox: LinearLayout
+    private lateinit var demoBar: LinearLayout   // franja que avisa del modo demostración, con «Salir»
     private lateinit var tPair: TextView
     // Todo lo que manda órdenes a la placa: se desactiva (y se atenúa) mientras no hay conexión
     private lateinit var controls: LinearLayout
@@ -132,16 +138,20 @@ class MainActivity : Activity(), BleLink.Listener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         link = BleLink(this, this)
+        demoMode = intent.getBooleanExtra("demo", false)
+        demoHeating = intent.getBooleanExtra("demo_on", false)
+        capturas = intent.getBooleanExtra("capturas", false)
         buildUi()
         createChannel()
-        if (Stats.consent(this) == null) askStats()
+        if (Stats.consent(this) == null && !capturas) askStats()
     }
 
     // Al volver a primer plano: permisos y conexión; y el informe de estadísticas del día si toca (y hay permiso)
     override fun onStart() {
         super.onStart()
-        if (askPermissions()) startLink()
-        Stats.maybeSend(this)
+        if (demoMode) startLink()                     // la placa simulada no necesita permisos de Bluetooth
+        else if (askPermissions()) startLink()
+        if (!demoMode) Stats.maybeSend(this)
     }
 
     // Al salir de primer plano se cierra la conexión: la placa vuelve a anunciarse y gasta menos
@@ -152,6 +162,7 @@ class MainActivity : Activity(), BleLink.Listener {
 
     // Conecta con la placa emparejada (o muestra que el Bluetooth está apagado)
     private fun startLink() {
+        if (demoMode) { link.startDemo(demoHeating); return }
         if (!link.bluetoothOn()) {
             onLink(BleLink.State.NO_BLUETOOTH, "")
             return
@@ -204,11 +215,12 @@ class MainActivity : Activity(), BleLink.Listener {
             BleLink.State.CONNECTED -> "Conectado a ${link.savedName ?: "WTTC"}" to cOk
             BleLink.State.OUT_OF_RANGE -> "Fuera de alcance: se conectará sola" to cMut
         }
-        tLink.text = if (detail.isNotEmpty()) "$txt · $detail" else txt
+        tLink.text = if (link.demo) "Modo demostración: placa simulada" else if (detail.isNotEmpty()) "$txt · $detail" else txt
+        demoBar.visibility = if (link.demo) View.VISIBLE else View.GONE
         (dot.background as GradientDrawable).setColor(col)
 
         val paired = link.savedAddress != null && link.isPaired()
-        pairBox.visibility = if (paired && state != BleLink.State.NO_BLUETOOTH) View.GONE else View.VISIBLE
+        pairBox.visibility = if ((paired || link.demo) && state != BleLink.State.NO_BLUETOOTH) View.GONE else View.VISIBLE
         tPair.text = when (state) {
             BleLink.State.NO_BLUETOOTH -> "Activa el Bluetooth del dispositivo para conectar con la placa."
             BleLink.State.PAIRING -> "Android te pedirá el PIN de 6 cifras de la placa. Sale en la consola serie al arrancar " +
@@ -232,7 +244,7 @@ class MainActivity : Activity(), BleLink.Listener {
         val msg = if (err) data.removePrefix("err").trim() else data
         when (cmd) {
             "on", "off" -> {
-                if (err) toast(msg) else if (cmd == "on") Stats.count(this, "starts_app")
+                if (err) toast(msg) else if (cmd == "on" && !link.demo) Stats.count(this, "starts_app")
                 link.refresh()
             }
             "cfg" -> runCatching { val c = JSONObject(data); fillCfg(c); Stats.setFirmware(this, c.optString("ver")) }
@@ -290,7 +302,7 @@ class MainActivity : Activity(), BleLink.Listener {
         bigBtn.setTextColor(if (on) cInk else Color.parseColor("#1A1000"))
 
         // Avisos del sistema (con la app abierta o en segundo plano reciente) y contadores de las estadísticas
-        if (haveState) {
+        if (haveState && !link.demo) {                 // en modo demostración no hay avisos ni estadísticas
             if (lastOn && !on && note.isNotEmpty() && note != lastNote) {
                 notifyUser("La calefacción se ha apagado sola", note)
                 Stats.count(this, "self_stops")
@@ -399,7 +411,18 @@ class MainActivity : Activity(), BleLink.Listener {
         tPair = text("", 14f, cMut)
         pairBox.addView(tPair)
         pairBox.addView(row(button("Buscar placa", true) { scanDialog() }, button("Activar Bluetooth") { enableBluetooth() }), lp(top = 12))
+        // Probar la app sin tener nada montado: placa simulada
+        pairBox.addView(button("Probar sin placa (modo demostración)") { demoMode = true; demoHeating = false; startLink() }, lp(top = 10))
         root.addView(pairBox, lp(top = 14))
+
+        // Franja del modo demostración
+        demoBar = card().apply {
+            background = rounded(Color.parseColor("#3A2A0A"), 14)
+            addView(text("Modo demostración: los datos son simulados y no se manda nada a ninguna placa.", 14f, cInk))
+            addView(button("Salir del modo demostración") { exitDemo() }, lp(top = 10))
+            visibility = View.GONE
+        }
+        root.addView(demoBar, lp(top = 14))
 
         controls = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         root.addView(controls)
@@ -517,6 +540,14 @@ class MainActivity : Activity(), BleLink.Listener {
 
     // ---------- acciones ----------
     // Botón grande: apaga si está encendida; si no, enciende con la duración elegida
+    // Sale del modo demostración y vuelve a la placa real (o a la pantalla de emparejar)
+    private fun exitDemo() {
+        demoMode = false; demoHeating = false
+        link.stop()
+        dev = null; haveState = false
+        if (askPermissions()) startLink()
+    }
+
     private fun toggleHeater() {
         val on = dev?.optInt("on") == 1
         bigBtn.text = if (on) "Apagando…" else "Encendiendo…"

@@ -105,7 +105,7 @@ jobs:
         shell: bash
         run: |
           cp android/app/build/outputs/apk/release/app-release.apk "WTTC-${WTTC_VERSION_NAME}.apk"
-          cp "WTTC-${WTTC_VERSION_NAME}.apk" WTTC.apk      # nombre fijo: releases/latest/download/WTTC.apk
+          cp "WTTC-${WTTC_VERSION_NAME}.apk" WTTC.apk      # nombre fijo: releases/download/v<versión>/WTTC.apk
           (cd firmware && zip -qr ../WTTC-firmware.zip WTTC)
 
       - uses: actions/upload-artifact@v4
@@ -128,8 +128,11 @@ jobs:
           # Notas: la sección de esta versión en CHANGELOG.md
           awk -v v="$WTTC_VERSION_NAME" '$0 ~ "^## "v" " {on=1; next} on && /^## / {exit} on {print}' CHANGELOG.md > notas.md
           printf '\n---\nApp Android: **WTTC.apk** (Android 8 o posterior). Firmware para el ESP32: **WTTC-firmware.zip**.\nInstrucciones: https://wttc.favala.es · Código generado íntegramente con Claude (Anthropic).\n' >> notas.md
+          # Versiones 0.x: pre-release (de prueba, sin probar con hardware real); desde la 1.0.0, versión normal
+          if [[ "$WTTC_VERSION_NAME" == 0.* ]]; then tipo=(--prerelease); titulo="WTTC ${WTTC_VERSION_NAME} (de prueba)"
+          else tipo=(--latest); titulo="WTTC ${WTTC_VERSION_NAME}"; fi
           gh release create "$tag" "WTTC-${WTTC_VERSION_NAME}.apk" WTTC.apk WTTC-firmware.zip \
-            --title "WTTC ${WTTC_VERSION_NAME}" --latest --notes-file notas.md
+            --title "$titulo" "${tipo[@]}" --notes-file notas.md
 
       # Sin firma estable el APK compila (y queda como artefacto), pero el run se marca como fallido
       - name: Comprobar la firma

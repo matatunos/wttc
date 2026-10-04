@@ -15,7 +15,7 @@ por Bluetooth o desde el navegador por Wi-Fi.
 > de gasoil. La Webasto conserva todas sus protecciones (sobrecalentamiento, llama, tensión, bloqueo por fallos).
 
 ## Capturas
-Hechas automáticamente desde la web pública con el simulador (sin hardware).
+Hechas automáticamente: la web con el simulador y la app en un emulador Android con la placa simulada (sin hardware).
 
 | Simulador: la web de la placa y una Webasto virtual |
 |---|
@@ -24,6 +24,14 @@ Hechas automáticamente desde la web pública con el simulador (sin hardware).
 | Web de la placa (móvil) | Esquema de montaje |
 |---|---|
 | ![Web de la placa](docs/capturas/web-placa.png) | ![Esquema de conexiones](docs/capturas/esquema.png) |
+
+| App Android (modo demostración) | Programas |
+|---|---|
+| ![App: estado](docs/capturas/app-estado.png) | ![App: programas](docs/capturas/app-programas.png) |
+
+| App en una pantalla de radio de coche (1280×720) |
+|---|
+| ![App en una radio](docs/capturas/app-radio.png) |
 
 | Estadísticas públicas |
 |---|
@@ -67,7 +75,9 @@ Cada cambio se compila automáticamente en GitHub Actions con los núcleos 2.0.1
 
 ## App Android
 Se descarga como APK en [Releases](../../releases). Busca el ESP32 por Bluetooth, empareja con el PIN y se conecta
-sola cuando está cerca. Funciona también en radios Android de coche si su Bluetooth es visible para las apps (compruébalo
+sola cuando está cerca. Sin nada montado, **«Probar sin placa»** abre un modo demostración con una placa simulada.
+
+> **Versiones 0.x = de prueba**: compilan y funcionan en el simulador, pero aún no se han probado con una Webasto real. Funciona también en radios Android de coche si su Bluetooth es visible para las apps (compruébalo
 antes con «nRF Connect»: si ve dispositivos BLE, la app funcionará).
 
 ## Estadísticas anónimas

@@ -1,4 +1,5 @@
-# capturas.yml — Rehace las capturas del README desde la web pública con Playwright.
+# capturas.yml — Rehace las capturas del README: la web pública con Playwright y la app en un emulador Android
+# (en modo demostración, con una placa simulada).
 # Código generado íntegramente con Claude (Anthropic).
 # Se lanza al cambiar el script de capturas o este workflow (o a mano desde la pestaña Actions).
 # Si las imágenes cambian, las sube al repo (los commits hechos con GITHUB_TOKEN no lanzan otros workflows).
@@ -7,7 +8,7 @@ name: Capturas
 on:
   push:
     branches: [main]
-    paths: ['docs/capturas/capturar.mjs', '.github/workflows/capturas.yml']
+    paths: ['docs/capturas/capturar.mjs', 'docs/capturas/capturar-app.sh', '.github/workflows/capturas.yml']
   workflow_dispatch:
 
 permissions:
@@ -27,6 +28,32 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Hacer las capturas
         run: node docs/capturas/capturar.mjs
+      # ---- app Android en un emulador ----
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Compilar la app (depuración)
+        working-directory: android
+        run: gradle assembleDebug --no-daemon
+      - name: Activar KVM (para que el emulador vaya rápido)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Capturas de la app en el emulador
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: bash docs/capturas/capturar-app.sh
+
       - name: Subir las capturas si han cambiado
         shell: bash
         run: |
