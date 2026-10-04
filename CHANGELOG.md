@@ -25,6 +25,13 @@ Primera versión pública como WTTC.
 - Avisos del sistema si la calefacción se apaga sola.
 - Estadísticas anónimas opcionales (dos botones iguales en el primer inicio; se cambia en «Ajustes de la app»).
 
+### Web y proyecto
+- Web pública https://wttc.favala.es: simulador del firmware, esquema de montaje, guías de instalación (Arduino IDE y
+  arduino-cli en Linux y Windows) y de uso (móvil Android, iPhone y radio de coche), descargas y versiones.
+- Estadísticas públicas y agregadas en https://wttc.favala.es/estadisticas.php (sin IP).
+- Compilación automática del firmware y de la app en GitHub Actions, Releases firmadas y capturas del README.
+- Todo el código y el contenido están generados íntegramente con Claude (Anthropic) y van comentados en abundancia.
+
 ## 1.0.0 — 2026-09-30
 
 Versión inicial (como `Webastot5.ino`): solo Wi-Fi y web, encendido y apagado, programas semanales, temperatura, tensión, llama, potencia, averías y consola serie.
