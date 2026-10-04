@@ -1,0 +1,47 @@
+name: Firmware
+
+on:
+  push:
+    paths: ['firmware/**', '.github/workflows/firmware.yml']
+  pull_request:
+    paths: ['firmware/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compilar:
+    name: ESP32 core ${{ matrix.core }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        core: ['2.0.17', '3.3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v2
+      - name: Instalar el núcleo ESP32 ${{ matrix.core }}
+        shell: bash
+        run: |
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32@${{ matrix.core }}
+      - name: Compilar
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p build
+          arduino-cli compile --fqbn esp32:esp32:esp32:PartitionScheme=huge_app --warnings default \
+            --output-dir build firmware/WTTC 2>&1 | tee build.log
+      - name: Errores como anotaciones
+        if: failure()
+        shell: bash
+        run: |
+          grep -E 'error|Error' build.log | head -40 | while IFS= read -r l; do echo "::error::${l//%/%25}"; done
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: WTTC-firmware-core-${{ matrix.core }}
+          path: build/WTTC.ino.*bin

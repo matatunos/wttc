@@ -1,0 +1,57 @@
+# WTTC — control por Bluetooth y Wi-Fi para la Webasto Thermo Top C
+
+Sustituye al temporizador original de la calefacción auxiliar **Webasto Thermo Top C** (la de agua que montan de
+fábrica, por ejemplo, las VW T5) por un **ESP32** que habla su protocolo **W-Bus**. Se maneja desde una **app Android**
+por Bluetooth o desde el navegador por Wi-Fi.
+
+> Proyecto personal, sin relación con Webasto ni con Volkswagen. Úsalo bajo tu responsabilidad: es una calefacción
+> de gasoil. La Webasto conserva todas sus protecciones (sobrecalentamiento, llama, tensión, bloqueo por fallos).
+
+## Qué hace
+- Encender y apagar (15–60 min) y hasta 8 programas semanales.
+- **Estado real**: arrancando, calentando, en pausa (agua caliente) o sin respuesta. Si la Webasto se apaga por su
+  cuenta, lo detecta y muestra sus códigos de avería.
+- Temperatura del agua, tensión de batería, llama y potencia.
+- No arranca un programa si la batería está por debajo del mínimo configurado.
+- **Bluetooth LE** con emparejamiento por PIN (generado al azar en cada placa) como vía principal.
+- **Wi-Fi** propia como segunda opción: siempre, solo mientras calienta o solo a petición (para gastar menos).
+- Avisos opcionales por **Telegram** (bot propio) si el ESP32 llega a una red con internet.
+- Todo se configura desde la app o la web, sin tocar el código.
+
+## Hardware
+| Pieza | Modelo usado | Para qué |
+|---|---|---|
+| Calefactor | Webasto Thermo Top C de fábrica (ref. VW 7H0 010 398 J), mandada por W-Bus | Lo que se controla; el ESP32 se enchufa en el conector del temporizador original |
+| Microcontrolador | ESP32 DevKitC con ESP-WROOM-32 (38 pines, USB CP2102) | Bluetooth, Wi-Fi, programas y W-Bus por UART2 (IO16/IO17) |
+| Transceptor | Módulo UART ↔ LIN/K-Line con **TJA1020** (o TJA1021, MCP2003, L9637D) | Adapta los 3,3 V del ESP32 al bus de un hilo a 12 V |
+| Alimentación | Regulador **LM2596** ajustado a **5,0 V** | 5 V para el ESP32 desde el +12 V permanente |
+
+Conexiones: +12 V permanente y masa del conector a la placa TJA1020 y al LM2596; W-Bus a la borna LIN; TX de la placa
+a IO16, RX a IO17, SLP a 3V3. El cable de contacto (borne 15) no se usa. **Mide los cables con el polímetro**: los
+colores cambian entre vehículos.
+
+## Instalar el firmware
+1. Arduino IDE 2 (o arduino-cli) con el núcleo **esp32 de Espressif** (2.x o 3.x). Sin librerías externas.
+2. Placa **ESP32 Dev Module** y esquema de partición **Huge APP (3MB No OTA/1MB SPIFFS)**: con Bluetooth y Wi-Fi no
+   cabe en la partición normal.
+3. Abre `firmware/WTTC/WTTC.ino` y súbelo. En el monitor serie (115200) aparece el **PIN Bluetooth**.
+
+```sh
+arduino-cli compile --fqbn esp32:esp32:esp32:PartitionScheme=huge_app firmware/WTTC
+arduino-cli upload  --fqbn esp32:esp32:esp32:PartitionScheme=huge_app -p /dev/ttyUSB0 firmware/WTTC
+```
+
+Cada cambio se compila automáticamente en GitHub Actions con los núcleos 2.0.17 y 3.3.12.
+
+## App Android
+Se descarga como APK en [Releases](../../releases). Busca el ESP32 por Bluetooth, empareja con el PIN y se conecta
+sola cuando está cerca. Funciona también en radios Android de coche si su Bluetooth es visible para las apps (compruébalo
+antes con «nRF Connect»: si ve dispositivos BLE, la app funcionará).
+
+## Protocolo W-Bus
+2400 baudios 8E1, un solo hilo (cada byte enviado vuelve como eco). Trama `F4 LL CMD DATOS… XOR`; respuesta `4F LL
+CMD|0x80 DATOS… XOR`. Órdenes usadas: `0x21` encender (minutos), `0x44` mantener (cada 5 s), `0x10` apagar,
+`0x50 05` sensores, `0x56 01` averías. Basado en la documentación del proyecto libwbus.
+
+## Licencia
+MIT.

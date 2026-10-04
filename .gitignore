@@ -1,0 +1,18 @@
+# Compilación
+build/
+*.bin
+*.elf
+*.map
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+*.iml
+# Firmas y secretos: nunca en el repo
+*.jks
+*.keystore
+*.p12
+keystore.properties
+.env
