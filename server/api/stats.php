@@ -63,9 +63,9 @@ $db->prepare('INSERT INTO installs (id, first_seen, last_seen, app, fw, sdk, kin
               fw = CASE WHEN excluded.fw <> \'\' THEN excluded.fw ELSE installs.fw END,
               sdk = excluded.sdk, kind = excluded.kind, country = excluded.country')
    ->execute([$id, $today, $today, $app, $fw, $sdk, $kind, $country]);
-$t = $db->prepare('INSERT INTO totals (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = v + excluded.v');
-foreach ($cnt as $k => $v) if ($v) $t->execute([$k, $v]);
-$e = $db->prepare('INSERT INTO errors (code, n) VALUES (?, ?) ON CONFLICT(code) DO UPDATE SET n = n + excluded.n');
-foreach ($errs as $c => $n) $e->execute([$c, $n]);
+$t = $db->prepare('INSERT INTO daily (day, k, v) VALUES (?, ?, ?) ON CONFLICT(day, k) DO UPDATE SET v = v + excluded.v');
+foreach ($cnt as $k => $v) if ($v) $t->execute([$today, $k, $v]);
+$e = $db->prepare('INSERT INTO err_daily (day, code, n) VALUES (?, ?, ?) ON CONFLICT(day, code) DO UPDATE SET n = n + excluded.n');
+foreach ($errs as $c => $n) $e->execute([$today, $c, $n]);
 $db->commit();
 out(200, ['ok' => true]);

@@ -17,10 +17,23 @@ function wttc_db(): PDO {
             id TEXT PRIMARY KEY, first_seen TEXT NOT NULL, last_seen TEXT NOT NULL,
             app TEXT, fw TEXT, sdk INTEGER, kind TEXT, country TEXT);
         CREATE TABLE IF NOT EXISTS pings (day TEXT NOT NULL, id TEXT NOT NULL, PRIMARY KEY (day, id));
-        CREATE TABLE IF NOT EXISTS totals (k TEXT PRIMARY KEY, v INTEGER NOT NULL DEFAULT 0);
-        CREATE TABLE IF NOT EXISTS errors (code TEXT PRIMARY KEY, n INTEGER NOT NULL DEFAULT 0);
+        -- Contadores y averías por día (sin instalación: solo sumas), para poder filtrar por periodo
+        CREATE TABLE IF NOT EXISTS daily (day TEXT NOT NULL, k TEXT NOT NULL, v INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, k));
+        CREATE TABLE IF NOT EXISTS err_daily (day TEXT NOT NULL, code TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, code));
     ');
     return $db;
+}
+
+// Periodo pedido por la página (?period=7d|30d|90d|1y|all o ?from=AAAA-MM-DD&to=AAAA-MM-DD) → [desde, hasta] en UTC
+function wttc_range(array $q): array {
+    $to = gmdate('Y-m-d');
+    $re = '/^\d{4}-\d{2}-\d{2}$/';
+    if (isset($q['from'], $q['to']) && preg_match($re, $q['from']) && preg_match($re, $q['to'])) {
+        return $q['from'] <= $q['to'] ? [$q['from'], $q['to']] : [$q['to'], $q['from']];
+    }
+    $days = ['7d' => 7, '30d' => 30, '90d' => 90, '1y' => 365][$q['period'] ?? '30d'] ?? null;
+    if ($days === null) return ['2026-01-01', $to];                  // «Todo»
+    return [gmdate('Y-m-d', time() - ($days - 1) * 86400), $to];
 }
 
 // Versión de Android legible a partir del nivel de API

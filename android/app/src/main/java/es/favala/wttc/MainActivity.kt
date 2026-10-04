@@ -412,7 +412,7 @@ class MainActivity : Activity(), BleLink.Listener {
         controls.addView(cfg, lp(top = 10))
 
         // Dispositivo
-        section(root, "Este dispositivo")
+        section(root, "Ajustes de la app", "Se guardan en este móvil o radio, no en la placa.")
         root.addView(row(button("Olvidar placa") { confirmForget() }, button("Ajustes Bluetooth") {
             startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
         }), lp(top = 10))
@@ -493,7 +493,7 @@ class MainActivity : Activity(), BleLink.Listener {
             .setMessage("WTTC puede enviar, una vez al día como mucho: versión de la app y del firmware, versión de Android, " +
                 "tipo de dispositivo (móvil, tablet o radio), país según el idioma del sistema, número de encendidos y apagados " +
                 "y los códigos de avería.\n\nNunca se envía ubicación, nombres, redes Wi-Fi, PIN ni horarios, y no se guarda tu IP. " +
-                "Los resultados son públicos en wttc.favala.es/estadisticas.php.\n\nPuedes cambiarlo cuando quieras en «Este dispositivo».")
+                "Los resultados son públicos en wttc.favala.es/estadisticas.php.\n\nPuedes cambiar de idea cuando quieras en «Ajustes de la app», al final de la pantalla.")
             .setCancelable(false)
             .setPositiveButton("Sí, enviar") { _, _ -> swStats.isChecked = true }      // el interruptor guarda el permiso y envía
             .setNegativeButton("No, gracias") { _, _ -> Stats.setConsent(this, false); swStats.isChecked = false }

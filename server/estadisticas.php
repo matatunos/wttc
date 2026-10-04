@@ -3,62 +3,58 @@
 // Solo cuenta instalaciones que han aceptado enviar datos anónimos; nada identifica a nadie (ver api/stats.php).
 require_once __DIR__ . '/api/db.php';
 ini_set('display_errors', '0');
-header('Cache-Control: public, max-age=300');
 
-$h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
-$n = fn($v) => number_format((int)$v, 0, ',', '.');
-
-$ok = true;
-try {
-    $db = wttc_db();
-    $since30 = gmdate('Y-m-d', time() - 30 * 86400);
-    $q = fn($sql, $p = []) => (function () use ($db, $sql, $p) { $s = $db->prepare($sql); $s->execute($p); return $s; })();
-
-    $active = (int)$q('SELECT COUNT(*) FROM installs WHERE last_seen >= ?', [$since30])->fetchColumn();
-    $total = (int)$q('SELECT COUNT(*) FROM installs')->fetchColumn();
-    $tot = array_column($q('SELECT k, v FROM totals')->fetchAll(), 'v', 'k');
-
-    // Instalaciones distintas que han informado cada semana (últimas 26)
-    $weeks = []; $seen = [];
-    for ($i = 25; $i >= 0; $i--) {
-        $mon = strtotime('monday this week', time()) - $i * 7 * 86400;
-        $weeks[gmdate('Y-m-d', $mon)] = 0;
+// ---------- datos para las gráficas (mismo patrón que el resto del portal: ?action=data&period=…) ----------
+if (($_GET['action'] ?? '') === 'data') {
+    header('Content-Type: application/json');
+    header('Cache-Control: no-store');
+    try {
+        $db = wttc_db();
+        [$from, $to] = wttc_range($_GET);
+        $q = function ($sql, $p = []) use ($db) { $s = $db->prepare($sql); $s->execute($p); return $s; };
+        $days = (int)((strtotime($to) - strtotime($from)) / 86400) + 1;
+        $weekly = $days > 120;                                   // rangos largos: por semanas
+        $bucket = fn($d) => $weekly ? gmdate('Y-m-d', strtotime('monday this week', strtotime($d . ' 12:00'))) : $d;
+        $axis = [];
+        for ($t = strtotime($from . ' 12:00'); $t <= strtotime($to . ' 12:00'); $t += 86400) $axis[$bucket(gmdate('Y-m-d', $t))] = 0;
+        $active = $axis; $seen = [];
+        foreach ($q('SELECT day, id FROM pings WHERE day BETWEEN ? AND ?', [$from, $to])->fetchAll() as $r) $seen[$bucket($r['day'])][$r['id']] = 1;
+        foreach ($active as $k => $_) $active[$k] = isset($seen[$k]) ? count($seen[$k]) : 0;
+        $starts = ['starts_app' => $axis, 'starts_prog' => $axis];
+        $sum = ['starts_app' => 0, 'starts_prog' => 0, 'self_stops' => 0];
+        foreach ($q('SELECT day, k, v FROM daily WHERE day BETWEEN ? AND ?', [$from, $to])->fetchAll() as $r) {
+            $bk = $bucket($r['day']);
+            if (isset($starts[$r['k']][$bk])) $starts[$r['k']][$bk] += (int)$r['v'];
+            if (isset($sum[$r['k']])) $sum[$r['k']] += (int)$r['v'];
+        }
+        $ids = (int)$q('SELECT COUNT(DISTINCT id) FROM pings WHERE day BETWEEN ? AND ?', [$from, $to])->fetchColumn();
+        $new = (int)$q('SELECT COUNT(*) FROM installs WHERE first_seen BETWEEN ? AND ?', [$from, $to])->fetchColumn();
+        // Repartos entre las instalaciones que informaron en el periodo
+        $grp = fn($col) => $q("SELECT $col AS k, COUNT(*) AS n FROM installs WHERE id IN (SELECT DISTINCT id FROM pings WHERE day BETWEEN ? AND ?)
+                               GROUP BY $col ORDER BY n DESC, k", [$from, $to])->fetchAll();
+        $kinds = ['movil' => 'Móvil', 'tablet' => 'Tablet', 'radio' => 'Radio de coche'];
+        $lab = fn($rows, $f) => array_map(fn($r) => [$f($r['k']), (int)$r['n']], $rows);
+        echo json_encode([
+            'from' => $from, 'to' => $to, 'weekly' => $weekly,
+            'kpi' => ['active' => $ids, 'new' => $new, 'total' => (int)$q('SELECT COUNT(*) FROM installs')->fetchColumn()] + $sum,
+            'axis' => array_keys($axis), 'active' => array_values($active),
+            'app' => array_values($starts['starts_app']), 'prog' => array_values($starts['starts_prog']),
+            'by' => [
+                'kind' => $lab($grp('kind'), fn($k) => $kinds[$k] ?? 'Sin indicar'),
+                'sdk' => $lab($grp('sdk'), fn($k) => $k ? wttc_android((int)$k) : 'Sin indicar'),
+                'country' => $lab($grp('country'), fn($k) => wttc_country((string)$k)),
+                'app' => $lab($grp('app'), fn($k) => $k ?: 'Sin indicar'),
+                'fw' => $lab($grp('fw'), fn($k) => $k ?: 'Sin conectar aún'),
+                'err' => array_map(fn($r) => ['0x' . $r['code'] . (wttc_error_name($r['code']) ? ' · ' . wttc_error_name($r['code']) : ''), (int)$r['n']],
+                    $q('SELECT code, SUM(n) AS n FROM err_daily WHERE day BETWEEN ? AND ? GROUP BY code ORDER BY n DESC LIMIT 10', [$from, $to])->fetchAll()),
+            ],
+        ]);
+    } catch (Throwable $e) {
+        error_log('wttc estadisticas: ' . $e->getMessage());
+        http_response_code(503);
+        echo json_encode(['error' => 'no disponible']);
     }
-    $first = array_key_first($weeks);
-    foreach ($q("SELECT day, id FROM pings WHERE day >= ?", [$first])->fetchAll() as $r) {
-        $mon = gmdate('Y-m-d', strtotime('monday this week', strtotime($r['day'] . ' 12:00')));
-        $seen[$mon][$r['id']] = 1;
-    }
-    foreach ($weeks as $k => $_) $weeks[$k] = isset($seen[$k]) ? count($seen[$k]) : 0;
-
-    // Reparto entre las instalaciones activas
-    $group = function (string $col) use ($q, $since30) {
-        return $q("SELECT $col AS k, COUNT(*) AS n FROM installs WHERE last_seen >= ? GROUP BY $col ORDER BY n DESC, k", [$since30])->fetchAll();
-    };
-    $byApp = $group('app'); $byFw = $group('fw'); $bySdk = $group('sdk'); $byKind = $group('kind'); $byCountry = $group('country');
-    $errs = $q('SELECT code, n FROM errors ORDER BY n DESC, code LIMIT 10')->fetchAll();
-} catch (Throwable $e) {
-    error_log('wttc estadisticas: ' . $e->getMessage());
-    $ok = false;
-}
-
-$kindName = ['movil' => 'Móvil', 'tablet' => 'Tablet', 'radio' => 'Radio de coche'];
-$countryName = fn(string $c): string => wttc_country($c);
-
-// Lista de barras horizontales (una sola serie: un solo color)
-function bars(array $rows, callable $label, string $empty = 'Sin datos todavía.'): string {
-    if (!$rows) return '<p class="muted">' . $empty . '</p>';
-    $max = max(array_map(fn($r) => (int)$r['n'], $rows)) ?: 1;
-    $sum = array_sum(array_map(fn($r) => (int)$r['n'], $rows)) ?: 1;
-    $o = '<div class="bars" role="table">';
-    foreach ($rows as $r) {
-        $v = (int)$r['n']; $l = htmlspecialchars($label($r), ENT_QUOTES, 'UTF-8');
-        $pct = round($v / $sum * 100);
-        $o .= '<div class="bar" role="row" title="' . $l . ': ' . $v . ' (' . $pct . ' %)"><span class="bl" role="cell">' . $l . '</span>'
-            . '<span class="bt" role="cell"><i style="width:' . max(1, round($v / $max * 100)) . '%"></i></span>'
-            . '<span class="bv" role="cell">' . number_format($v, 0, ',', '.') . '</span></div>';
-    }
-    return $o . '</div>';
+    exit;
 }
 ?><!DOCTYPE html>
 <html lang="es">
@@ -70,7 +66,7 @@ function bars(array $rows, callable $label, string $empty = 'Sin datos todavía.
 <style>
   :root{
     --bg-page:#0f1117; --bg-card:#1a1d27; --bg-inner:#13151f;
-    --text:#e2e8f8; --muted:#7a84a8; --border:#2e3350; --acc:#3a8ee0; --grid:rgba(122,132,168,.16);
+    --text:#e2e8f8; --muted:#7a84a8; --border:#2e3350; --acc:#3a8ee0; --ice:#5bc0eb; --grid:rgba(122,132,168,.16);
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg-page);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.45}
@@ -97,13 +93,15 @@ function bars(array $rows, callable $label, string $empty = 'Sin datos todavía.
   .bt{height:10px;background:var(--bg-inner);border-radius:4px;overflow:hidden}
   .bt i{display:block;height:100%;background:var(--acc);border-radius:0 4px 4px 0}
   .bv{font-variant-numeric:tabular-nums;color:var(--muted);min-width:2.5em;text-align:right}
-  .chart{position:relative}
-  .chart svg{display:block;width:100%;height:220px}
-  .tip{position:absolute;pointer-events:none;background:var(--bg-inner);border:1px solid var(--border);border-radius:8px;padding:6px 9px;font-size:.8rem;white-space:nowrap;display:none}
-  table.t{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:10px}
-  table.t th,table.t td{text-align:left;padding:4px 6px;border-top:1px solid var(--border)}
-  table.t td:last-child,table.t th:last-child{text-align:right;font-variant-numeric:tabular-nums}
-  details summary{cursor:pointer;color:var(--muted);font-size:.84rem;margin-top:8px}
+  .chartbox{position:relative;height:240px}
+  .ctrls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-top:16px}
+  .periods{display:flex;gap:.3rem;flex-wrap:wrap}
+  .periods button{background:var(--bg-card);border:1px solid var(--border);color:var(--muted);border-radius:9px;padding:.35rem .7rem;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit}
+  .periods button.act{background:var(--acc);border-color:var(--acc);color:#fff}
+  .rangebox{display:flex;gap:.35rem;align-items:center;flex-wrap:wrap}
+  .rangebox input[type=date]{background:var(--bg-card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:.3rem .5rem;font-size:.8rem;font-family:inherit;color-scheme:dark}
+  .rangebox button{background:var(--acc);border:none;color:#fff;border-radius:8px;padding:.36rem .8rem;font-size:.8rem;font-weight:800;cursor:pointer;font-family:inherit}
+  .rangebox.act input[type=date]{border-color:var(--acc)}
   ul.priv{margin:6px 0 0;padding-left:20px;font-size:.88rem}
   ul.priv li{margin-bottom:4px}
 </style>
@@ -115,45 +113,36 @@ function bars(array $rows, callable $label, string $empty = 'Sin datos todavía.
   <div class="sub">Datos anónimos y agregados de las instalaciones de la app que han aceptado enviarlos. Se actualiza en cuanto llegan
     (como mucho, un informe por instalación y día).</div>
 
-<?php if (!$ok): ?>
-  <div class="card"><p class="muted">Las estadísticas no están disponibles ahora mismo. Vuelve a intentarlo más tarde.</p></div>
-<?php else: ?>
-  <div class="kpis">
-    <div class="kpi hero"><div class="l">Instalaciones activas (30 días)</div><div class="v"><?= $n($active) ?></div></div>
-    <div class="kpi"><div class="l">Instalaciones en total</div><div class="v"><?= $n($total) ?></div></div>
-    <div class="kpi"><div class="l">Encendidos desde la app</div><div class="v"><?= $n($tot['starts_app'] ?? 0) ?></div></div>
-    <div class="kpi"><div class="l">Encendidos por programa</div><div class="v"><?= $n($tot['starts_prog'] ?? 0) ?></div></div>
-    <div class="kpi"><div class="l">Veces que se apagó sola</div><div class="v"><?= $n($tot['self_stops'] ?? 0) ?></div></div>
+  <div class="ctrls">
+    <div class="periods" id="periods"></div>
+    <div class="rangebox">
+      <input type="date" id="rfrom" aria-label="Desde"><span class="muted">→</span>
+      <input type="date" id="rto" aria-label="Hasta"><button id="rapply">Aplicar</button>
+    </div>
   </div>
 
-  <div class="card">
-    <h2>Instalaciones activas por semana</h2>
-    <div class="chart" id="wk"><svg role="img" aria-label="Instalaciones que han informado cada semana, últimas 26 semanas"></svg><div class="tip"></div></div>
-    <details><summary>Ver como tabla</summary>
-      <table class="t"><thead><tr><th>Semana del</th><th>Instalaciones</th></tr></thead><tbody>
-      <?php foreach (array_reverse($weeks, true) as $k => $v): ?><tr><td><?= $h(date('d/m/Y', strtotime($k))) ?></td><td><?= $n($v) ?></td></tr><?php endforeach; ?>
-      </tbody></table></details>
-  </div>
+  <div class="kpis" id="kpis"></div>
 
-  <div class="grid3" style="margin-top:16px">
-    <div class="card"><h2>Dispositivo</h2><?= bars($byKind, fn($r) => $kindName[$r['k']] ?? 'Sin indicar') ?></div>
-    <div class="card"><h2>Versión de Android</h2><?= bars($bySdk, fn($r) => $r['k'] ? wttc_android((int)$r['k']) : 'Sin indicar') ?></div>
-    <div class="card"><h2>País</h2><?= bars($byCountry, fn($r) => $countryName((string)$r['k'])) ?></div>
+  <div class="grid2" style="margin-top:16px">
+    <div class="card"><h2 id="hAct">Instalaciones activas</h2><div class="chartbox"><canvas id="chAct" role="img" aria-label="Instalaciones que enviaron informe en cada día o semana del periodo"></canvas></div></div>
+    <div class="card"><h2 id="hSt">Encendidos</h2><div class="chartbox"><canvas id="chSt" role="img" aria-label="Encendidos desde la app y por programa en cada día o semana del periodo"></canvas></div></div>
   </div>
   <div class="grid3" style="margin-top:16px">
-    <div class="card"><h2>Versión de la app</h2><?= bars($byApp, fn($r) => $r['k'] ?: 'Sin indicar') ?></div>
-    <div class="card"><h2>Versión del firmware</h2><?= bars($byFw, fn($r) => $r['k'] ?: 'Sin conectar aún') ?></div>
-    <div class="card"><h2>Averías más comunes</h2><?= bars($errs ? array_map(fn($e) => ['k' => $e['code'], 'n' => $e['n']], $errs) : [],
-        fn($r) => '0x' . $r['k'] . (wttc_error_name($r['k']) ? ' · ' . wttc_error_name($r['k']) : ''), 'Ninguna avería registrada.') ?></div>
+    <div class="card"><h2>Dispositivo</h2><div id="bKind"></div></div>
+    <div class="card"><h2>Versión de Android</h2><div id="bSdk"></div></div>
+    <div class="card"><h2>País</h2><div id="bCountry"></div></div>
   </div>
-  <p class="muted" style="margin-top:8px">Los repartos cuentan las instalaciones activas en los últimos 30 días. Las averías, desde el principio:
-    códigos que la Webasto guardó cuando se apagó sola con la app conectada.</p>
-<?php endif; ?>
+  <div class="grid3" style="margin-top:16px">
+    <div class="card"><h2>Versión de la app</h2><div id="bApp"></div></div>
+    <div class="card"><h2>Versión del firmware</h2><div id="bFw"></div></div>
+    <div class="card"><h2>Averías al apagarse sola</h2><div id="bErr"></div></div>
+  </div>
+  <p class="muted" style="margin-top:8px">Todo se refiere al periodo elegido: instalaciones que enviaron algún informe en esas fechas y lo que contaron.</p>
 
   <div class="card">
     <h2>Qué se envía y qué no</h2>
     <ul class="priv">
-      <li>Solo si aceptas al abrir la app por primera vez (los dos botones son iguales; puedes cambiarlo en «Este dispositivo»).</li>
+      <li>Solo si aceptas al abrir la app por primera vez (los dos botones son iguales; puedes cambiar de idea en «Ajustes de la app»).</li>
       <li>Un informe al día como mucho: identificador aleatorio de instalación (no es el del móvil ni el de tu cuenta), versión de la app y del firmware,
         versión de Android, tipo de dispositivo (móvil, tablet o radio), país según el idioma del sistema, número de encendidos (desde la app y por
         programa), veces que se apagó sola y sus códigos de avería.</li>
@@ -165,54 +154,78 @@ function bars(array $rows, callable $label, string $empty = 'Sin datos todavía.
   </div>
 </div>
 
-<?php if ($ok): ?>
+<script src="/vendor/chartjs/4.4.1/chart.umd.min.js"></script>
+<script src="/charts.js"></script>
 <script>
-// Línea de una sola serie con cruceta y tooltip (sin librerías)
-(() => {
-  const data = <?= json_encode(array_map(fn($k, $v) => [$k, $v], array_keys($weeks), array_values($weeks))) ?>;
-  const box = document.getElementById('wk'), svg = box.querySelector('svg'), tip = box.querySelector('.tip');
-  const NS = 'http://www.w3.org/2000/svg', el = (t, a) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
-  const fmt = d => { const [y, m, dd] = d.split('-'); return dd + '/' + m; };
-  function draw() {
-    svg.innerHTML = '';
-    const W = box.clientWidth, H = 220, L = 34, R = 10, T = 12, B = 26;
-    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-    const max = Math.max(4, ...data.map(d => d[1])), step = Math.ceil(max / 4);
-    const top = step * 4, x = i => L + i * (W - L - R) / (data.length - 1), y = v => T + (H - T - B) * (1 - v / top);
-    for (let v = 0; v <= top; v += step) {
-      svg.appendChild(el('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), stroke: 'var(--grid)', 'stroke-width': 1 }));
-      const t = el('text', { x: L - 6, y: y(v) + 4, 'text-anchor': 'end', 'font-size': 11, fill: 'var(--muted)' }); t.textContent = v; svg.appendChild(t);
-    }
-    data.forEach((d, i) => { if (i % 4 === 0 || i === data.length - 1) {
-      const t = el('text', { x: x(i), y: H - 8, 'text-anchor': 'middle', 'font-size': 11, fill: 'var(--muted)' }); t.textContent = fmt(d[0]); svg.appendChild(t); } });
-    const pts = data.map((d, i) => `${x(i)},${y(d[1])}`).join(' ');
-    svg.appendChild(el('polygon', { points: `${x(0)},${y(0)} ${pts} ${x(data.length - 1)},${y(0)}`, fill: 'var(--acc)', 'fill-opacity': .12 }));
-    svg.appendChild(el('polyline', { points: pts, fill: 'none', stroke: 'var(--acc)', 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
-    const last = data.length - 1;
-    svg.appendChild(el('circle', { cx: x(last), cy: y(data[last][1]), r: 4, fill: 'var(--acc)', stroke: 'var(--bg-card)', 'stroke-width': 2 }));
-    const cross = el('line', { y1: T, y2: H - B, stroke: 'var(--muted)', 'stroke-width': 1, 'stroke-dasharray': '3 3', visibility: 'hidden' });
-    const dot = el('circle', { r: 5, fill: 'var(--acc)', stroke: 'var(--bg-card)', 'stroke-width': 2, visibility: 'hidden' });
-    svg.append(cross, dot);
-    const hit = el('rect', { x: L, y: 0, width: W - L - R, height: H, fill: 'transparent' });
-    svg.appendChild(hit);
-    const move = ev => {
-      const r = svg.getBoundingClientRect(), px = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left;
-      const i = Math.max(0, Math.min(last, Math.round((px - L) / ((W - L - R) / last))));
-      cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i)); cross.setAttribute('visibility', 'visible');
-      dot.setAttribute('cx', x(i)); dot.setAttribute('cy', y(data[i][1])); dot.setAttribute('visibility', 'visible');
-      tip.innerHTML = `Semana del ${fmt(data[i][0])}<br><b>${data[i][1]}</b> instalaciones`;
-      tip.style.display = 'block';
-      tip.style.left = Math.min(W - tip.offsetWidth, Math.max(0, x(i) - tip.offsetWidth / 2)) + 'px';
-      tip.style.top = Math.max(0, y(data[i][1]) - tip.offsetHeight - 12) + 'px';
-    };
-    const out = () => { cross.setAttribute('visibility', 'hidden'); dot.setAttribute('visibility', 'hidden'); tip.style.display = 'none'; };
-    hit.addEventListener('mousemove', move); hit.addEventListener('touchstart', move, { passive: true });
-    hit.addEventListener('touchmove', move, { passive: true }); hit.addEventListener('mouseleave', out);
-  }
-  draw();
-  let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(draw, 150); });
-})();
+"use strict";
+// Gráficas con la librería común del portal: Chart.js + tools/charts.js (selector de periodo y fechas concretas)
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const nf = n => Number(n).toLocaleString('es-ES');
+let period = '30d', custom = null, chAct = null, chSt = null;
+
+TCharts.rangePicker({
+  periods: [['7d', '7 días'], ['30d', '30 días'], ['90d', '90 días'], ['1y', '1 año'], ['all', 'Todo']],
+  initialPeriod: period,
+  onChange: (p, c) => { period = p; custom = c; load(); },
+  onError: m => alert(m),
+});
+
+const kpi = (l, v, hero) => `<div class="kpi${hero ? ' hero' : ''}"><div class="l">${l}</div><div class="v">${v}</div></div>`;
+
+// Repartos: lista de barras de una sola serie (un solo color), con el número al final
+function bars(el, rows, empty) {
+  if (!rows.length) { $(el).innerHTML = `<p class="muted">${empty || 'Sin datos en este periodo.'}</p>`; return; }
+  const max = Math.max(...rows.map(r => r[1])) || 1, sum = rows.reduce((a, r) => a + r[1], 0) || 1;
+  $(el).innerHTML = '<div class="bars">' + rows.map(([l, n]) =>
+    `<div class="bar" title="${esc(l)}: ${n} (${Math.round(n / sum * 100)} %)"><span class="bl">${esc(l)}</span>` +
+    `<span class="bt"><i style="width:${Math.max(1, Math.round(n / max * 100))}%"></i></span><span class="bv">${nf(n)}</span></div>`).join('') + '</div>';
+}
+
+const fmtDay = d => { const [, m, dd] = d.split('-'); return `${dd}/${m}`; };
+const chart = (old, id, cfg) => { if (old) { old.data = cfg.data; old.options = cfg.options; old.update(); return old; } return new Chart($(id), cfg); };
+
+function render(d) {
+  $('kpis').innerHTML = kpi('Instalaciones activas en el periodo', nf(d.kpi.active), true) + kpi('Nuevas', nf(d.kpi.new)) +
+    kpi('Encendidos desde la app', nf(d.kpi.starts_app)) + kpi('Encendidos por programa', nf(d.kpi.starts_prog)) +
+    kpi('Veces que se apagó sola', nf(d.kpi.self_stops));
+  const unit = d.weekly ? 'por semana' : 'por día';
+  $('hAct').textContent = 'Instalaciones activas ' + unit;
+  $('hSt').textContent = 'Encendidos ' + unit;
+  const acc = css('--acc'), ice = css('--ice'), mut = css('--muted'), grid = css('--grid'), labels = d.axis.map(fmtDay);
+  const title = c => (d.weekly ? 'Semana del ' : '') + c[0].label;
+  const scales = (stacked) => ({
+    x: { stacked, grid: { display: false }, ticks: { color: mut, maxTicksLimit: 8 } },
+    y: { stacked, beginAtZero: true, grid: { color: grid }, ticks: { color: mut, precision: 0 } },
+  });
+  const base = { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false } };
+
+  // Una serie: sin leyenda (el título dice qué es)
+  chAct = chart(chAct, 'chAct', { type: 'line',
+    data: { labels, datasets: [{ label: 'Instalaciones', data: d.active, borderColor: acc, backgroundColor: acc + '22', fill: true,
+      borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, pointHitRadius: 12, tension: .25 }] },
+    options: { ...base, scales: scales(false), plugins: { legend: { display: false },
+      tooltip: { callbacks: { title, label: c => ` ${c.parsed.y} instalaciones` } } } } });
+
+  // Dos series apiladas: leyenda siempre
+  chSt = chart(chSt, 'chSt', { type: 'bar',
+    data: { labels, datasets: [
+      { label: 'Desde la app', data: d.app, backgroundColor: acc, borderRadius: 4, borderSkipped: 'bottom', borderColor: css('--bg-card'), borderWidth: 1 },
+      { label: 'Por programa', data: d.prog, backgroundColor: ice, borderRadius: 4, borderSkipped: 'bottom', borderColor: css('--bg-card'), borderWidth: 1 }] },
+    options: { ...base, scales: scales(true), plugins: { legend: { labels: { color: mut, boxWidth: 12 } }, tooltip: { callbacks: { title } } } } });
+
+  bars('bKind', d.by.kind); bars('bSdk', d.by.sdk); bars('bCountry', d.by.country);
+  bars('bApp', d.by.app); bars('bFw', d.by.fw); bars('bErr', d.by.err, 'Ninguna avería en este periodo.');
+}
+
+function load() {
+  const url = custom ? `estadisticas.php?action=data&from=${encodeURIComponent(custom.from)}&to=${encodeURIComponent(custom.to)}`
+                     : `estadisticas.php?action=data&period=${period}`;
+  fetch(url).then(r => r.json()).then(d => { if (d.error) throw new Error(d.error); render(d); })
+    .catch(() => { $('kpis').innerHTML = kpi('Estadísticas', '<span style="font-size:1rem">no disponibles ahora mismo</span>', true); });
+}
+load();
 </script>
-<?php endif; ?>
 </body>
 </html>
