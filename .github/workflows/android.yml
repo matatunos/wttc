@@ -38,18 +38,32 @@ jobs:
           KS_ALIAS: ${{ secrets.WTTC_KEY_ALIAS }}
         shell: bash
         run: |
-          if [ -n "$KS_B64" ]; then
-            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/wttc.p12"
-            {
-              echo "WTTC_KEYSTORE_FILE=$RUNNER_TEMP/wttc.p12"
-              echo "WTTC_KEYSTORE_PASSWORD=$KS_PASS"
-              echo "WTTC_KEY_PASSWORD=$KS_PASS"
-              echo "WTTC_KEY_ALIAS=$KS_ALIAS"
-            } >> "$GITHUB_ENV"
-            echo "::add-mask::$KS_PASS"
-          else
+          if [ -z "$KS_B64" ]; then
             echo "::warning::Sin clave de firma en los secretos: APK firmado con clave de depuración"
+            exit 0
           fi
+          echo "::add-mask::$KS_PASS"
+          ks="$RUNNER_TEMP/wttc.p12"
+          # Quita espacios y saltos de línea que se cuelan al pegar el secreto
+          if ! printf '%s' "$KS_B64" | tr -d ' \t\r\n' | base64 -d > "$ks" 2>/dev/null; then
+            echo "::error::WTTC_KEYSTORE_B64 no es base64 válido (¿se pegó incompleto?)"; exit 1
+          fi
+          echo "Keystore: $(stat -c %s "$ks") bytes"
+          if [ -z "$KS_PASS" ] || [ -z "$KS_ALIAS" ]; then
+            echo "::error::Faltan los secretos WTTC_KEYSTORE_PASSWORD o WTTC_KEY_ALIAS"; exit 1
+          fi
+          if ! keytool -list -keystore "$ks" -storetype PKCS12 -storepass "$KS_PASS" >/dev/null 2>&1; then
+            echo "::error::El keystore no abre con WTTC_KEYSTORE_PASSWORD (contraseña distinta o fichero dañado)"; exit 1
+          fi
+          if ! keytool -list -keystore "$ks" -storetype PKCS12 -storepass "$KS_PASS" -alias "$KS_ALIAS" >/dev/null 2>&1; then
+            echo "::error::El keystore no tiene el alias de WTTC_KEY_ALIAS (debe ser: wttc)"; exit 1
+          fi
+          {
+            echo "WTTC_KEYSTORE_FILE=$ks"
+            echo "WTTC_KEYSTORE_PASSWORD=$KS_PASS"
+            echo "WTTC_KEY_PASSWORD=$KS_PASS"
+            echo "WTTC_KEY_ALIAS=$KS_ALIAS"
+          } >> "$GITHUB_ENV"
 
       - name: Compilar APK
         shell: bash
@@ -62,7 +76,8 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          grep -E '^e: |error:|What went wrong|> ' build.log | head -60 | while IFS= read -r l; do echo "::error::${l//%/%25}"; done
+          [ -f build.log ] || exit 0
+          grep -E '^e: |error:|What went wrong|> ' build.log | head -60 | while IFS= read -r l; do echo "::error::${l//%/%25}"; done || true
 
       - name: Preparar APK y firmware
         shell: bash

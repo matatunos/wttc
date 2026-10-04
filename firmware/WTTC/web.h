@@ -16,7 +16,8 @@ static const char INDEX_HTML[] PROGMEM = R"HTML(<!doctype html><html lang="es"><
 html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 -apple-system,BlinkMacSystemFont,system-ui,sans-serif}
 body{padding:calc(env(safe-area-inset-top,0px) + 12px) 16px calc(env(safe-area-inset-bottom,0px) + 28px)}
 main{max-width:460px;margin:0 auto}
-header{display:flex;justify-content:space-between;align-items:center;color:var(--mut);font-size:14px}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:2px 12px;color:var(--mut);font-size:14px}
+#clock{text-align:right}
 header b{color:var(--ink);font-size:17px}
 #net{width:9px;height:9px;border-radius:50%;background:var(--ok);display:inline-block;margin-right:7px}
 #net.bad{background:var(--bad)}
@@ -116,6 +117,8 @@ let st=null,sched=[],dirty=false,dur=30,synced=false,busy=false;
 const PH=['Apagada','Arrancando…','Calentando','En pausa','Sin respuesta'];
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const pad=n=>String(n).padStart(2,'0');
+const DIAS=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'],MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const fecha=d=>DIAS[d.getDay()]+', '+d.getDate()+' de '+MESES[d.getMonth()]+' de '+d.getFullYear()+' · '+pad(d.getHours())+':'+pad(d.getMinutes());
 const hm=m=>pad(Math.floor(m/60))+':'+pad(m%60);
 const fmtDur=d=>d<60?d+' min':Math.floor(d/60)+' h'+(d%60?' '+d%60:'');
 const fmtRem=s=>{const m=Math.ceil(s/60);return m<60?m+' min':Math.floor(m/60)+' h '+pad(m%60)+' min'};
@@ -133,7 +136,7 @@ function render(){if(!st)return;
  $('volt').textContent=st.volt>0?st.volt.toFixed(1)+' V':'--';
  $('flame').textContent=st.flame<0?'--':(st.flame?'sí':'no');
  $('pw').textContent=st.pw<0?'--':st.pw+' W';
- const d=new Date(st.time*1000);$('clock').textContent=st.tv?DAYS[(d.getDay()+6)%7]+' '+pad(d.getHours())+':'+pad(d.getMinutes()):'sin hora';
+ $('clock').textContent=st.tv?fecha(new Date(st.time*1000)):'sin hora';
  let w='';
  if(!st.on&&st.note)w+='<div class="warn">'+esc(st.note)+'</div>';
  if(st.bus===0)w+='<div class="warn">La Webasto no responde por W-Bus. Revisa el cable negro, la masa común y el módulo TJA1020.</div>';
