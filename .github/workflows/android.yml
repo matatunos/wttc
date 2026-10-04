@@ -1,9 +1,9 @@
-name: App Android
+name: App Android y Release
 
 on:
   push:
     branches: [main]
-    paths: ['android/**', '.github/workflows/android.yml']
+    paths: ['android/**', 'firmware/**', '.github/workflows/android.yml']
   pull_request:
     paths: ['android/**']
   workflow_dispatch:
@@ -20,8 +20,8 @@ jobs:
       WTTC_VERSION_CODE: ${{ github.run_number }}
       WTTC_VERSION_NAME: 1.0.${{ github.run_number }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -64,9 +64,12 @@ jobs:
         run: |
           grep -E '^e: |error:|What went wrong|> ' build.log | head -60 | while IFS= read -r l; do echo "::error::${l//%/%25}"; done
 
-      - name: Preparar APK
+      - name: Preparar APK y firmware
         shell: bash
-        run: cp android/app/build/outputs/apk/release/app-release.apk "WTTC-${WTTC_VERSION_NAME}.apk"
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk "WTTC-${WTTC_VERSION_NAME}.apk"
+          cp "WTTC-${WTTC_VERSION_NAME}.apk" WTTC.apk      # nombre fijo: releases/latest/download/WTTC.apk
+          (cd firmware && zip -qr ../WTTC-firmware.zip WTTC)
 
       - uses: actions/upload-artifact@v4
         with:
@@ -79,6 +82,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          gh release create "app-v${WTTC_VERSION_NAME}" "WTTC-${WTTC_VERSION_NAME}.apk" \
-            --title "App WTTC ${WTTC_VERSION_NAME}" --latest \
-            --notes "APK de la app Android WTTC (Android 8 o posterior). Instálalo en el móvil o en la radio y empareja con el PIN de tu placa."
+          gh release create "v${WTTC_VERSION_NAME}" "WTTC-${WTTC_VERSION_NAME}.apk" WTTC.apk WTTC-firmware.zip \
+            --title "WTTC ${WTTC_VERSION_NAME}" --latest \
+            --notes "App Android (WTTC.apk, Android 8 o posterior) y firmware para el ESP32 (WTTC-firmware.zip). Instrucciones: https://wttc.favala.es"

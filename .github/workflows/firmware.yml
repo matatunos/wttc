@@ -19,7 +19,7 @@ jobs:
       matrix:
         core: ['2.0.17', '3.3.12']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: arduino/setup-arduino-cli@v2
       - name: Instalar el núcleo ESP32 ${{ matrix.core }}
         shell: bash
