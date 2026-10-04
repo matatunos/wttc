@@ -84,9 +84,12 @@ class BleLink(private val ctx: Context, private val listener: Listener) {
     // ---------- cola de operaciones GATT ----------
     // Cada operación es una función que la lanza y devuelve false si no se pudo lanzar.
     // Se espera a su callback (opDone) antes de lanzar la siguiente; si no llega en 6 s, se sigue igualmente.
+    // Las operaciones vencidas se cuentan en lateOps: si su callback llega tarde, se descarta para que no
+    // dé por terminada la operación que esté en marcha en ese momento.
     private val ops = ArrayDeque<() -> Boolean>()
     private var opBusy = false
-    private val opTimeout = Runnable { opBusy = false; next() }
+    private var lateOps = 0
+    private val opTimeout = Runnable { lateOps++; opBusy = false; next() }
 
     private fun enqueue(op: () -> Boolean) = main.post { ops.addLast(op); next() }
 
@@ -95,13 +98,21 @@ class BleLink(private val ctx: Context, private val listener: Listener) {
         val op = ops.removeFirstOrNull() ?: return
         opBusy = true
         main.postDelayed(opTimeout, OP_TIMEOUT_MS)
-        if (!op()) opDone()          // no se pudo lanzar: pasa a la siguiente
+        if (!op()) main.post { finishOp() }      // no se pudo lanzar: pasa a la siguiente
     }
 
-    private fun opDone() = main.post {
+    private fun finishOp() {
         main.removeCallbacks(opTimeout)
         opBusy = false
         next()
+    }
+
+    /** Llamada desde los callbacks GATT. */
+    private fun opDone() = main.post { if (lateOps > 0) lateOps-- else finishOp() }
+
+    private fun clearOps() {
+        main.removeCallbacks(opTimeout)
+        ops.clear(); opBusy = false; lateOps = 0
     }
 
     // ---------- estado del enlace ----------
@@ -151,7 +162,7 @@ class BleLink(private val ctx: Context, private val listener: Listener) {
         stopScan()
         unregisterBond()
         main.removeCallbacksAndMessages(null)
-        ops.clear(); opBusy = false
+        clearOps()
         gatt?.close(); gatt = null
     }
 
@@ -183,10 +194,13 @@ class BleLink(private val ctx: Context, private val listener: Listener) {
         sc.startScan(listOf(filter), settings, scanCb)
         scanning = true
         setState(State.SCANNING)
-        main.postDelayed({ if (scanning) { stopScan(); if (state == State.SCANNING) setState(State.NOT_PAIRED, "Búsqueda terminada") } }, SCAN_MS)
+        main.postDelayed(scanEnd, SCAN_MS)
     }
 
+    private val scanEnd = Runnable { if (scanning) { stopScan(); if (state == State.SCANNING) setState(State.NOT_PAIRED, "Búsqueda terminada") } }
+
     fun stopScan() {
+        main.removeCallbacks(scanEnd)      // si se vuelve a buscar, el plazo de la búsqueda anterior no corta la nueva
         if (scanning) runCatching { adapter?.bluetoothLeScanner?.stopScan(scanCb) }
         scanning = false
         onFound = null
@@ -249,7 +263,7 @@ class BleLink(private val ctx: Context, private val listener: Listener) {
                 main.post {
                     g.close()
                     if (gatt == g) gatt = null
-                    ops.clear(); opBusy = false; main.removeCallbacks(opTimeout)
+                    clearOps()
                     if (wantConnected) {
                         val a = savedAddress
                         if (a != null && isPaired()) connect(adapter!!.getRemoteDevice(a), auto = true)

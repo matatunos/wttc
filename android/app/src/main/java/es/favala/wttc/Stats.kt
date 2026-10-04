@@ -46,11 +46,13 @@ object Stats {
     }
 
     // ---------- contadores (se acumulan hasta el próximo envío aceptado) ----------
+    // Se tocan desde el hilo principal y desde el del envío: todo lo que lee y reescribe "pending" va sincronizado
     private fun pending(c: Context): JSONObject =
         runCatching { JSONObject(prefs(c).getString("pending", "{}") ?: "{}") }.getOrDefault(JSONObject())
 
     private fun savePending(c: Context, j: JSONObject) = prefs(c).edit().putString("pending", j.toString()).apply()
 
+    @Synchronized
     fun count(c: Context, key: String) {
         if (consent(c) != true) return
         val j = pending(c)
@@ -58,6 +60,7 @@ object Stats {
         savePending(c, j)
     }
 
+    @Synchronized
     fun countErrors(c: Context, codes: Collection<String>) {
         if (consent(c) != true || codes.isEmpty()) return
         val j = pending(c)
@@ -78,7 +81,7 @@ object Stats {
         if (consent(c) != true) return
         val id = p.getString("id", null) ?: return
         if (System.currentTimeMillis() - p.getLong("last", 0) < DAY_MS) return
-        val pend = pending(c)
+        val pend = synchronized(this) { pending(c) }
         val j = JSONObject()
             .put("id", id)
             .put("app", runCatching { c.packageManager.getPackageInfo(c.packageName, 0).versionName }.getOrNull() ?: "")
@@ -93,10 +96,27 @@ object Stats {
         post(j) { resp ->
             val r = runCatching { JSONObject(resp) }.getOrNull() ?: return@post
             if (!r.optBoolean("ok")) return@post
-            val e = p.edit().putLong("last", System.currentTimeMillis())
-            if (!r.optBoolean("dup")) e.remove("pending")      // aceptado: los contadores empiezan de cero
-            e.apply()
+            p.edit().putLong("last", System.currentTimeMillis()).apply()
+            if (!r.optBoolean("dup")) subtractSent(c, pend)       // aceptado: se descuenta lo enviado
         }
+    }
+
+    /** Resta lo ya enviado y deja lo que se haya contado mientras iba el envío. */
+    @Synchronized
+    private fun subtractSent(c: Context, sent: JSONObject) {
+        val j = pending(c)
+        fun sub(o: JSONObject, k: String, n: Int) {
+            val v = o.optInt(k) - n
+            if (v > 0) o.put(k, v) else o.remove(k)
+        }
+        for (k in listOf("starts_app", "starts_prog", "self_stops")) sub(j, k, sent.optInt(k))
+        val e = j.optJSONObject("errors")
+        val sentErr = sent.optJSONObject("errors")
+        if (e != null && sentErr != null) {
+            for (k in sentErr.keys()) sub(e, k, sentErr.optInt(k))
+            if (e.length() == 0) j.remove("errors")
+        }
+        savePending(c, j)
     }
 
     private fun post(j: JSONObject, done: (String) -> Unit) {
