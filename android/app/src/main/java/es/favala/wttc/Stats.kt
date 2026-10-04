@@ -15,6 +15,8 @@ import kotlin.concurrent.thread
 /**
  * Estadísticas anónimas, solo con permiso (se pregunta al abrir la app por primera vez).
  *
+ * Código generado íntegramente con Claude (Anthropic).
+ *
  * Una vez al día como mucho se envía a https://wttc.favala.es/api/stats.php: identificador aleatorio de
  * instalación, versiones (app, firmware, Android), tipo de dispositivo, país según el idioma del sistema y
  * los contadores acumulados desde el último envío. Nada de ubicación, nombres, redes, PIN ni horarios.

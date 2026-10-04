@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Manifest de la app WTTC (código generado íntegramente con Claude, Anthropic).
+  Permisos: Bluetooth (buscar y conectar con la placa), notificaciones (avisos si la calefacción se apaga sola)
+  e internet (solo para las estadísticas anónimas, y solo si el usuario las acepta).
+  Una sola actividad (MainActivity), en modo singleTask para que no se abran varias copias.
+-->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 

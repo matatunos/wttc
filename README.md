@@ -1,5 +1,12 @@
 # WTTC — control por Bluetooth y Wi-Fi para la Webasto Thermo Top C
 
+> 🤖 **Todo el código y el contenido de este repositorio están generados íntegramente con [Claude](https://claude.ai) (Anthropic)**:
+> firmware del ESP32, app Android, servidor de estadísticas, web, workflows de compilación y documentación.
+> El autor del proyecto ha dado las indicaciones; el código no está escrito a mano. Va comentado en abundancia a
+> propósito, para que se pueda seguir y revisar.
+
+Web con simulador, esquema y guías: **https://wttc.favala.es** · Versiones: [CHANGELOG.md](CHANGELOG.md) · Descargas: [Releases](../../releases)
+
 Sustituye al temporizador original de la calefacción auxiliar **Webasto Thermo Top C** (la de agua que montan de
 fábrica, por ejemplo, las VW T5) por un **ESP32** que habla su protocolo **W-Bus**. Se maneja desde una **app Android**
 por Bluetooth o desde el navegador por Wi-Fi.
@@ -58,5 +65,9 @@ https://wttc.favala.es/estadisticas.php
 CMD|0x80 DATOS… XOR`. Órdenes usadas: `0x21` encender (minutos), `0x44` mantener (cada 5 s), `0x10` apagar,
 `0x50 05` sensores, `0x56 01` averías. Basado en la documentación del proyecto libwbus.
 
+## Versiones
+Firmware y app llevan el mismo número, el del fichero [`VERSION`](VERSION). Cada versión nueva tiene su sección en
+[`CHANGELOG.md`](CHANGELOG.md) y, al subirla, GitHub Actions publica la Release con el APK y el firmware.
+
 ## Licencia
-MIT.
+MIT. Código generado con Claude (Anthropic).

@@ -1,3 +1,9 @@
+// app/build.gradle.kts — Módulo de la app WTTC.
+// Código generado íntegramente con Claude (Anthropic).
+//  - Sin dependencias: solo el framework de Android y la biblioteca estándar de Kotlin (APK de ~650 KB).
+//  - minSdk 26 (Android 8): incluye la mayoría de radios Android de coche.
+//  - versionName y versionCode los pone la CI (fichero VERSION y número de ejecución); en local, 1.0.0 y 1.
+//  - La firma de release sale de los secretos del repo (ver .github/workflows/android.yml).
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")

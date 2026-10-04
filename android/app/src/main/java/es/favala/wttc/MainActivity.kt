@@ -37,6 +37,22 @@ import org.json.JSONObject
 import kotlin.math.ceil
 
 @SuppressLint("MissingPermission", "SetTextI18n")
+/**
+ * Pantalla única de la app WTTC.
+ *
+ * Código generado íntegramente con Claude (Anthropic).
+ *
+ * La interfaz se construye por código (sin XML ni AndroidX) para que la app sea pequeña y no dependa de
+ * librerías: una columna con desplazamiento que, en pantallas anchas (radios de coche, tablets), no pasa de
+ * 640 dp y queda centrada. De arriba abajo: cabecera con el estado del enlace, caja para emparejar (solo si
+ * no hay placa emparejada), estado de la calefacción, duración y botón grande, programas, diagnóstico,
+ * configuración de la placa y ajustes de la app.
+ *
+ * Toda la comunicación con la placa va por [BleLink]; esta clase solo pinta y reacciona:
+ *  - onLink(): cambia el estado del enlace (buscando, emparejando, conectado, fuera de alcance…)
+ *  - onDeviceState(): llega el estado de la placa (cada 2 s mientras está conectada)
+ *  - onResponse(): llega la respuesta a una orden ("orden:datos")
+ */
 class MainActivity : Activity(), BleLink.Listener {
 
     // Colores (los mismos que la web del ESP32)
@@ -50,41 +66,54 @@ class MainActivity : Activity(), BleLink.Listener {
     private val cOk = Color.parseColor("#3ECF8E")
     private val cBad = Color.parseColor("#FF6B6B")
 
+    // Duraciones que se ofrecen (el firmware no admite más de 60 min) y letras de los días (lunes primero)
     private val durations = intArrayOf(15, 30, 45, 60)
     private val dayLetters = arrayOf("L", "M", "X", "J", "V", "S", "D")
+    // Nombres del estado real que manda el firmware en "ph" (0 apagada … 4 sin respuesta)
     private val phases = arrayOf("Apagada", "Arrancando…", "Calentando", "En pausa", "Sin respuesta")
 
+    // Enlace Bluetooth, último estado recibido de la placa y duración elegida en los botones
     private lateinit var link: BleLink
     private var dev: JSONObject? = null
     private var dur = 30
+    // Para detectar cambios entre un estado y el siguiente (avisos del sistema y estadísticas)
     private var lastOn = false
     private var lastNote = ""
     private var haveState = false      // hasta el primer estado no se cuentan transiciones
 
     // Programas: [activo, días (bit0 = lunes), inicio en minutos, duración]
     private data class Prog(var en: Boolean, var days: Int, var start: Int, var dur: Int)
+    // Programas en edición, interruptor general y si hay cambios sin guardar en la placa
     private val progs = mutableListOf<Prog>()
     private var progsAuto = true
     private var progsDirty = false
 
     // Vistas
+    // Cabecera: texto y punto de color del estado del enlace
     private lateinit var tLink: TextView
     private lateinit var dot: View
+    // Caja de emparejamiento y su texto de ayuda
     private lateinit var pairBox: LinearLayout
     private lateinit var tPair: TextView
+    // Todo lo que manda órdenes a la placa: se desactiva (y se atenúa) mientras no hay conexión
     private lateinit var controls: LinearLayout
+    // Estado de la calefacción
     private lateinit var tTemp: TextView
     private lateinit var tPhase: TextView
     private lateinit var tRem: TextView
     private lateinit var tStats: TextView
     private lateinit var tGas: TextView
     private lateinit var tNote: TextView
+    // Botones de duración y botón grande de encender/apagar
     private lateinit var segRow: LinearLayout
     private lateinit var bigBtn: Button
+    // Programas
     private lateinit var swAuto: Switch
     private lateinit var progList: LinearLayout
     private lateinit var bSaveProgs: Button
+    // Diagnóstico (averías y registro)
     private lateinit var tDiag: TextView
+    // Campos de la configuración de la placa
     private lateinit var eName: EditText
     private lateinit var ePin: EditText
     private lateinit var eAp: EditText
@@ -95,9 +124,11 @@ class MainActivity : Activity(), BleLink.Listener {
     private lateinit var eChat: EditText
     private lateinit var eMinV: EditText
     private lateinit var tCfg: TextView
+    // Interruptor de las estadísticas anónimas (en «Ajustes de la app»)
     private lateinit var swStats: Switch
 
     // ---------- ciclo de vida ----------
+    // Al crear la pantalla: enlace, interfaz, canal de notificaciones y, la primera vez, la pregunta de las estadísticas
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         link = BleLink(this, this)
@@ -106,17 +137,20 @@ class MainActivity : Activity(), BleLink.Listener {
         if (Stats.consent(this) == null) askStats()
     }
 
+    // Al volver a primer plano: permisos y conexión; y el informe de estadísticas del día si toca (y hay permiso)
     override fun onStart() {
         super.onStart()
         if (askPermissions()) startLink()
         Stats.maybeSend(this)
     }
 
+    // Al salir de primer plano se cierra la conexión: la placa vuelve a anunciarse y gasta menos
     override fun onStop() {
         super.onStop()
         link.stop()
     }
 
+    // Conecta con la placa emparejada (o muestra que el Bluetooth está apagado)
     private fun startLink() {
         if (!link.bluetoothOn()) {
             onLink(BleLink.State.NO_BLUETOOTH, "")
@@ -126,6 +160,10 @@ class MainActivity : Activity(), BleLink.Listener {
     }
 
     // ---------- permisos ----------
+    // Permisos que hacen falta según la versión de Android:
+    //  - Android 12+: BLUETOOTH_SCAN y BLUETOOTH_CONNECT («dispositivos cercanos»)
+    //  - Android 11 y anteriores: ubicación precisa (Android la exige para buscar dispositivos Bluetooth LE)
+    //  - Android 13+: notificaciones (para avisar si la calefacción se apaga sola)
     private fun neededPermissions(): Array<String> {
         val l = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= 31) {
@@ -144,6 +182,7 @@ class MainActivity : Activity(), BleLink.Listener {
         return false
     }
 
+    // Respuesta a la petición de permisos: el de notificaciones es opcional; los de Bluetooth, imprescindibles
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         val bt = permissions.indices.all { i ->
@@ -154,6 +193,7 @@ class MainActivity : Activity(), BleLink.Listener {
     }
 
     // ---------- BleLink.Listener ----------
+    // El enlace ha cambiado de estado: texto y color de la cabecera, caja de emparejar y controles activos o no
     override fun onLink(state: BleLink.State, detail: String) {
         val (txt, col) = when (state) {
             BleLink.State.NO_BLUETOOTH -> "Bluetooth desactivado" to cBad
@@ -180,11 +220,13 @@ class MainActivity : Activity(), BleLink.Listener {
         if (state != BleLink.State.CONNECTED) bigBtn.text = if (state == BleLink.State.OUT_OF_RANGE) "Fuera de alcance" else "Sin conexión"
     }
 
+    // Llega el estado de la placa (JSON con las claves de stateJson() del firmware)
     override fun onDeviceState(j: JSONObject) {
         dev = j
         render()
     }
 
+    // Llega la respuesta a una orden: "orden:datos" o "orden:err mensaje". Cada orden se trata a su manera.
     override fun onResponse(cmd: String, data: String) {
         val err = data.startsWith("err")
         val msg = if (err) data.removePrefix("err").trim() else data
@@ -213,6 +255,8 @@ class MainActivity : Activity(), BleLink.Listener {
     }
 
     // ---------- pintado del estado ----------
+    // Pinta el estado: temperatura, estado real, tiempo restante, datos, gasoil, avisos y botón grande.
+    // También detecta cambios para los avisos del sistema y para los contadores de las estadísticas.
     private fun render() {
         val j = dev ?: return
         val on = j.optInt("on") == 1
@@ -261,17 +305,22 @@ class MainActivity : Activity(), BleLink.Listener {
     }
 
     // ---------- interfaz ----------
+    // ---- ayudantes para construir la interfaz por código ----
+    // dp -> píxeles de esta pantalla
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
+    // Fondo de color con esquinas redondeadas
     private fun rounded(color: Int, radiusDp: Int) = GradientDrawable().apply {
         setColor(color); cornerRadius = dp(radiusDp).toFloat()
     }
 
+    // Texto con tamaño, color y negrita opcionales
     private fun text(s: String = "", size: Float = 15f, color: Int = cInk, bold: Boolean = false) = TextView(this).apply {
         text = s; textSize = size; setTextColor(color)
         if (bold) setTypeface(typeface, Typeface.BOLD)
     }
 
+    // Botón: principal (azul) o normal (gris), con su acción
     private fun button(s: String, primary: Boolean = false, onClick: () -> Unit) = Button(this).apply {
         text = s; isAllCaps = false; textSize = 15f
         setTextColor(if (primary) Color.parseColor("#04121C") else cInk)
@@ -280,20 +329,24 @@ class MainActivity : Activity(), BleLink.Listener {
         setOnClickListener { onClick() }
     }
 
+    // Parámetros de colocación en una columna: ancho, margen superior y peso
     private fun lp(w: Int = ViewGroup.LayoutParams.MATCH_PARENT, top: Int = 0, weight: Float = 0f) =
         LinearLayout.LayoutParams(w, ViewGroup.LayoutParams.WRAP_CONTENT, weight).apply { topMargin = dp(top) }
 
+    // Fila de vistas que se reparten el ancho a partes iguales
     private fun row(vararg views: View) = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         views.forEachIndexed { i, v -> addView(v, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { if (i > 0) leftMargin = dp(10) }) }
     }
 
+    // Tarjeta: caja con fondo y esquinas redondeadas
     private fun card(): LinearLayout = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         background = rounded(cSf, 14)
         setPadding(dp(14), dp(14), dp(14), dp(14))
     }
 
+    // Campo de texto con su etiqueta encima; devuelve (caja, campo)
     private fun field(label: String, type: Int = InputType.TYPE_CLASS_TEXT, hint: String = ""): Pair<View, EditText> {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         box.addView(text(label, 13f, cMut), lp(top = 10))
@@ -305,17 +358,20 @@ class MainActivity : Activity(), BleLink.Listener {
         return box to e
     }
 
+    // Título de sección (y subtítulo opcional)
     private fun section(parent: LinearLayout, title: String, sub: String = "") {
         parent.addView(text(title, 20f, cInk, true), lp(top = 30))
         if (sub.isNotEmpty()) parent.addView(text(sub, 14f, cMut), lp(top = 2))
     }
 
+    // Activa o desactiva una vista y todas las de dentro (atenuadas si están desactivadas)
     private fun setEnabledDeep(v: View, en: Boolean) {
         v.isEnabled = en
         v.alpha = if (en) 1f else 0.55f
         if (v is ViewGroup) for (i in 0 until v.childCount) { val c = v.getChildAt(i); c.isEnabled = en; if (c is ViewGroup) setEnabledDeep(c, en) }
     }
 
+    // Construye toda la interfaz (una vez, al crear la pantalla)
     private fun buildUi() {
         val scroll = ScrollView(this).apply { setBackgroundColor(cBg); isFillViewport = true }
         val frame = FrameLayout(this)
@@ -438,13 +494,14 @@ class MainActivity : Activity(), BleLink.Listener {
             addView(button("Ver estadísticas públicas") { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Stats.URL_PUBLIC))) }, lp(top = 10))
         }, lp(top = 10))
         val ver = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "?"
-        root.addView(text("App WTTC $ver · wttc.favala.es", 13f, cMut).apply {
+        root.addView(text("App WTTC $ver · wttc.favala.es\nCódigo generado íntegramente con Claude (Anthropic) · github.com/matatunos/wttc", 13f, cMut).apply {
             setOnClickListener { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wttc.favala.es"))) }
         }, lp(top = 20))
 
         setEnabledDeep(controls, false)
     }
 
+    // Pinta los botones de duración, con la elegida resaltada
     private fun drawSeg() {
         segRow.removeAllViews()
         for (d in durations) {
@@ -459,12 +516,14 @@ class MainActivity : Activity(), BleLink.Listener {
     }
 
     // ---------- acciones ----------
+    // Botón grande: apaga si está encendida; si no, enciende con la duración elegida
     private fun toggleHeater() {
         val on = dev?.optInt("on") == 1
         bigBtn.text = if (on) "Apagando…" else "Encendiendo…"
         link.send(if (on) "off" else "on $dur")
     }
 
+    // Pide a Android que active el Bluetooth (si ya está activo, conecta)
     private fun enableBluetooth() {
         if (link.bluetoothOn()) { startLink(); return }
         @Suppress("DEPRECATION")
@@ -472,11 +531,13 @@ class MainActivity : Activity(), BleLink.Listener {
     }
 
     @Deprecated("Activity sin AndroidX")
+    // Vuelta del diálogo de activar el Bluetooth
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         @Suppress("DEPRECATION") super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 2) startLink()
     }
 
+    // Diálogo de búsqueda: lista las placas WTTC que aparecen (15 s); al elegir una, se empareja
     private fun scanDialog() {
         if (!askPermissions()) return
         if (!link.bluetoothOn()) { enableBluetooth(); return }
@@ -510,6 +571,7 @@ class MainActivity : Activity(), BleLink.Listener {
             .show()
     }
 
+    // Confirmación antes de poner a cero el gasoil estimado
     private fun confirmGasReset() {
         AlertDialog.Builder(this)
             .setTitle("Gasoil estimado")
@@ -520,6 +582,7 @@ class MainActivity : Activity(), BleLink.Listener {
             .show()
     }
 
+    // Confirmación antes de olvidar la placa en la app
     private fun confirmForget() {
         AlertDialog.Builder(this)
             .setTitle("Olvidar la placa")
@@ -530,6 +593,7 @@ class MainActivity : Activity(), BleLink.Listener {
             .show()
     }
 
+    // Confirmación antes de reiniciar la placa (el firmware se niega si está calentando)
     private fun confirmReboot() {
         AlertDialog.Builder(this)
             .setTitle("Reiniciar la placa")
@@ -540,6 +604,7 @@ class MainActivity : Activity(), BleLink.Listener {
     }
 
     // ---------- programas ----------
+    // Lee los programas que manda la placa ("auto|activo,días,inicio,duración;…"); no pisa cambios sin guardar
     private fun parseSched(s: String) {
         if (progsDirty) return
         val parts = s.split("|", limit = 2)
@@ -553,25 +618,30 @@ class MainActivity : Activity(), BleLink.Listener {
         drawProgs()
     }
 
+    // Marca que hay cambios en los programas pendientes de guardar
     private fun touchProgs() {
         progsDirty = true
         bSaveProgs.text = "Guardar programas"
         refreshSaveBtn()
     }
 
+    // El botón de guardar se atenúa si no hay nada que guardar
     private fun refreshSaveBtn() { bSaveProgs.alpha = if (progsDirty) 1f else 0.6f }
 
+    // Añade un programa: 07:00, 30 min, de lunes a viernes (31 = bits de lunes a viernes)
     private fun addProg() {
         if (progs.size >= 8) { toast("Máximo 8 programas"); return }
         progs += Prog(true, 31, 7 * 60, 30)
         touchProgs(); drawProgs()
     }
 
+    // Manda los programas a la placa en el formato de texto del firmware
     private fun saveProgs() {
         val list = progs.joinToString(";") { "${if (it.en) 1 else 0},${it.days},${it.start},${it.dur}" }
         link.send("setsched ${if (progsAuto) 1 else 0}|$list")
     }
 
+    // Pinta la lista de programas: hora (abre un reloj), duración, activo, borrar y los 7 días
     private fun drawProgs() {
         progList.removeAllViews()
         if (progs.isEmpty()) {
@@ -623,9 +693,11 @@ class MainActivity : Activity(), BleLink.Listener {
     }
 
     // ---------- configuración ----------
+    // Algún ajuste guardado necesita reiniciar la placa para aplicarse: se avisa al usuario
     private var needRestart = false
         set(v) { field = v; if (v) toast("Guardado. Se aplicará al reiniciar la placa («Reiniciar placa»).") }
 
+    // Rellena el formulario con la configuración de la placa (las claves nunca vienen: los campos quedan vacíos)
     private fun fillCfg(c: JSONObject) {
         eName.setText(c.optString("name"))
         ePin.setText(c.optString("pin"))
@@ -639,6 +711,7 @@ class MainActivity : Activity(), BleLink.Listener {
         tCfg.text = "Firmware WTTC ${c.optString("ver")} · dispositivos emparejados con la placa: $bonds"
     }
 
+    // Manda cada ajuste con "set clave=valor"; las claves vacías no se envían (la placa conserva las que tenía)
     private fun saveCfg() {
         val sets = mutableListOf(
             "name" to eName.text.toString().trim(),
@@ -657,6 +730,8 @@ class MainActivity : Activity(), BleLink.Listener {
     }
 
     // ---------- utilidades ----------
+    // ---- utilidades ----
+    // Averías en JSON -> una línea por código
     private fun formatErrors(data: String): String = runCatching {
         val j = JSONObject(data)
         if (!j.optBoolean("ok")) return@runCatching "La Webasto no respondió."
@@ -667,16 +742,19 @@ class MainActivity : Activity(), BleLink.Listener {
         }
     }.getOrDefault(data)
 
+    // Formatos: duración, tiempo restante, hora del día y mensaje corto en pantalla
     private fun fmtDur(d: Int) = if (d < 60) "$d min" else "${d / 60} h" + (if (d % 60 > 0) " ${d % 60}" else "")
     private fun fmtRem(s: Int): String { val m = ceil(s / 60.0).toInt(); return if (m < 60) "$m min" else "${m / 60} h ${"%02d".format(m % 60)} min" }
     private fun hm(m: Int) = "%02d:%02d".format(m / 60, m % 60)
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_LONG).show()
 
+    // Canal de notificaciones de Android (obligatorio desde Android 8)
     private fun createChannel() {
         val ch = NotificationChannel("avisos", "Avisos de la calefacción", NotificationManager.IMPORTANCE_HIGH)
         getSystemService(NotificationManager::class.java).createNotificationChannel(ch)
     }
 
+    // Notificación del sistema (si hay permiso)
     private fun notifyUser(title: String, body: String) {
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val n = android.app.Notification.Builder(this, "avisos")

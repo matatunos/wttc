@@ -1,5 +1,13 @@
 <?php
 // wttc/api/db.php — Base de datos de las estadísticas anónimas de la app WTTC (SQLite).
+// Código generado íntegramente con Claude (Anthropic).
+//
+// Tablas:
+//   installs  — una fila por instalación que ha aceptado: identificador aleatorio, primera y última vez,
+//               versiones (app, firmware, Android), tipo de dispositivo y país (según el idioma del sistema)
+//   pings     — qué instalaciones informaron cada día (para contar activas por día o semana)
+//   daily     — contadores sumados por día: starts_app, starts_prog, self_stops (sin instalación)
+//   err_daily — códigos de avería sumados por día (sin instalación)
 // Vive fuera de la carpeta web: /var/wttc-data/stats.sqlite (appdata/wttc-data en vigia, montaje propio con escritura).
 // No se guarda la IP ni nada que identifique a la persona: solo un identificador aleatorio de instalación,
 // que la app genera al aceptar y borra (pidiendo aquí su borrado) si se retira el permiso.

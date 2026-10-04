@@ -3,7 +3,7 @@ name: App Android y Release
 on:
   push:
     branches: [main]
-    paths: ['android/**', 'firmware/**', '.github/workflows/android.yml']
+    paths: ['android/**', 'firmware/**', 'VERSION', 'CHANGELOG.md', '.github/workflows/android.yml']
   pull_request:
     paths: ['android/**']
   workflow_dispatch:
@@ -17,10 +17,19 @@ jobs:
     permissions:
       contents: write          # solo para publicar el APK en Releases
     env:
-      WTTC_VERSION_CODE: ${{ github.run_number }}
-      WTTC_VERSION_NAME: 1.0.${{ github.run_number }}
+      WTTC_VERSION_CODE: ${{ github.run_number }}      # siempre crece: Android exige que cada APK nuevo tenga un código mayor
     steps:
       - uses: actions/checkout@v5
+
+      # Una sola versión para todo: el fichero VERSION. El firmware debe decir lo mismo en FW_VERSION.
+      - name: Versión
+        shell: bash
+        run: |
+          v=$(tr -d ' \r\n' < VERSION)
+          fw=$(grep -oP '#define FW_VERSION "\K[^"]+' firmware/WTTC/WTTC.ino)
+          if [ "$v" != "$fw" ]; then echo "::error::VERSION ($v) y FW_VERSION del firmware ($fw) no coinciden"; exit 1; fi
+          grep -q "^## $v " CHANGELOG.md || { echo "::error::Falta la sección «## $v …» en CHANGELOG.md"; exit 1; }
+          echo "WTTC_VERSION_NAME=$v" >> "$GITHUB_ENV"
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -91,12 +100,20 @@ jobs:
           name: WTTC-${{ env.WTTC_VERSION_NAME }}
           path: WTTC-*.apk
 
+      # Solo se publica una Release cuando cambia VERSION (si ya existe esa versión, el APK queda como artefacto del run)
       - name: Publicar en Releases
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          gh release create "v${WTTC_VERSION_NAME}" "WTTC-${WTTC_VERSION_NAME}.apk" WTTC.apk WTTC-firmware.zip \
-            --title "WTTC ${WTTC_VERSION_NAME}" --latest \
-            --notes "App Android (WTTC.apk, Android 8 o posterior) y firmware para el ESP32 (WTTC-firmware.zip). Instrucciones: https://wttc.favala.es"
+          tag="v${WTTC_VERSION_NAME}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "La Release $tag ya existe: no se publica de nuevo (sube VERSION y añade su sección al CHANGELOG para publicar)"
+            exit 0
+          fi
+          # Notas: la sección de esta versión en CHANGELOG.md
+          awk -v v="$WTTC_VERSION_NAME" '$0 ~ "^## "v" " {on=1; next} on && /^## / {exit} on {print}' CHANGELOG.md > notas.md
+          printf '\n---\nApp Android: **WTTC.apk** (Android 8 o posterior). Firmware para el ESP32: **WTTC-firmware.zip**.\nInstrucciones: https://wttc.favala.es · Código generado íntegramente con Claude (Anthropic).\n' >> notas.md
+          gh release create "$tag" "WTTC-${WTTC_VERSION_NAME}.apk" WTTC.apk WTTC-firmware.zip \
+            --title "WTTC ${WTTC_VERSION_NAME}" --latest --notes-file notas.md

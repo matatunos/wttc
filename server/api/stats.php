@@ -1,5 +1,7 @@
 <?php
 // wttc/api/stats.php — Recoge el informe diario (opcional, con permiso) de la app WTTC.
+// Código generado íntegramente con Claude (Anthropic).
+// Cada campo se valida con una expresión o un rango; lo que no cumple se guarda vacío o a cero.
 // POST JSON: {"id","app","fw","sdk","kind","country","starts_app","starts_prog","self_stops","errors":{"02":1}}
 // o {"id","borrar":true} para borrar los datos de esa instalación.
 // Un informe por instalación y día; los contadores son incrementos desde el último informe aceptado.

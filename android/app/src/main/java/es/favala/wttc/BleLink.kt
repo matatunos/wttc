@@ -28,6 +28,16 @@ import java.util.UUID
 /**
  * Enlace Bluetooth LE con el ESP32 de WTTC.
  *
+ * Código generado íntegramente con Claude (Anthropic).
+ *
+ * Flujo normal:
+ *  1. scan(): busca anuncios con el UUID del servicio WTTC (solo aparecen placas WTTC).
+ *  2. choose(): guarda la placa elegida y la empareja; Android muestra su diálogo y pide el PIN de 6 cifras.
+ *  3. connect(): conecta por GATT, pide un MTU grande, descubre el servicio y activa las notificaciones.
+ *  4. Conectado: llegan el estado (cada 2 s) y las respuestas; send() manda órdenes.
+ *  5. Si se pierde la conexión, se vuelve a conectar con autoConnect: Android lo hace solo, gastando poco,
+ *     en cuanto la placa vuelve a estar al alcance.
+ *
  * Servicio con tres características (los mismos UUID que el firmware):
  *  - STATE: estado en JSON (lectura y notificación cada 2 s)
  *  - CMD:   órdenes en texto ("on 30", "off", "cfg", "set clave=valor"...)
@@ -57,19 +67,23 @@ class BleLink(private val ctx: Context, private val listener: Listener) {
         private const val SCAN_MS = 15000L
     }
 
+    // Todo el estado se toca solo desde el hilo principal: los callbacks de Bluetooth llegan en otros hilos
+    // y se reenvían aquí con main.post { … }
     private val main = Handler(Looper.getMainLooper())
     private val adapter: BluetoothAdapter? = ctx.getSystemService(BluetoothManager::class.java)?.adapter
     private val prefs = ctx.getSharedPreferences("wttc", Context.MODE_PRIVATE)
 
-    private var gatt: BluetoothGatt? = null
-    private var mtu = 23
-    private var wantConnected = false
-    private var scanning = false
-    private var receiverOn = false
+    private var gatt: BluetoothGatt? = null      // conexión GATT activa (null = sin conexión)
+    private var mtu = 23                         // tamaño de paquete negociado (23 es el mínimo de Bluetooth LE)
+    private var wantConnected = false            // ¿queremos estar conectados? (si se cae, reconectar)
+    private var scanning = false                 // ¿hay una búsqueda en marcha?
+    private var receiverOn = false               // ¿está registrado el receptor de cambios de emparejamiento?
     var state = State.NOT_PAIRED
         private set
 
     // ---------- cola de operaciones GATT ----------
+    // Cada operación es una función que la lanza y devuelve false si no se pudo lanzar.
+    // Se espera a su callback (opDone) antes de lanzar la siguiente; si no llega en 6 s, se sigue igualmente.
     private val ops = ArrayDeque<() -> Boolean>()
     private var opBusy = false
     private val opTimeout = Runnable { opBusy = false; next() }
@@ -209,6 +223,7 @@ class BleLink(private val ctx: Context, private val listener: Listener) {
         gatt = dev.connectGatt(ctx, auto, gattCb, BluetoothDevice.TRANSPORT_LE)
     }
 
+    // Callbacks de la conexión GATT (llegan en un hilo de Bluetooth, no en el principal)
     private val gattCb = object : BluetoothGattCallback() {
         override fun onConnectionStateChange(g: BluetoothGatt, status: Int, newState: Int) {
             if (newState == BluetoothProfile.STATE_CONNECTED) {

@@ -1,5 +1,8 @@
 <?php
 // wttc/estadisticas.php — Estadísticas públicas y agregadas de la app WTTC (https://wttc.favala.es/estadisticas.php).
+// Código generado íntegramente con Claude (Anthropic).
+// La página carga vacía y pide los datos a ?action=data&period=… (patrón común del portal, con tools/charts.js);
+// las gráficas usan Chart.js servido desde /vendor/. Los repartos son listas de barras de una sola serie.
 // Solo cuenta instalaciones que han aceptado enviar datos anónimos; nada identifica a nadie (ver api/stats.php).
 require_once __DIR__ . '/api/db.php';
 ini_set('display_errors', '0');
@@ -150,6 +153,7 @@ if (($_GET['action'] ?? '') === 'data') {
       <li>No se guarda tu IP: el servidor no registra estas peticiones.</li>
       <li>Si retiras el permiso, la app pide borrar los datos de su instalación (los totales ya sumados quedan, sin nada que los relacione contigo).</li>
       <li>El código del servidor y de la app es público: <a href="https://github.com/matatunos/wttc" target="_blank" rel="noopener">github.com/matatunos/wttc</a>.</li>
+      <li>Todo el código y el contenido de WTTC (firmware, app, servidor, web y documentación) están generados íntegramente con Claude (Anthropic).</li>
     </ul>
   </div>
 </div>

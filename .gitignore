@@ -1,3 +1,4 @@
+# .gitignore de WTTC (generado con Claude, Anthropic): compilaciones y, sobre todo, nunca claves de firma
 # Compilación
 build/
 *.bin
