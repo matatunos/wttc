@@ -1,5 +1,5 @@
 #!/bin/bash
-# capturar-app.sh — Capturas de la app Android en un emulador, en modo demostración (placa simulada).
+# capturar-app.sh — Capturas de la app Android en un emulador, en modo demostración (placa simulada, con programas de ejemplo).
 # Código generado íntegramente con Claude (Anthropic). Lo ejecuta .github/workflows/capturas.yml dentro del emulador.
 #   app-estado.png    — móvil: calentando (estado, duración, botón)
 #   app-programas.png — móvil: más abajo (programas)

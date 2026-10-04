@@ -70,6 +70,8 @@ class MainActivity : Activity(), BleLink.Listener {
     private val durations = intArrayOf(15, 30, 45, 60)
     private val dayLetters = arrayOf("L", "M", "X", "J", "V", "S", "D")
     // Nombres del estado real que manda el firmware en "ph" (0 apagada … 4 sin respuesta)
+    // Números siempre con coma decimal, aunque el móvil esté en otro idioma
+    private val es = java.util.Locale("es", "ES")
     private val phases = arrayOf("Apagada", "Arrancando…", "Calentando", "En pausa", "Sin respuesta")
 
     // Enlace Bluetooth, último estado recibido de la placa y duración elegida en los botones
@@ -283,10 +285,10 @@ class MainActivity : Activity(), BleLink.Listener {
         val v = j.optDouble("v", -1.0)
         val fl = j.optInt("fl", -1)
         val pw = j.optInt("pw", -1)
-        tStats.text = "Batería ${if (v > 0) String.format("%.1f V", v) else "--"}   ·   Llama ${if (fl < 0) "--" else if (fl > 0) "sí" else "no"}   ·   " +
+        tStats.text = "Batería ${if (v > 0) String.format(es, "%.1f V", v) else "--"}   ·   Llama ${if (fl < 0) "--" else if (fl > 0) "sí" else "no"}   ·   " +
             "Potencia ${if (pw < 0) "--" else "$pw W"}"
         j.optJSONArray("gas")?.let { g ->
-            fun l(i: Int): String { val v = g.optDouble(i, 0.0); return (if (v < 10) String.format("%.2f", v) else String.format("%.1f", v)) + " l" }
+            fun l(i: Int): String { val v = g.optDouble(i, 0.0); return (if (v < 10) String.format(es, "%.2f", v) else String.format(es, "%.1f", v)) + " l" }
             tGas.text = "Gasoil (estimado): " + (if (on) "${l(0)} en este encendido" else "último encendido ${l(1)}") +
                 " · este mes ${l(2)} · total ${l(3)}"
         }

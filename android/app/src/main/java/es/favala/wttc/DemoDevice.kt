@@ -85,7 +85,7 @@ class DemoDevice(private val main: Handler, private val listener: BleLink.Listen
     private fun turnOff(why: String) {
         if (on) gasLast = gasCur
         on = false; ph = 0
-        addLog("Apagada ($why) · gasoil ≈ ${"%.2f".format(gasLast)} l")
+        addLog("Apagada ($why) · gasoil ≈ ${String.format(Locale("es", "ES"), "%.2f", gasLast)} l")
     }
 
     // Potencia como la daría la Webasto: plena carga hasta 75 °C, parcial por encima, nada sin llama

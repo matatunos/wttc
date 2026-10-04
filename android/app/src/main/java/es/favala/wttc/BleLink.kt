@@ -120,6 +120,9 @@ class BleLink(private val ctx: Context, private val listener: Listener) {
         stop()
         demoDev = DemoDevice(main, listener, heating).also { it.start() }
         setState(State.CONNECTED, "modo demostración")
+        // Igual que al conectar con una placa real: pedir configuración y programas
+        send("cfg")
+        send("sched")
     }
 
     val savedAddress: String? get() = prefs.getString("addr", null)

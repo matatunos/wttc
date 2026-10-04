@@ -6,6 +6,14 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.1.1 — 2026-10-04
+
+Versión de prueba (sin probar con una Webasto real).
+
+### App Android
+- Modo demostración: ahora carga los programas y la configuración de ejemplo.
+- Los números salen siempre con coma decimal, aunque el móvil esté en otro idioma.
+
 ## 0.1.0 — 2026-10-04
 
 Primera versión pública como WTTC. **Versión de prueba: aún sin probar con una Webasto real.**
