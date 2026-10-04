@@ -6,7 +6,7 @@
 // del JavaScript con funciones de C++ (generaba prototipos imposibles y no compilaba).
 //
 // Es una sola página (HTML + CSS + JavaScript, sin librerías) guardada en la flash (PROGMEM) como cadena
-// literal «raw» de C++: todo lo que hay entre R"HTML( y )HTML" se envía tal cual al navegador.
+// literal «raw» de C++ (delimitador HTML): todo su contenido se envía tal cual al navegador.
 // La misma página se usa en el simulador de https://wttc.favala.es (con fetch() desviado al ESP32 simulado).
 // Los comentarios HTML y JavaScript de dentro también viajan al navegador: ocupan poco y ayudan a entenderla.
 // ============================================================================================================
