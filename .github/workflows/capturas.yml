@@ -62,6 +62,16 @@ jobs:
           git add docs/capturas/*.png
           if git diff --cached --quiet; then echo "Sin cambios"; exit 0; fi
           git commit -m "Capturas del README actualizadas"
-          # Si mientras tanto se ha subido otro commit, ponerse al día antes de subir (hasta 3 intentos)
-          for i in 1 2 3; do git pull --rebase -q origin main && git push && exit 0; sleep 5; done
+          # Si mientras tanto se ha subido otro commit, ponerse al día antes de subir (hasta 3 intentos).
+          # Si otra ejecución ha subido las mismas capturas, se quedan las nuestras (en un rebase,
+          # "theirs" es el commit que se reaplica). Si el rebase falla igualmente, se aborta para
+          # que el siguiente intento empiece limpio.
+          for i in 1 2 3; do
+            if git pull --rebase -X theirs -q origin main; then
+              git push && exit 0
+            else
+              git rebase --abort 2>/dev/null || true
+            fi
+            sleep 5
+          done
           exit 1
