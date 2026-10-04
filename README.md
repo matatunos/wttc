@@ -34,7 +34,7 @@ colores cambian entre vehículos.
 1. Arduino IDE 2 (o arduino-cli) con el núcleo **esp32 de Espressif** (2.x o 3.x). Sin librerías externas.
 2. Placa **ESP32 Dev Module** y esquema de partición **Huge APP (3MB No OTA/1MB SPIFFS)**: con Bluetooth y Wi-Fi no
    cabe en la partición normal.
-3. Abre `firmware/WTTC/WTTC.ino` y súbelo. En el monitor serie (115200) aparece el **PIN Bluetooth**.
+3. Abre `firmware/WTTC/WTTC.ino` (la carpeta entera: lleva también `web.h`) y súbelo. En el monitor serie (115200) aparece el **PIN Bluetooth**.
 
 ```sh
 arduino-cli compile --fqbn esp32:esp32:esp32:PartitionScheme=huge_app firmware/WTTC
