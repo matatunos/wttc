@@ -1,3 +1,12 @@
+# android.yml — Compila la app Android y publica las Releases.
+# Código generado íntegramente con Claude (Anthropic).
+#  1. Lee la versión del fichero VERSION y comprueba que coincide con FW_VERSION del firmware y con CHANGELOG.md.
+#  2. Prepara la clave de firma desde los secretos del repo (nunca está en el código).
+#  3. Compila el APK de release con Gradle.
+#  4. Si esa versión aún no tiene Release, la crea con WTTC.apk, WTTC-<versión>.apk y WTTC-firmware.zip,
+#     usando como notas su sección del CHANGELOG.
+# Permisos mínimos: solo «contents: write», y solo en este job, para poder crear la Release.
+# Secretos necesarios: WTTC_KEYSTORE_B64, WTTC_KEYSTORE_PASSWORD y WTTC_KEY_ALIAS.
 name: App Android y Release
 
 on:
