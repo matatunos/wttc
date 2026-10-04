@@ -48,6 +48,11 @@ Se descarga como APK en [Releases](../../releases). Busca el ESP32 por Bluetooth
 sola cuando está cerca. Funciona también en radios Android de coche si su Bluetooth es visible para las apps (compruébalo
 antes con «nRF Connect»: si ve dispositivos BLE, la app funcionará).
 
+## Estadísticas anónimas
+La app pregunta al abrirla por primera vez si quieres enviar estadísticas anónimas (dos botones iguales, nada marcado de
+antemano). Qué se envía, qué no y el código del servidor: [`server/`](server/). Resultados públicos en
+https://wttc.favala.es/estadisticas.php
+
 ## Protocolo W-Bus
 2400 baudios 8E1, un solo hilo (cada byte enviado vuelve como eco). Trama `F4 LL CMD DATOS… XOR`; respuesta `4F LL
 CMD|0x80 DATOS… XOR`. Órdenes usadas: `0x21` encender (minutos), `0x44` mantener (cada 5 s), `0x10` apagar,

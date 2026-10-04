@@ -59,6 +59,7 @@ class MainActivity : Activity(), BleLink.Listener {
     private var dur = 30
     private var lastOn = false
     private var lastNote = ""
+    private var haveState = false      // hasta el primer estado no se cuentan transiciones
 
     // Programas: [activo, días (bit0 = lunes), inicio en minutos, duración]
     private data class Prog(var en: Boolean, var days: Int, var start: Int, var dur: Int)
@@ -93,6 +94,7 @@ class MainActivity : Activity(), BleLink.Listener {
     private lateinit var eChat: EditText
     private lateinit var eMinV: EditText
     private lateinit var tCfg: TextView
+    private lateinit var swStats: Switch
 
     // ---------- ciclo de vida ----------
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -100,11 +102,13 @@ class MainActivity : Activity(), BleLink.Listener {
         link = BleLink(this, this)
         buildUi()
         createChannel()
+        if (Stats.consent(this) == null) askStats()
     }
 
     override fun onStart() {
         super.onStart()
         if (askPermissions()) startLink()
+        Stats.maybeSend(this)
     }
 
     override fun onStop() {
@@ -184,8 +188,11 @@ class MainActivity : Activity(), BleLink.Listener {
         val err = data.startsWith("err")
         val msg = if (err) data.removePrefix("err").trim() else data
         when (cmd) {
-            "on", "off" -> { if (err) toast(msg); link.refresh() }
-            "cfg" -> runCatching { fillCfg(JSONObject(data)) }
+            "on", "off" -> {
+                if (err) toast(msg) else if (cmd == "on") Stats.count(this, "starts_app")
+                link.refresh()
+            }
+            "cfg" -> runCatching { val c = JSONObject(data); fillCfg(c); Stats.setFirmware(this, c.optString("ver")) }
             "sched" -> parseSched(data)
             "setsched" -> { if (err) toast(msg) else { progsDirty = false; bSaveProgs.text = "Guardado"; refreshSaveBtn() } }
             "errors" -> tDiag.text = formatErrors(data)
@@ -231,9 +238,17 @@ class MainActivity : Activity(), BleLink.Listener {
         bigBtn.background = rounded(if (on) cSf2 else cFl, 16)
         bigBtn.setTextColor(if (on) cInk else Color.parseColor("#1A1000"))
 
-        // Avisos del sistema (con la app abierta o en segundo plano reciente)
-        if (lastOn && !on && note.isNotEmpty() && note != lastNote) notifyUser("La calefacción se ha apagado sola", note)
-        if (on && ph == 4 && lastOn) notifyUser("La Webasto no responde", "Sin respuesta por W-Bus; sin mantenimiento se apaga sola.")
+        // Avisos del sistema (con la app abierta o en segundo plano reciente) y contadores de las estadísticas
+        if (haveState) {
+            if (lastOn && !on && note.isNotEmpty() && note != lastNote) {
+                notifyUser("La calefacción se ha apagado sola", note)
+                Stats.count(this, "self_stops")
+                Stats.countErrors(this, Regex("0x([0-9A-F]{2})").findAll(note).map { it.groupValues[1] }.toSet())
+            }
+            if (!lastOn && on && j.optString("src") == "programa") Stats.count(this, "starts_prog")
+            if (on && ph == 4 && lastOn) notifyUser("La Webasto no responde", "Sin respuesta por W-Bus; sin mantenimiento se apaga sola.")
+        }
+        haveState = true
         lastOn = on
         lastNote = note
     }
@@ -401,6 +416,17 @@ class MainActivity : Activity(), BleLink.Listener {
         root.addView(row(button("Olvidar placa") { confirmForget() }, button("Ajustes Bluetooth") {
             startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
         }), lp(top = 10))
+        swStats = Switch(this).apply {
+            text = "Enviar estadísticas anónimas"; setTextColor(cInk); textSize = 15f
+            isChecked = Stats.consent(this@MainActivity) == true
+        }
+        swStats.setOnCheckedChangeListener { _: CompoundButton, c: Boolean -> Stats.setConsent(this, c); if (c) Stats.maybeSend(this) }
+        root.addView(card().apply {
+            addView(swStats)
+            addView(text("Una vez al día como mucho: versiones, tipo de dispositivo, país, número de encendidos y averías. " +
+                "Sin ubicación, nombres, redes ni PIN, y sin guardar tu IP.", 13f, cMut), lp(top = 6))
+            addView(button("Ver estadísticas públicas") { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Stats.URL_PUBLIC))) }, lp(top = 10))
+        }, lp(top = 10))
         val ver = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "?"
         root.addView(text("App WTTC $ver · wttc.favala.es", 13f, cMut).apply {
             setOnClickListener { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wttc.favala.es"))) }
@@ -458,6 +484,20 @@ class MainActivity : Activity(), BleLink.Listener {
                 names.add("$n  (${d.address})")
             }
         }
+    }
+
+    /** Primer inicio: estadísticas anónimas. Dos botones iguales y nada marcado de antemano. */
+    private fun askStats() {
+        AlertDialog.Builder(this)
+            .setTitle("¿Nos ayudas con estadísticas anónimas?")
+            .setMessage("WTTC puede enviar, una vez al día como mucho: versión de la app y del firmware, versión de Android, " +
+                "tipo de dispositivo (móvil, tablet o radio), país según el idioma del sistema, número de encendidos y apagados " +
+                "y los códigos de avería.\n\nNunca se envía ubicación, nombres, redes Wi-Fi, PIN ni horarios, y no se guarda tu IP. " +
+                "Los resultados son públicos en wttc.favala.es/estadisticas.php.\n\nPuedes cambiarlo cuando quieras en «Este dispositivo».")
+            .setCancelable(false)
+            .setPositiveButton("Sí, enviar") { _, _ -> swStats.isChecked = true }      // el interruptor guarda el permiso y envía
+            .setNegativeButton("No, gracias") { _, _ -> Stats.setConsent(this, false); swStats.isChecked = false }
+            .show()
     }
 
     private fun confirmForget() {
