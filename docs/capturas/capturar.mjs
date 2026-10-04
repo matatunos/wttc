@@ -1,5 +1,6 @@
 // capturar.mjs — Hace las capturas del README con un navegador sin pantalla (Playwright + Chromium).
-// Código generado íntegramente con Claude (Anthropic). Lo ejecuta .github/workflows/capturas.yml.
+// Código generado íntegramente con Claude (Anthropic). Lo ejecuta .github/workflows/capturas.yml
+// (al cambiar este fichero o el workflow, o a mano desde la pestaña Actions de GitHub).
 //
 // Abre la web pública (https://wttc.favala.es), acelera el simulador ×60, pulsa «Encender» en la web de la
 // placa (que va dentro de un iframe) y espera a que la Webasto virtual tenga llama. Después captura:
