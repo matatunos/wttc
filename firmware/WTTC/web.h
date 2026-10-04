@@ -33,6 +33,7 @@ header b{color:var(--ink);font-size:17px}
 .on .st{color:var(--fl)}
 .stats{display:flex;justify-content:center;gap:22px;color:var(--mut);font-size:14px;font-variant-numeric:tabular-nums;margin-bottom:18px}
 .stats b{color:var(--ink);font-weight:600}
+.gas{text-align:center;color:var(--mut);font-size:13px;margin:-10px 0 18px}
 .seg{display:flex;background:var(--sf);border-radius:12px;padding:4px;gap:4px}
 .seg button{flex:1;border:0;background:none;color:var(--mut);padding:9px 0;border-radius:9px;font:inherit;font-size:15px}
 .seg button.sel{background:var(--sf2);color:var(--ink);font-weight:600}
@@ -75,6 +76,7 @@ details h3{font-size:15px;margin:18px 0 0}
 <div class="dial"><svg viewBox="0 0 200 200"><circle class="trk" cx="100" cy="100" r="88"/><circle class="arc" id="arc" cx="100" cy="100" r="88" stroke-dasharray="553" stroke-dashoffset="553"/></svg>
 <div class="ctr"><div class="tmp" id="tmp">--°</div><div class="lbl">agua del motor</div><div class="st" id="st">Conectando…</div><div class="lbl" id="rem"></div></div></div>
 <div class="stats"><span>Batería <b id="volt">--</b></span><span>Llama <b id="flame">--</b></span><span>Potencia <b id="pw">--</b></span></div>
+<div class="gas" id="gas"></div>
 <div id="warn"></div>
 <div class="seg" id="seg"></div>
 <button class="big" id="big" disabled>Encender</button>
@@ -85,7 +87,7 @@ details h3{font-size:15px;margin:18px 0 0}
 <div class="acts"><button class="btn" id="add">Añadir programa</button><button class="btn pri" id="save" disabled>Guardar programas</button></div>
 
 <details><summary>Diagnóstico</summary>
-<div class="acts" style="margin-top:10px"><button class="btn" id="errs">Leer averías</button></div>
+<div class="acts" style="margin-top:10px"><button class="btn" id="errs">Leer averías</button><button class="btn" id="gasreset">Gasoil a cero</button></div>
 <pre id="errout"></pre><pre id="diag"></pre></details>
 <details id="cfgd"><summary>Configuración</summary>
 <p class="sub" id="wifi" style="margin-top:8px"></p>
@@ -136,6 +138,8 @@ function render(){if(!st)return;
  $('volt').textContent=st.volt>0?st.volt.toFixed(1)+' V':'--';
  $('flame').textContent=st.flame<0?'--':(st.flame?'sí':'no');
  $('pw').textContent=st.pw<0?'--':st.pw+' W';
+ if(st.gas){const L=v=>(+v).toLocaleString('es-ES',{maximumFractionDigits:v<10?2:1})+' l';
+  $('gas').textContent='Gasoil (estimado): '+(st.on?L(st.gas[0])+' en este encendido':'último encendido '+L(st.gas[1]))+' · este mes '+L(st.gas[2])+' · total '+L(st.gas[3])}
  $('clock').textContent=st.tv?fecha(new Date(st.time*1000)):'sin hora';
  let w='';
  if(!st.on&&st.note)w+='<div class="warn">'+esc(st.note)+'</div>';
@@ -182,6 +186,7 @@ $('cfgd').ontoggle=()=>{if($('cfgd').open)loadCfg()};
 $('csave').onclick=async()=>{const b={name:$('c_name').value.trim(),pin:$('c_pin').value.trim(),wifimode:$('c_wm').value,ssid:$('c_ssid').value.trim(),tgchat:$('c_chat').value.trim(),minvolt:$('c_mv').value};
  if($('c_ap').value)b.appass=$('c_ap').value;if($('c_pass').value)b.pass=$('c_pass').value;if($('c_tok').value.trim())b.tgtok=$('c_tok').value.trim();
  try{alert(await api('/api/cfg',b));loadCfg()}catch(e){alert(e.message)}};
+$('gasreset').onclick=async()=>{if(!confirm('¿Poner a cero el gasoil estimado (último encendido, mes y total)?'))return;try{alert(await api('/api/gasreset',{}));poll()}catch(e){alert(e.message)}};
 $('forget').onclick=async()=>{if(!confirm('¿Borrar todos los dispositivos emparejados? Habrá que volver a emparejar la app con el PIN.'))return;try{alert(await api('/api/forget',{}));loadCfg()}catch(e){alert(e.message)}};
 $('tgtest').onclick=async()=>{try{alert(await api('/api/tgtest',{}))}catch(e){alert(e.message)}};
 $('tsync').onclick=async()=>{try{await api('/api/time',{epoch:Math.floor(Date.now()/1000)});poll()}catch(e){alert(e.message)}};

@@ -46,6 +46,7 @@ const uint32_t KEEPALIVE_MS = 5000;   // cada cuánto se confirma a la Webasto q
 const uint32_t SENSOR_MS    = 8000;   // lectura de sensores (solo encendida o con la web/app abierta)
 const int      PAUSE_TEMP   = 65;     // sin llama y con el agua por encima: pausa de regulación (normal)
 const uint32_t NOFLAME_MS   = 300000; // sin llama tanto tiempo (y con el agua fría): se da por apagada
+const float    FUEL_L_KWH   = 0.124;  // gasoil por kWh de calor: Thermo Top C ≈ 0,62 l/h a 5 kW (ficha). Estimación, ±20 %
 const uint32_t WIFI_BOOT_MS = 600000; // Wi-Fi encendida tras arrancar, en cualquier modo (rescate)
 const uint32_t WIFI_ASK_MS  = 900000; // Wi-Fi encendida al pedirla desde la app
 const uint32_t WIFI_TAIL_MS = 600000; // modo «mientras calienta»: sigue encendida tras apagarse
@@ -99,6 +100,9 @@ enum { PH_OFF, PH_START, PH_FLAME, PH_PAUSE, PH_LOST };
 int phase = PH_OFF;
 bool flameSeen = false;
 uint32_t noFlameSince = 0;
+// Gasoil estimado (litros): encendido actual, último encendido, mes en curso y total
+float gasCur = 0, gasLast = 0, gasMonth = 0, gasTotal = 0, gasRate = 0;   // gasRate en l/h
+uint32_t gasMonthKey = 0, lastGasT = 0, lastGasSave = 0;
 String stopNote = "";                 // por qué se apagó sola (se muestra en la web hasta el próximo encendido)
 int busState = -1;                    // -1 sin probar, 0 sin respuesta, 1 OK
 int tempC = -999, flame = -1, power = -1;
@@ -287,6 +291,41 @@ String errorsText() {
   return s;
 }
 
+// ---------- gasoil estimado ----------
+// Se integra la potencia que informa la Webasto (W) por el tiempo; en pausa o sin llama no cuenta.
+String litros(float l) { String s = String(l, l < 10 ? 2 : 1); s.replace('.', ','); return s + " l"; }
+
+void gasSave() {
+  prefs.begin("webasto", false);
+  prefs.putFloat("glast", gasLast);
+  prefs.putFloat("gmon", gasMonth);
+  prefs.putFloat("gtot", gasTotal);
+  prefs.putUInt("gkey", gasMonthKey);
+  prefs.end();
+  lastGasSave = millis();
+}
+
+void gasMonthCheck() {                // al cambiar de mes, el contador del mes empieza de cero
+  if (!timeValid()) return;
+  time_t t = time(nullptr); struct tm tm; localtime_r(&t, &tm);
+  uint32_t key = (tm.tm_year + 1900) * 100 + tm.tm_mon + 1;
+  if (gasMonthKey && key != gasMonthKey) gasMonth = 0;
+  gasMonthKey = key;
+}
+
+void gasTick() {
+  uint32_t now = millis();
+  if (lastGasT) {
+    float l = gasRate * (now - lastGasT) / 3600000.0;
+    gasCur += l; gasMonth += l; gasTotal += l;
+  }
+  lastGasT = now;
+  // Ritmo hasta la próxima lectura: según la potencia que da la Webasto; con llama y sin dato, carga media
+  gasRate = flame > 0 ? (power > 0 ? power / 1000.0 : 3.75) * FUEL_L_KWH : 0;
+  gasMonthCheck();
+  if (now - lastGasSave >= 900000) gasSave();     // cada 15 min como mucho: la flash tiene ciclos limitados
+}
+
 bool startHeater(uint16_t minutes, const char* src) {
   minutes = constrain(minutes, 1, MAX_MIN);
   uint8_t d[1] = {(uint8_t)minutes}, r[64], n;
@@ -298,6 +337,7 @@ bool startHeater(uint16_t minutes, const char* src) {
       lastKA = millis(); kaFails = 0; kaOff = 0;
       phase = PH_START; flameSeen = false; noFlameSince = millis();
       stopNote = "";
+      gasCur = 0; gasRate = 0; lastGasT = 0;
       onSrc = src;
       addLog(String("Encendida (") + src + ", " + minutes + " min)");
       notify(String("Encendida (") + src + ", " + minutes + " min)");
@@ -312,12 +352,15 @@ bool startHeater(uint16_t minutes, const char* src) {
 
 bool stopHeater(const char* why, bool tell) {
   uint8_t r[64], n; bool ok = false;
+  bool was = heaterOn;
   for (int i = 0; i < 3 && !ok; i++) { ok = wbusCmd(0x10, nullptr, 0, r, n); if (!ok) delay(300); }
+  if (was) { gasTick(); gasRate = 0; lastGasT = 0; gasLast = gasCur; gasSave(); }
   heaterOn = false;
   phase = PH_OFF;
   lastHeatOff = millis();
-  addLog(String("Apagada (") + why + (ok ? ")" : ", sin confirmación)"));
-  if (tell) notify(String("Apagada (") + why + ")");
+  String g = was ? String(" · gasoil ≈ ") + litros(gasLast) : String("");
+  addLog(String("Apagada (") + why + (ok ? ")" : ", sin confirmación)") + g);
+  if (tell) notify(String("Apagada (") + why + ")" + g);
   return ok;
 }
 
@@ -327,7 +370,7 @@ void heaterQuit(const char* why) {
   String e = errorsText();
   addLog(String("Averías: ") + e);
   stopNote = hhmm() + "Se ha apagado sola: " + why + ". Averías: " + e + ".";
-  notify(String("Se ha apagado sola: ") + why + ". Averías: " + e);
+  notify(String("Se ha apagado sola: ") + why + ". Averías: " + e + ". Gasoil ≈ " + litros(gasLast));
 }
 
 // Estado real a partir de la llama y la temperatura que da la propia Webasto (tras cada lectura)
@@ -356,6 +399,10 @@ void loadCfg() {
   if (prefs.isKey("ssid"))   prefs.getString("ssid", staSsid, sizeof staSsid);
   if (prefs.isKey("pass"))   prefs.getString("pass", staPass, sizeof staPass);
   blePin   = prefs.getUInt("pin", 0);
+  gasLast  = prefs.getFloat("glast", 0);
+  gasMonth = prefs.getFloat("gmon", 0);
+  gasTotal = prefs.getFloat("gtot", 0);
+  gasMonthKey = prefs.getUInt("gkey", 0);
   wifiMode = prefs.getUChar("wmode", WM_HEAT);
   minVolt  = prefs.getFloat("minv", 12.0);
   prefs.end();
@@ -542,6 +589,8 @@ String stateJson() {
   j += ",\"auto\":"; j += autoOn ? 1 : 0;
   j += ",\"wf\":";   j += wifiActive ? 1 : 0;
   j += ",\"wm\":";   j += wifiMode;
+  j += ",\"gas\":[";  j += String(gasCur, 2); j += ","; j += String(gasLast, 2); j += ",";
+  j += String(gasMonth, 1); j += ","; j += String(gasTotal, 1); j += "]";
   j += ",\"note\":"; j += js(stopNote.substring(0, 200));
   j += "}";
   return j;
@@ -672,6 +721,7 @@ String runCmd(String c) {
     return "tgtest:ok";
   }
   if (k == "forget") { bleForgetAll(); return "forget:ok"; }
+  if (k == "gasreset") { gasMonth = gasTotal = gasLast = 0; gasSave(); addLog("Contador de gasoil a cero"); return "gasreset:ok"; }
   if (k == "reboot") {
     if (heaterOn) return "reboot:err Está calentando: reiniciar la apagaría.";
     rebootPending = true;
@@ -704,6 +754,8 @@ void handleState() {
   j += ",\"tv\":";     j += timeValid() ? "true" : "false";
   j += ",\"auto\":";   j += autoOn ? "true" : "false";
   j += ",\"ph\":";     j += phase;
+  j += ",\"gas\":[";   j += String(gasCur, 2); j += ","; j += String(gasLast, 2); j += ",";
+  j += String(gasMonth, 1); j += ","; j += String(gasTotal, 1); j += "]";
   j += ",\"note\":";   j += js(stopNote);
   j += ",\"tg\":";     j += (tgToken[0] && tgChat[0]) ? "true" : "false";
   j += ",\"tgchat\":"; j += js(String(tgChat));
@@ -810,12 +862,14 @@ void serialCli() {
     static const char* PH[] = {"apagada", "arrancando", "con llama", "pausa de regulación", "sin respuesta"};
     Serial.printf("Estado: %s | Temp %d C | %.2f V | llama %d | %d W\nTX: %s\nRX: %s\n",
                   PH[phase], tempC, volt, flame, power, lastTx.c_str(), lastRx.c_str());
+    Serial.println(String("Gasoil estimado: encendido ") + litros(gasCur) + " | último " + litros(gasLast) +
+                   " | mes " + litros(gasMonth) + " | total " + litros(gasTotal));
     if (stopNote.length()) Serial.println(stopNote);
   }
   else if (l == "errores") Serial.println(errorsJson());
   else if (l == "cfg") Serial.println(cfgJson());
-  else if (l.startsWith("set ") || l == "wifi" || l == "forget" || l == "reboot") Serial.println(runCmd(c));
-  else if (l.length()) Serial.println("Comandos: on [min] | off | status | errores | cfg | set clave=valor | wifi | forget | reboot");
+  else if (l.startsWith("set ") || l == "wifi" || l == "forget" || l == "reboot" || l == "gasreset") Serial.println(runCmd(c));
+  else if (l.length()) Serial.println("Comandos: on [min] | off | status | errores | cfg | set clave=valor | wifi | forget | reboot | gasreset");
 }
 
 // ---------- arranque ----------
@@ -841,6 +895,7 @@ void setup() {
   server.on("/api/cfg", HTTP_GET, [] { server.send(200, "application/json", cfgJson()); });
   server.on("/api/cfg", HTTP_POST, handleCfgPost);
   server.on("/api/tgtest", HTTP_POST, handleTgTest);
+  server.on("/api/gasreset", HTTP_POST, [] { runCmd("gasreset"); server.send(200, "text/plain", "Contador de gasoil a cero."); });
   server.on("/api/forget", HTTP_POST, [] { int n = bleForgetAll(); server.send(200, "text/plain", String("Borrados ") + n + " emparejamientos."); });
   server.onNotFound([] { server.sendHeader("Location", "/"); server.send(302); });
 
@@ -850,7 +905,7 @@ void setup() {
 
   addLog(String("Arranque, firmware " FW_VERSION));
   Serial.printf("WTTC %s | Bluetooth y Wi-Fi: \"%s\" | PIN Bluetooth: %06u\n", FW_VERSION, cfgName, (unsigned)blePin);
-  Serial.println("Consola: on [min] | off | status | errores | cfg | set clave=valor | wifi | forget | reboot");
+  Serial.println("Consola: on [min] | off | status | errores | cfg | set clave=valor | wifi | forget | reboot | gasreset");
 }
 
 void loop() {
@@ -900,7 +955,7 @@ void loop() {
     }
   }
   if ((heaterOn || now - lastUi < 15000) && now - lastSensor >= SENSOR_MS) {
-    if (readSensors() && heaterOn) evalHeater();
+    if (readSensors() && heaterOn) { gasTick(); evalHeater(); }
   }
   checkSchedule();
 }

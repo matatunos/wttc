@@ -77,6 +77,7 @@ class MainActivity : Activity(), BleLink.Listener {
     private lateinit var tPhase: TextView
     private lateinit var tRem: TextView
     private lateinit var tStats: TextView
+    private lateinit var tGas: TextView
     private lateinit var tNote: TextView
     private lateinit var segRow: LinearLayout
     private lateinit var bigBtn: Button
@@ -203,6 +204,7 @@ class MainActivity : Activity(), BleLink.Listener {
             }
             "wifi" -> toast("Wi-Fi del ESP32 encendida 15 minutos")
             "tgtest" -> toast(if (err) msg else "Aviso de prueba enviado: mira Telegram en unos segundos")
+            "gasreset" -> { toast("Contador de gasoil a cero"); link.refresh() }
             "forget" -> toast("Emparejamientos borrados en la placa. Quita también la placa en los Ajustes de Bluetooth de Android.")
             "reboot" -> toast(if (err) msg else "Reiniciando la placa…")
             "time" -> {}
@@ -227,6 +229,11 @@ class MainActivity : Activity(), BleLink.Listener {
         val pw = j.optInt("pw", -1)
         tStats.text = "Batería ${if (v > 0) String.format("%.1f V", v) else "--"}   ·   Llama ${if (fl < 0) "--" else if (fl > 0) "sí" else "no"}   ·   " +
             "Potencia ${if (pw < 0) "--" else "$pw W"}"
+        j.optJSONArray("gas")?.let { g ->
+            fun l(i: Int): String { val v = g.optDouble(i, 0.0); return (if (v < 10) String.format("%.2f", v) else String.format("%.1f", v)) + " l" }
+            tGas.text = "Gasoil (estimado): " + (if (on) "${l(0)} en este encendido" else "último encendido ${l(1)}") +
+                " · este mes ${l(2)} · total ${l(3)}"
+        }
         val note = j.optString("note")
         val warn = mutableListOf<String>()
         if (!on && note.isNotEmpty()) warn += note
@@ -352,6 +359,8 @@ class MainActivity : Activity(), BleLink.Listener {
         st.addView(tRem, lp(top = 2))
         tStats = text("", 14f, cMut).apply { gravity = Gravity.CENTER }
         st.addView(tStats, lp(top = 12))
+        tGas = text("", 13f, cMut).apply { gravity = Gravity.CENTER }
+        st.addView(tGas, lp(top = 6))
         controls.addView(st, lp(top = 14))
 
         tNote = text("", 14f, cInk).apply {
@@ -381,6 +390,7 @@ class MainActivity : Activity(), BleLink.Listener {
         tDiag = text("", 13f, cMut).apply { setTextIsSelectable(true) }
         controls.addView(row(button("Leer averías") { tDiag.text = "Leyendo…"; link.send("errors") },
             button("Ver registro") { tDiag.text = "Leyendo…"; link.send("log") }), lp(top = 10))
+        controls.addView(button("Poner a cero el gasoil estimado") { confirmGasReset() }, lp(top = 10))
         controls.addView(tDiag, lp(top = 10))
 
         // Configuración
@@ -497,6 +507,16 @@ class MainActivity : Activity(), BleLink.Listener {
             .setCancelable(false)
             .setPositiveButton("Sí, enviar") { _, _ -> swStats.isChecked = true }      // el interruptor guarda el permiso y envía
             .setNegativeButton("No, gracias") { _, _ -> Stats.setConsent(this, false); swStats.isChecked = false }
+            .show()
+    }
+
+    private fun confirmGasReset() {
+        AlertDialog.Builder(this)
+            .setTitle("Gasoil estimado")
+            .setMessage("¿Poner a cero el último encendido, el mes y el total? La estimación sale de la potencia que informa " +
+                "la Webasto (≈ 0,62 l/h a plena carga) y puede desviarse un 20 %.")
+            .setPositiveButton("Poner a cero") { _, _ -> link.send("gasreset") }
+            .setNegativeButton("Cancelar", null)
             .show()
     }
 
