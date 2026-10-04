@@ -66,12 +66,14 @@ jobs:
           if ! printf '%s' "$KS_B64" | tr -d ' \t\r\n' | base64 -d > "$ks" 2>/dev/null; then
             fallo "WTTC_KEYSTORE_B64 no es base64 válido (¿se pegó incompleto?)"
           fi
-          echo "Keystore: $(stat -c %s "$ks") bytes"
+          # Datos que no revelan los secretos, para comparar con los ficheros originales si algo no cuadra
+          echo "Keystore: $(stat -c %s "$ks") bytes, SHA-256 empieza por $(sha256sum "$ks" | cut -c1-16)"
+          echo "Contraseña: ${#KS_PASS} caracteres; alias: ${#KS_ALIAS} caracteres"
           if [ -z "$KS_PASS" ] || [ -z "$KS_ALIAS" ]; then
             fallo "Faltan los secretos WTTC_KEYSTORE_PASSWORD o WTTC_KEY_ALIAS"
           fi
           if ! keytool -list -keystore "$ks" -storetype PKCS12 -storepass "$KS_PASS" >/dev/null 2>&1; then
-            fallo "El keystore no abre con WTTC_KEYSTORE_PASSWORD (contraseña distinta o fichero dañado)"
+            fallo "El keystore no abre con WTTC_KEYSTORE_PASSWORD (contraseña de ${#KS_PASS} caracteres; keystore $(sha256sum "$ks" | cut -c1-16))"
           fi
           if ! keytool -list -keystore "$ks" -storetype PKCS12 -storepass "$KS_PASS" -alias "$KS_ALIAS" >/dev/null 2>&1; then
             fallo "El keystore no tiene el alias de WTTC_KEY_ALIAS (debe ser: wttc)"
