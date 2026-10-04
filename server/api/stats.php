@@ -43,7 +43,8 @@ $cnt = ['starts_app' => $int($in['starts_app'] ?? 0, 0, 300), 'starts_prog' => $
 $errs = [];
 if (isset($in['errors']) && is_array($in['errors'])) {
     foreach (array_slice($in['errors'], 0, 12, true) as $c => $n) {
-        if (is_string($c) && preg_match('/^[0-9A-F]{2}$/', $c) && is_int($n) && $n >= 1 && $n <= 50) $errs[$c] = $n;
+        $c = (string)$c;   // json_decode convierte claves como "12" en enteros
+        if (preg_match('/^[0-9A-F]{2}$/', $c) && is_int($n) && $n >= 1 && $n <= 50) $errs[$c] = $n;
     }
 }
 
@@ -61,9 +62,12 @@ $p->execute([$today, $id]);
 if ($p->rowCount() === 0) { $db->rollBack(); out(200, ['ok' => true, 'dup' => true]); }   // ya informó hoy: sin sumar
 
 $db->prepare('INSERT INTO installs (id, first_seen, last_seen, app, fw, sdk, kind, country) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-              ON CONFLICT(id) DO UPDATE SET last_seen = excluded.last_seen, app = excluded.app,
+              ON CONFLICT(id) DO UPDATE SET last_seen = excluded.last_seen,
+              app = CASE WHEN excluded.app <> \'\' THEN excluded.app ELSE installs.app END,
               fw = CASE WHEN excluded.fw <> \'\' THEN excluded.fw ELSE installs.fw END,
-              sdk = excluded.sdk, kind = excluded.kind, country = excluded.country')
+              sdk = CASE WHEN excluded.sdk <> 0 THEN excluded.sdk ELSE installs.sdk END,
+              kind = CASE WHEN excluded.kind <> \'\' THEN excluded.kind ELSE installs.kind END,
+              country = CASE WHEN excluded.country <> \'\' THEN excluded.country ELSE installs.country END')
    ->execute([$id, $today, $today, $app, $fw, $sdk, $kind, $country]);
 $t = $db->prepare('INSERT INTO daily (day, k, v) VALUES (?, ?, ?) ON CONFLICT(day, k) DO UPDATE SET v = v + excluded.v');
 foreach ($cnt as $k => $v) if ($v) $t->execute([$today, $k, $v]);
