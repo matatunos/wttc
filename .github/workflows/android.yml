@@ -47,31 +47,32 @@ jobs:
           KS_ALIAS: ${{ secrets.WTTC_KEY_ALIAS }}
         shell: bash
         run: |
-          if [ -z "$KS_B64" ]; then
-            echo "::warning::Sin clave de firma en los secretos: APK firmado con clave de depuración"
-            exit 0
-          fi
+          # Si algo falla aquí, se sigue compilando (para verificar el código) con la clave de depuración,
+          # pero WTTC_SIGNED queda a 0: no se publica Release y el run termina marcado como fallido.
+          fallo() { echo "::error::$1"; echo "WTTC_SIGNED=0" >> "$GITHUB_ENV"; exit 0; }
+          [ -n "$KS_B64" ] || fallo "Sin clave de firma en los secretos (WTTC_KEYSTORE_B64)"
           echo "::add-mask::$KS_PASS"
           ks="$RUNNER_TEMP/wttc.p12"
           # Quita espacios y saltos de línea que se cuelan al pegar el secreto
           if ! printf '%s' "$KS_B64" | tr -d ' \t\r\n' | base64 -d > "$ks" 2>/dev/null; then
-            echo "::error::WTTC_KEYSTORE_B64 no es base64 válido (¿se pegó incompleto?)"; exit 1
+            fallo "WTTC_KEYSTORE_B64 no es base64 válido (¿se pegó incompleto?)"
           fi
           echo "Keystore: $(stat -c %s "$ks") bytes"
           if [ -z "$KS_PASS" ] || [ -z "$KS_ALIAS" ]; then
-            echo "::error::Faltan los secretos WTTC_KEYSTORE_PASSWORD o WTTC_KEY_ALIAS"; exit 1
+            fallo "Faltan los secretos WTTC_KEYSTORE_PASSWORD o WTTC_KEY_ALIAS"
           fi
           if ! keytool -list -keystore "$ks" -storetype PKCS12 -storepass "$KS_PASS" >/dev/null 2>&1; then
-            echo "::error::El keystore no abre con WTTC_KEYSTORE_PASSWORD (contraseña distinta o fichero dañado)"; exit 1
+            fallo "El keystore no abre con WTTC_KEYSTORE_PASSWORD (contraseña distinta o fichero dañado)"
           fi
           if ! keytool -list -keystore "$ks" -storetype PKCS12 -storepass "$KS_PASS" -alias "$KS_ALIAS" >/dev/null 2>&1; then
-            echo "::error::El keystore no tiene el alias de WTTC_KEY_ALIAS (debe ser: wttc)"; exit 1
+            fallo "El keystore no tiene el alias de WTTC_KEY_ALIAS (debe ser: wttc)"
           fi
           {
             echo "WTTC_KEYSTORE_FILE=$ks"
             echo "WTTC_KEYSTORE_PASSWORD=$KS_PASS"
             echo "WTTC_KEY_PASSWORD=$KS_PASS"
             echo "WTTC_KEY_ALIAS=$KS_ALIAS"
+            echo "WTTC_SIGNED=1"
           } >> "$GITHUB_ENV"
 
       - name: Compilar APK
@@ -102,7 +103,7 @@ jobs:
 
       # Solo se publica una Release cuando cambia VERSION (si ya existe esa versión, el APK queda como artefacto del run)
       - name: Publicar en Releases
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.WTTC_SIGNED == '1'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -117,3 +118,11 @@ jobs:
           printf '\n---\nApp Android: **WTTC.apk** (Android 8 o posterior). Firmware para el ESP32: **WTTC-firmware.zip**.\nInstrucciones: https://wttc.favala.es · Código generado íntegramente con Claude (Anthropic).\n' >> notas.md
           gh release create "$tag" "WTTC-${WTTC_VERSION_NAME}.apk" WTTC.apk WTTC-firmware.zip \
             --title "WTTC ${WTTC_VERSION_NAME}" --latest --notes-file notas.md
+
+      # Sin firma estable el APK compila (y queda como artefacto), pero el run se marca como fallido
+      - name: Comprobar la firma
+        if: env.WTTC_SIGNED != '1'
+        shell: bash
+        run: |
+          echo "::error::APK firmado con la clave de depuración: revisa los secretos de firma. No se ha publicado Release."
+          exit 1
