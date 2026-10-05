@@ -6,6 +6,15 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.1.3 — 2026-10-05
+
+Versión de prueba (sin probar con una Webasto real).
+
+### Idiomas
+- **Firmware**: habla español, inglés o alemán en el registro, los avisos de Telegram, los mensajes y su web. Se elige en Configuración; la app le pone el del móvil al conectar. La consola serie sigue en español.
+- **App Android**: en inglés, español y alemán según el idioma del móvil (inglés si no es ninguno de los tres). En Android 13 o posterior se puede elegir en los ajustes de la app. Los números van con la coma o el punto de ese idioma.
+- **Web**: wttc.favala.es también en inglés (`/en/`) y alemán (`/de/`), simulador incluido.
+
 ## 0.1.2 — 2026-10-04
 
 Versión de prueba (sin probar con una Webasto real).

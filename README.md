@@ -7,6 +7,9 @@
 
 Web con simulador, esquema y guías: **https://wttc.favala.es** · Versiones: [CHANGELOG.md](CHANGELOG.md) · Descargas: [Releases](../../releases)
 
+Idiomas: firmware, app y web en español, inglés y alemán · *English: [wttc.favala.es/en](https://wttc.favala.es/en/)* ·
+*Deutsch: [wttc.favala.es/de](https://wttc.favala.es/de/)*
+
 Sustituye al temporizador original de la calefacción auxiliar **Webasto Thermo Top C** (la de agua que montan de
 fábrica, por ejemplo, las VW T5) por un **ESP32** que habla su protocolo **W-Bus**. Se maneja desde una **app Android**
 por Bluetooth o desde el navegador por Wi-Fi.
