@@ -128,6 +128,11 @@
     <string name="demo_unknown">Orden desconocida</string>
     <string name="demo_ver">demostración</string>
     <string name="demo_ssid">Mi móvil</string>
+    <string name="ap_title">Protege la Wi-Fi de la placa</string>
+    <string name="ap_msg">La Wi-Fi de la placa sigue con la clave de fábrica, que es pública: cualquiera cerca podría manejar la calefacción desde la web. Elige una nueva (mínimo 8 caracteres). Se aplica al reiniciar la placa.</string>
+    <string name="ap_hint">Clave nueva de la Wi-Fi</string>
+    <string name="ap_short">La clave debe tener al menos 8 caracteres.</string>
+    <string name="later">Más tarde</string>
     <string-array name="phases">
         <item>Apagada</item>
         <item>Arrancando…</item>

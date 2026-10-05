@@ -107,7 +107,8 @@ const uint32_t WIFI_TAIL_MS = 600000; // modo «mientras calienta»: ms que sigu
 // Modos de la Wi-Fi propia: siempre encendida, solo mientras calienta, o solo cuando se pide
 enum { WM_ALWAYS, WM_HEAT, WM_DEMAND };
 char cfgName[30]   = "WTTC";          // nombre de la red Wi-Fi propia y del dispositivo Bluetooth
-char cfgApPass[64] = "calefaccion";   // clave de la red propia (WPA2 exige 8 caracteres como mínimo)
+#define AP_PASS_DEFAULT "calefaccion"    // clave de fábrica de la red propia: pública (sale en la documentación)
+char cfgApPass[64] = AP_PASS_DEFAULT;    // clave de la red propia (WPA2 exige 8 caracteres como mínimo)
 uint32_t blePin    = 0;               // PIN Bluetooth de 6 cifras; 0 = generar uno al azar en el primer arranque
 uint8_t wifiMode   = WM_HEAT;         // por defecto: Wi-Fi solo mientras calienta (y 10 min después)
 float minVolt      = 12.0;            // V: con la batería por debajo, los programas no arrancan
@@ -185,7 +186,7 @@ enum Txt {
   T_E_NAME, T_E_APPASS, T_E_PIN, T_E_WIFIMODE, T_E_SSID, T_E_PASS, T_E_TOKEN, T_E_CHAT, T_E_MINVOLT, T_E_LANG, T_E_UNKNOWN_SET,
   T_E_ON, T_OFF_NOCONF_SHORT, T_E_TIME, T_E_FORMAT, T_E_TG_CFG, T_E_TG_NET, T_E_REBOOT_HEAT, T_E_UNKNOWN_CMD,
   T_W_OFF_NOCONF, T_W_SAVED, T_W_SAVED_LATER, T_W_SAVED_REBOOT, T_W_TG_SENDING, T_W_GASRESET, T_W_FORGOT,
-  T_W_ORIGIN,
+  T_W_ORIGIN, T_W_SETUP, T_E_APPASS_DEF,
   T_COUNT
 };
 
@@ -267,6 +268,8 @@ const char* const TXT[T_COUNT][L_N] = {
   /* T_W_GASRESET */       {"Contador de gasoil a cero.", "Diesel counter reset.", "Dieselzähler zurückgesetzt."},
   /* T_W_FORGOT */         {"Borrados %d emparejamientos.", "Deleted %d pairings.", "%d Kopplungen gelöscht."},
   /* T_W_ORIGIN */         {"Petición rechazada: viene de otra web.", "Request rejected: it comes from another website.", "Anfrage abgelehnt: sie kommt von einer anderen Webseite."},
+  /* T_W_SETUP */          {"Primer uso: antes de manejarla, cambia la clave de la Wi-Fi de la placa.", "First use: change the board's Wi-Fi password before using it.", "Erste Nutzung: zuerst das WLAN-Passwort der Platine ändern."},
+  /* T_E_APPASS_DEF */     {"Elige una clave distinta de la de fábrica.", "Choose a password other than the factory one.", "Wähle ein anderes Passwort als das ab Werk."},
 };
 
 // Texto en el idioma elegido
@@ -346,6 +349,34 @@ String hhmm() {
 // retrasar el mensaje de mantenimiento del W-Bus, que tiene que salir cada 5 s.
 // ============================================================================================================
 struct Msg { char t[240]; };          // un aviso pendiente de enviar
+// Raíz de la cadena de api.telegram.org: Go Daddy Root Certificate Authority - G2 (caduca en 2037).
+// SHA-256 45:14:0B:32:47:EB:9C:C8:C5:B4:F0:D7:B5:30:91:F7:32:92:08:9E:6E:5A:63:E2:74:9D:D3:AC:A9:19:8E:DA
+// Con ella se comprueba el certificado: en una red ajena nadie puede hacerse pasar por Telegram y leer el token.
+// Si Telegram cambiara de autoridad, los avisos fallarían («Último aviso» lo diría) hasta actualizar el firmware.
+static const char TG_ROOT_CA[] PROGMEM =
+"-----BEGIN CERTIFICATE-----\n"
+"MIIDxTCCAq2gAwIBAgIBADANBgkqhkiG9w0BAQsFADCBgzELMAkGA1UEBhMCVVMx\n"
+"EDAOBgNVBAgTB0FyaXpvbmExEzARBgNVBAcTClNjb3R0c2RhbGUxGjAYBgNVBAoT\n"
+"EUdvRGFkZHkuY29tLCBJbmMuMTEwLwYDVQQDEyhHbyBEYWRkeSBSb290IENlcnRp\n"
+"ZmljYXRlIEF1dGhvcml0eSAtIEcyMB4XDTA5MDkwMTAwMDAwMFoXDTM3MTIzMTIz\n"
+"NTk1OVowgYMxCzAJBgNVBAYTAlVTMRAwDgYDVQQIEwdBcml6b25hMRMwEQYDVQQH\n"
+"EwpTY290dHNkYWxlMRowGAYDVQQKExFHb0RhZGR5LmNvbSwgSW5jLjExMC8GA1UE\n"
+"AxMoR28gRGFkZHkgUm9vdCBDZXJ0aWZpY2F0ZSBBdXRob3JpdHkgLSBHMjCCASIw\n"
+"DQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAL9xYgjx+lk09xvJGKP3gElY6SKD\n"
+"E6bFIEMBO4Tx5oVJnyfq9oQbTqC023CYxzIBsQU+B07u9PpPL1kwIuerGVZr4oAH\n"
+"/PMWdYA5UXvl+TW2dE6pjYIT5LY/qQOD+qK+ihVqf94Lw7YZFAXK6sOoBJQ7Rnwy\n"
+"DfMAZiLIjWltNowRGLfTshxgtDj6AozO091GB94KPutdfMh8+7ArU6SSYmlRJQVh\n"
+"GkSBjCypQ5Yj36w6gZoOKcUcqeldHraenjAKOc7xiID7S13MMuyFYkMlNAJWJwGR\n"
+"tDtwKj9useiciAF9n9T521NtYJ2/LOdYq7hfRvzOxBsDPAnrSTFcaUaz4EcCAwEA\n"
+"AaNCMEAwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwHQYDVR0OBBYE\n"
+"FDqahQcQZyi27/a9BUFuIMGU2g/eMA0GCSqGSIb3DQEBCwUAA4IBAQCZ21151fmX\n"
+"WWcDYfF+OwYxdS2hII5PZYe096acvNjpL9DbWu7PdIxztDhC2gV7+AJ1uP2lsdeu\n"
+"9tfeE8tTEH6KRtGX+rcuKxGrkLAngPnon1rpN5+r5N9ss4UXnT3ZJE95kTXWXwTr\n"
+"gIOrmgIttRD02JDHBHNA7XIloKmf7J6raBKZV8aPEjoJpL1E/QYVN8Gb5DKj7Tjo\n"
+"2GTzLH4U/ALqn83/B2gX2yKQOC16jdFU8WnjXzPKej17CuPKf1855eJ1usV2GDPO\n"
+"LPAvTK33sefOT6jEm0pUBsV/fdUID+Ic/n4XuKxe9tQWskMJDE32p2u0mYRlynqI\n"
+"4uJEvlz36hz1\n"
+"-----END CERTIFICATE-----\n";
 QueueHandle_t tgQueue = nullptr;      // cola de avisos (la llena notify(), la vacía tgTask())
 char tgToken[64] = "", tgChat[24] = "";   // token del bot y chat ID (vacíos = avisos desactivados)
 char tgLast[280] = "";                // resultado del último envío (lo escribe la tarea, lo lee la web)
@@ -385,7 +416,7 @@ void tgTask(void*) {
     strlcpy(chat, tgChat, sizeof chat);
     if (!tok[0] || !chat[0]) continue;
     WiFiClientSecure cli;
-    cli.setInsecure();                // sin comprobar el certificado: la placa no lleva certificados raíz
+    cli.setCACert(TG_ROOT_CA);        // solo vale un certificado firmado por la raíz de Telegram (ver arriba)
     HTTPClient http;
     http.setConnectTimeout(8000);
     http.setTimeout(8000);
@@ -707,6 +738,7 @@ int cfgSet(String k, String v, String& err) {
   } else if (k == "appass") {
     if (!v.length()) r = 1;                       // vacío: se queda la clave que había
     else if (v.length() < 8 || v.length() >= sizeof cfgApPass) { err = tr(T_E_APPASS); r = 0; }
+    else if (v == AP_PASS_DEFAULT) { err = tr(T_E_APPASS_DEF); r = 0; }   // la de fábrica es pública: no se puede volver a ella
     else { strlcpy(cfgApPass, v.c_str(), sizeof cfgApPass); prefs.putString("appass", cfgApPass); r = 2; }
   } else if (k == "pin") {
     long n = v.toInt();
@@ -745,10 +777,15 @@ int cfgSet(String k, String v, String& err) {
 // Ajustes que admite el formulario de configuración de la web (en este orden)
 const char* CFG_KEYS[] = {"lang", "name", "appass", "pin", "wifimode", "ssid", "pass", "tgtok", "tgchat", "minvolt"};
 
+// ¿Sigue la Wi-Fi propia con la clave de fábrica? Entonces cualquiera cerca puede entrar: la web obliga a cambiarla
+bool apDefault() { return strcmp(cfgApPass, AP_PASS_DEFAULT) == 0; }
+
 // La configuración en JSON para la web y la app. Las claves (Wi-Fi y token) no se devuelven nunca.
-String cfgJson() {
+// El PIN de Bluetooth solo va a la app (conexión ya cifrada) o a la web cuando la Wi-Fi tiene clave propia.
+String cfgJson(bool withPin) {
   String j = "{\"name\":"; j += js(String(cfgName));
-  j += ",\"pin\":";      j += blePin;
+  j += ",\"pin\":";      if (withPin) j += blePin; else j += "null";
+  j += ",\"apdef\":";    j += apDefault() ? "true" : "false";   // clave de fábrica: la web y la app piden cambiarla
   j += ",\"wifimode\":"; j += wifiMode;
   j += ",\"ssid\":";     j += js(String(staSsid));
   j += ",\"tg\":";       j += tgToken[0] ? "true" : "false";      // solo si hay token guardado, no el token
@@ -980,7 +1017,7 @@ String runCmd(String c) {
     for (int i = logN - 1; i >= 0 && l.length() + logBuf[i].length() < 480; i--) { if (l.length()) l += "\n"; l += logBuf[i]; }
     return "log:" + l;
   }
-  if (k == "cfg") return "cfg:" + cfgJson();
+  if (k == "cfg") return "cfg:" + cfgJson(true);
   if (k == "set") {                                // set clave=valor
     int e = a.indexOf('=');
     if (e < 0) return String("set:err ") + tr(T_E_FORMAT);
@@ -1042,6 +1079,7 @@ void handleState() {
   j += ",\"ble\":";    j += bleConn;
   j += ",\"name\":";   j += js(String(cfgName));
   j += ",\"lang\":";   j += js(String(LANG_CODES[lang]));
+  j += ",\"apdef\":";  j += apDefault() ? "true" : "false";     // primer uso: la web pide la clave nueva
   bool sta = WiFi.status() == WL_CONNECTED;       // ¿unida a la red con internet?
   j += ",\"sta\":";    j += sta ? "true" : "false";
   j += ",\"ssid\":";   j += js(sta ? WiFi.SSID() : String(""));
@@ -1071,6 +1109,13 @@ bool sameOrigin() {
   int p = o.indexOf("://");
   if (p >= 0 && o.substring(p + 3) == server.hostHeader()) return true;
   server.send(403, "text/plain", tr(T_W_ORIGIN));
+  return false;
+}
+
+// Primer uso: con la clave de fábrica de la Wi-Fi, la web no admite órdenes (solo cambiar la clave y poner la hora)
+bool setupDone() {
+  if (!apDefault()) return true;
+  server.send(403, "text/plain", tr(T_W_SETUP));
   return false;
 }
 
@@ -1127,6 +1172,8 @@ String errorsJson() {
 void handleCfgPost() {
   bool restart = false;
   String err;
+  // Primer uso (clave de fábrica): solo se acepta si trae la clave nueva; lo demás se configura después
+  if (apDefault() && !server.arg("appass").length()) { server.send(403, "text/plain", tr(T_W_SETUP)); return; }
   for (const char* k : CFG_KEYS) {
     if (!server.hasArg(k)) continue;              // solo los campos que se han enviado
     int r = cfgSet(k, server.arg(k), err);
@@ -1167,7 +1214,7 @@ void serialCli() {
     if (stopNote.length()) Serial.println(stopNote);
   }
   else if (l == "errores") Serial.println(errorsJson());
-  else if (l == "cfg") Serial.println(cfgJson());
+  else if (l == "cfg") Serial.println(cfgJson(true));
   else if (l.startsWith("set ") || l == "wifi" || l == "forget" || l == "reboot" || l == "gasreset") Serial.println(runCmd(c));
   else if (l.length()) Serial.println("Comandos: on [min] | off | status | errores | cfg | set clave=valor | wifi | forget | reboot | gasreset");
 }
@@ -1192,16 +1239,16 @@ void setup() {
   server.on("/", HTTP_GET, [] { server.send_P(200, "text/html", INDEX_HTML); });   // la página (desde la flash)
   server.on("/api/state", HTTP_GET, handleState);
   // Las órdenes (POST) solo se aceptan desde la propia web de la placa (ver sameOrigin)
-  server.on("/api/on", HTTP_POST, [] { if (sameOrigin()) handleOn(); });
-  server.on("/api/off", HTTP_POST, [] { if (sameOrigin()) handleOff(); });
-  server.on("/api/sched", HTTP_POST, [] { if (sameOrigin()) handleSched(); });
+  server.on("/api/on", HTTP_POST, [] { if (sameOrigin() && setupDone()) handleOn(); });
+  server.on("/api/off", HTTP_POST, [] { if (sameOrigin() && setupDone()) handleOff(); });
+  server.on("/api/sched", HTTP_POST, [] { if (sameOrigin() && setupDone()) handleSched(); });
   server.on("/api/time", HTTP_POST, [] { if (sameOrigin()) handleTime(); });
   server.on("/api/errors", HTTP_GET, [] { server.send(200, "application/json", errorsJson()); });
-  server.on("/api/cfg", HTTP_GET, [] { server.send(200, "application/json", cfgJson()); });
+  server.on("/api/cfg", HTTP_GET, [] { server.send(200, "application/json", cfgJson(!apDefault())); });
   server.on("/api/cfg", HTTP_POST, [] { if (sameOrigin()) handleCfgPost(); });
-  server.on("/api/tgtest", HTTP_POST, [] { if (sameOrigin()) handleTgTest(); });
-  server.on("/api/gasreset", HTTP_POST, [] { if (!sameOrigin()) return; runCmd("gasreset"); server.send(200, "text/plain", tr(T_W_GASRESET)); });
-  server.on("/api/forget", HTTP_POST, [] { if (!sameOrigin()) return; int n = bleForgetAll(); server.send(200, "text/plain", trf(T_W_FORGOT, n)); });
+  server.on("/api/tgtest", HTTP_POST, [] { if (sameOrigin() && setupDone()) handleTgTest(); });
+  server.on("/api/gasreset", HTTP_POST, [] { if (!sameOrigin() || !setupDone()) return; runCmd("gasreset"); server.send(200, "text/plain", tr(T_W_GASRESET)); });
+  server.on("/api/forget", HTTP_POST, [] { if (!sameOrigin() || !setupDone()) return; int n = bleForgetAll(); server.send(200, "text/plain", trf(T_W_FORGOT, n)); });
   static const char* HDRS[] = {"Origin"};          // cabeceras que el servidor guarda para leerlas en los manejadores
   server.collectHeaders(HDRS, 1);
   server.onNotFound([] { server.sendHeader("Location", "/"); server.send(302); });   // cualquier otra ruta: a la página

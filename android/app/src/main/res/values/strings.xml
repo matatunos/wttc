@@ -129,6 +129,11 @@
     <string name="demo_unknown">Unknown command</string>
     <string name="demo_ver">demo</string>
     <string name="demo_ssid">My phone</string>
+    <string name="ap_title">Protect the board\'s Wi-Fi</string>
+    <string name="ap_msg">The board\'s Wi-Fi still has the factory password, which is public: anyone nearby could control the heater from the web page. Choose a new one (at least 8 characters). It applies when the board restarts.</string>
+    <string name="ap_hint">New Wi-Fi password</string>
+    <string name="ap_short">The password must be at least 8 characters long.</string>
+    <string name="later">Later</string>
     <string-array name="phases">
         <item>Off</item>
         <item>Starting…</item>

@@ -88,6 +88,12 @@ details h3{font-size:15px;margin:18px 0 0}
 </style></head><body><main>
 <!-- Cabecera: punto de conexión (verde = la web llega a la placa, rojo = no), nombre de la placa y su fecha y hora -->
 <header><span><span id="net"></span><b id="hname">WTTC</b></span><span id="clock">--:--</span></header>
+<!-- Primer uso: con la clave de fábrica de la Wi-Fi («calefaccion», pública) la placa no admite órdenes desde la web
+     hasta que se elige una clave nueva. Solo se ve en ese caso (st.apdef) -->
+<div class="warn" id="setup" hidden><b data-t="setupTitle">Primer uso: protege la Wi-Fi de la placa</b>
+<p class="sub" style="margin:6px 0 0" data-t="setupText">La clave de fábrica es pública: cualquiera cerca podría manejar la calefacción. Elige una nueva (mínimo 8 caracteres); la placa se reinicia y tendrás que volver a conectarte a su Wi-Fi con la clave nueva.</p>
+<label class="f"><span data-t="setupLabel">Clave nueva de la Wi-Fi</span><input id="s_ap" type="password" autocomplete="new-password" minlength="8" maxlength="63"></label>
+<div class="acts" style="margin-top:10px"><button class="btn pri" id="s_save" data-t="save">Guardar</button></div></div>
 <!-- Esfera: temperatura del agua, estado real y tiempo restante (el arco naranja se vacía según pasa el tiempo) -->
 <div class="dial"><svg viewBox="0 0 200 200"><circle class="trk" cx="100" cy="100" r="88"/><circle class="arc" id="arc" cx="100" cy="100" r="88" stroke-dasharray="553" stroke-dashoffset="553"/></svg>
 <div class="ctr"><div class="tmp" id="tmp">--°</div><div class="lbl" data-t="water">agua del motor</div><div class="st" id="st" data-t="connecting">Conectando…</div><div class="lbl" id="rem"></div></div></div>
@@ -140,7 +146,7 @@ details h3{font-size:15px;margin:18px 0 0}
 const $=id=>document.getElementById(id);
 // ---- Idioma: el de la placa (ajuste «lang»); hasta saberlo, el del navegador. Textos en es, en y de ----
 const I18N={
-es:{loc:'es-ES',water:'agua del motor',connecting:'Conectando…',battery:'Batería',flame:'Llama',power:'Potencia',turnOn:'Encender',turnOff:'Apagar',
+es:{loc:'es-ES',setupTitle:'Primer uso: protege la Wi-Fi de la placa',setupText:'La clave de fábrica es pública: cualquiera cerca podría manejar la calefacción. Elige una nueva (mínimo 8 caracteres); la placa se reinicia y tendrás que volver a conectarte a su Wi-Fi con la clave nueva.',setupLabel:'Clave nueva de la Wi-Fi',setupShort:'La clave debe tener al menos 8 caracteres.',water:'agua del motor',connecting:'Conectando…',battery:'Batería',flame:'Llama',power:'Potencia',turnOn:'Encender',turnOff:'Apagar',
  turningOn:'Encendiendo…',turningOff:'Apagando…',schedules:'Programas',noSched:'Sin programas.',schedOn:'Programas activos',addSched:'Añadir programa',
  saveSched:'Guardar programas',saved:'Guardado',diag:'Diagnóstico',readFaults:'Leer averías',gasReset:'Gasoil a cero',settings:'Configuración',language:'Idioma',
  ownNet:'Bluetooth y Wi-Fi propios',fName:'Nombre (red Wi-Fi y Bluetooth)',fPin:'PIN de emparejamiento Bluetooth (6 cifras)',
@@ -163,7 +169,7 @@ es:{loc:'es-ES',water:'agua del motor',connecting:'Conectando…',battery:'Bater
  ver:'Firmware WTTC {0} · código generado íntegramente con Claude (Anthropic) · github.com/matatunos/wttc',
  askGas:'¿Poner a cero el gasoil estimado (último encendido, mes y total)?',askForget:'¿Borrar todos los dispositivos emparejados? Habrá que volver a emparejar la app con el PIN.',
  days:['L','M','X','J','V','S','D'],daysL:['el lunes','el martes','el miércoles','el jueves','el viernes','el sábado','el domingo']},
-en:{loc:'en-GB',water:'engine coolant',connecting:'Connecting…',battery:'Battery',flame:'Flame',power:'Power',turnOn:'Switch on',turnOff:'Switch off',
+en:{loc:'en-GB',setupTitle:'First use: protect the board\'s Wi-Fi',setupText:'The factory password is public: anyone nearby could control the heater. Choose a new one (at least 8 characters); the board restarts and you will have to reconnect to its Wi-Fi with the new password.',setupLabel:'New Wi-Fi password',setupShort:'The password must be at least 8 characters long.',water:'engine coolant',connecting:'Connecting…',battery:'Battery',flame:'Flame',power:'Power',turnOn:'Switch on',turnOff:'Switch off',
  turningOn:'Switching on…',turningOff:'Switching off…',schedules:'Schedules',noSched:'No schedules.',schedOn:'Schedules enabled',addSched:'Add schedule',
  saveSched:'Save schedules',saved:'Saved',diag:'Diagnostics',readFaults:'Read faults',gasReset:'Reset diesel',settings:'Settings',language:'Language',
  ownNet:'Own Bluetooth and Wi-Fi',fName:'Name (Wi-Fi network and Bluetooth)',fPin:'Bluetooth pairing PIN (6 digits)',
@@ -186,7 +192,7 @@ en:{loc:'en-GB',water:'engine coolant',connecting:'Connecting…',battery:'Batte
  ver:'WTTC firmware {0} · code generated entirely with Claude (Anthropic) · github.com/matatunos/wttc',
  askGas:'Reset the diesel estimate (last run, month and total)?',askForget:'Delete all paired devices? The app will have to be paired again with the PIN.',
  days:['M','T','W','T','F','S','S'],daysL:['on Monday','on Tuesday','on Wednesday','on Thursday','on Friday','on Saturday','on Sunday']},
-de:{loc:'de-DE',water:'Kühlwasser',connecting:'Verbinde…',battery:'Batterie',flame:'Flamme',power:'Leistung',turnOn:'Einschalten',turnOff:'Ausschalten',
+de:{loc:'de-DE',setupTitle:'Erste Nutzung: WLAN der Platine schützen',setupText:'Das Passwort ab Werk ist öffentlich: jeder in der Nähe könnte die Heizung steuern. Wähle ein neues (mindestens 8 Zeichen); die Platine startet neu und du musst dich mit dem neuen Passwort wieder mit ihrem WLAN verbinden.',setupLabel:'Neues WLAN-Passwort',setupShort:'Das Passwort muss mindestens 8 Zeichen lang sein.',water:'Kühlwasser',connecting:'Verbinde…',battery:'Batterie',flame:'Flamme',power:'Leistung',turnOn:'Einschalten',turnOff:'Ausschalten',
  turningOn:'Schalte ein…',turningOff:'Schalte aus…',schedules:'Zeitpläne',noSched:'Keine Zeitpläne.',schedOn:'Zeitpläne aktiv',addSched:'Zeitplan hinzufügen',
  saveSched:'Zeitpläne speichern',saved:'Gespeichert',diag:'Diagnose',readFaults:'Fehler auslesen',gasReset:'Diesel zurücksetzen',settings:'Einstellungen',language:'Sprache',
  ownNet:'Eigenes Bluetooth und WLAN',fName:'Name (WLAN und Bluetooth)',fPin:'Bluetooth-Kopplungs-PIN (6 Ziffern)',
@@ -264,7 +270,8 @@ function render(){if(!st)return;
  if(st.bus===0)w+='<div class="warn">'+T('busWarn')+'</div>';
  if(!st.tv)w+='<div class="warn">'+T('clockWarn')+'</div>';
  $('warn').innerHTML=w;
- if(!busy){$('big').disabled=false;$('big').textContent=st.on?T('turnOff'):T('turnOn')+' '+fmtDur(dur)}
+ $('setup').hidden=st.apdef!==true;
+ if(!busy){$('big').disabled=st.apdef===true;$('big').textContent=st.on?T('turnOff'):T('turnOn')+' '+fmtDur(dur)}
  if(!dirty){sched=st.sch.map(a=>({en:!!a[0],days:a[1],start:a[2],dur:a[3]}));$('auto').checked=st.auto;list()}
  $('diag').textContent=T('lastTx')+(st.tx||'-')+'\n'+T('lastRx')+(st.rx||'-')+'\n\n'+st.log.join('\n');
  $('wifi').textContent=(st.ble?T('bleOn'):'')+(st.sta?T('staOn',st.ssid,st.ip,st.rssi):T('staOff'))+T('ownAp',st.name);
@@ -306,7 +313,7 @@ $('errs').onclick=async()=>{$('errout').textContent=T('reading');try{const r=awa
  $('errout').textContent=(!r.ok?T('noAnswer'):r.codes.length?r.codes.map(c=>T('code',c.c,c.n)).join('\n'):T('noFaults'))+T('raw')+r.raw}catch(e){$('errout').textContent=T('error')+e.message}};
 // Configuración: lee los ajustes de la placa (las claves no se devuelven nunca: los campos quedan vacíos)
 async function loadCfg(){try{const c=await api('/api/cfg');
- $('c_name').value=c.name;$('c_pin').value=c.pin;$('c_wm').value=c.wifimode;$('c_ssid').value=c.ssid;$('c_chat').value=c.tgchat;$('c_mv').value=c.minvolt;$('c_lang').value=c.lang||lang;
+ $('c_name').value=c.name;$('c_pin').value=c.pin||'';$('c_wm').value=c.wifimode;$('c_ssid').value=c.ssid;$('c_chat').value=c.tgchat;$('c_mv').value=c.minvolt;$('c_lang').value=c.lang||lang;
  $('c_tok').value='';$('c_ap').value='';$('c_pass').value='';$('c_tok').placeholder=T(c.tg?'stored':'notSet');
  $('c_bonds').textContent=c.bonds?T('bonds',c.bonds):T('noBonds');
  $('c_ver').textContent=T('ver',c.ver)}catch(e){alert(T('cfgFail')+e.message)}}
@@ -314,9 +321,12 @@ async function loadCfg(){try{const c=await api('/api/cfg');
 $('cfgd').ontoggle=()=>{if($('cfgd').open)loadCfg()};
 // Guardar configuración: las claves vacías no se envían (la placa conserva las que tenía).
 // El idioma va primero: así la respuesta de la placa ya sale en el nuevo
-$('csave').onclick=async()=>{const b={lang:$('c_lang').value,name:$('c_name').value.trim(),pin:$('c_pin').value.trim(),wifimode:$('c_wm').value,ssid:$('c_ssid').value.trim(),tgchat:$('c_chat').value.trim(),minvolt:$('c_mv').value};
- if($('c_ap').value)b.appass=$('c_ap').value;if($('c_pass').value)b.pass=$('c_pass').value;if($('c_tok').value.trim())b.tgtok=$('c_tok').value.trim();
+$('csave').onclick=async()=>{const b={lang:$('c_lang').value,name:$('c_name').value.trim(),wifimode:$('c_wm').value,ssid:$('c_ssid').value.trim(),tgchat:$('c_chat').value.trim(),minvolt:$('c_mv').value};
+ if($('c_pin').value.trim())b.pin=$('c_pin').value.trim();if($('c_ap').value)b.appass=$('c_ap').value;if($('c_pass').value)b.pass=$('c_pass').value;if($('c_tok').value.trim())b.tgtok=$('c_tok').value.trim();
  try{setLang(b.lang);alert(await api('/api/cfg',b));loadCfg();poll()}catch(e){alert(e.message)}};
+// Primer uso: guardar la clave nueva de la Wi-Fi (la placa se reinicia para aplicarla)
+$('s_save').onclick=async()=>{const v=$('s_ap').value;if(v.length<8)return alert(T('setupShort'));
+ try{alert(await api('/api/cfg',{appass:v}));$('s_ap').value='';poll()}catch(e){alert(e.message)}};
 // Poner a cero el gasoil estimado
 $('gasreset').onclick=async()=>{if(!confirm(T('askGas')))return;try{alert(await api('/api/gasreset',{}));poll()}catch(e){alert(e.message)}};
 // Borrar los móviles emparejados por Bluetooth

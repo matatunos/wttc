@@ -253,6 +253,8 @@ class MainActivity : Activity(), BleLink.Listener {
                 val c = JSONObject(data); fillCfg(c); Stats.setFirmware(this, c.optString("ver"))
                 // La placa habla el idioma de la app (registro, avisos y web). Solo si su firmware lo admite (trae "lang")
                 if (c.has("lang") && c.optString("lang") != lang) link.send("set lang=$lang")
+                // Primer uso: la Wi-Fi de la placa sigue con la clave de fábrica (pública). Se pide una vez por sesión
+                if (c.optBoolean("apdef") && !apAsked && !link.demo) { apAsked = true; askApPass() }
             }
             "sched" -> parseSched(data)
             "setsched" -> { if (err) toast(msg) else { progsDirty = false; bSaveProgs.text = getString(R.string.saved); refreshSaveBtn() } }
@@ -601,6 +603,26 @@ class MainActivity : Activity(), BleLink.Listener {
             .setCancelable(false)
             .setPositiveButton(getString(R.string.stats_yes)) { _, _ -> swStats.isChecked = true }      // el interruptor guarda el permiso y envía
             .setNegativeButton(getString(R.string.stats_no)) { _, _ -> Stats.setConsent(this, false); swStats.isChecked = false }
+            .show()
+    }
+
+    // La Wi-Fi de la placa con la clave de fábrica: pedir una nueva (se aplica al reiniciar la placa)
+    private var apAsked = false
+    private fun askApPass() {
+        val e = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            hint = getString(R.string.ap_hint); setTextColor(cInk); setHintTextColor(cMut)
+        }
+        val box = FrameLayout(this).apply { setPadding(dp(20), dp(8), dp(20), 0); addView(e) }
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.ap_title))
+            .setMessage(getString(R.string.ap_msg))
+            .setView(box)
+            .setPositiveButton(getString(R.string.btn_save)) { _, _ ->
+                val v = e.text.toString()
+                if (v.length < 8) toast(getString(R.string.ap_short)) else { link.send("set appass=$v"); link.send("cfg") }
+            }
+            .setNegativeButton(getString(R.string.later), null)
             .show()
     }
 
