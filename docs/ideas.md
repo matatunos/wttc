@@ -84,6 +84,58 @@ queda); luego vuelve a dormir. Con una caja impresa en 3D y una batería pequeñ
 
 ---
 
+## 2. Dormir con el contacto quitado (cable amarillo = positivo bajo llave)
+
+**La idea:** si el cable amarillo del conector del mando es un **positivo bajo llave** (borne 15), usarlo para que
+el ESP32 pase casi todo el tiempo en sueño profundo y se despierte solo cuando hace falta: al dar contacto o a la
+hora del próximo programa. Con la furgo parada semanas, el consumo es lo que más preocupa.
+
+**Primero, medir qué es el amarillo:** 0 V sin contacto y 12 V con contacto → borne 15 (sirve). Si sigue a las
+luces, es la iluminación del mando (borne 58) y no vale.
+
+### Cómo funcionaría
+
+- **Contacto quitado y sin calentar:** el ESP32 duerme. Se despierta por **temporizador** (próximo programa) o por
+  el **amarillo** al dar contacto.
+- **Con contacto:** despierto y todo como ahora (app, web, Telegram). Además, la placa sabría si el motor está en
+  marcha.
+- **Calentando:** despierto siempre, porque la Webasto necesita el mantenimiento cada 5 s.
+- El amarillo **no puede ir directo** al ESP32 (3,3 V y picos de tensión del coche): a través de un optoacoplador
+  (tipo PC817) o divisor con zener y protección, a un pin de los que despiertan al ESP32 (los de RTC).
+
+### Lo que habría que resolver
+
+- **El hardware manda en el ahorro.** El chip ESP32 dormido gasta ~10 µA, pero la placa DevKitC (regulador, chip
+  USB, LED) sigue en varios mA y el LM2596 también tiene su consumo en reposo. Con el montaje actual se pasaría de
+  ~15–25 mA a ~10–15 mA. Para bajar de 1 mA: regulador de bajo consumo en reposo y placa ESP32 de bajo consumo.
+- **El reloj.** Dormido, el ESP32 cuenta el tiempo con un oscilador interno que se desvía minutos al día: en
+  semanas, los programas saldrían corridos. Y hoy, sin pila, la placa pierde la hora si se corta la corriente.
+  Un **módulo RTC DS3231** (con pila y salida de alarma para despertar al ESP32) arregla las dos cosas; valdría la
+  pena incluso sin el amarillo.
+- **Lo que se pierde dormida:** Bluetooth y Wi-Fi. La app no podría encenderla al momento desde fuera de la furgo;
+  solo los programas. Por eso, como **modo «ahorro máximo»** elegible, no como único comportamiento. Variante
+  intermedia: despertar un instante cada pocos segundos para anunciarse por Bluetooth (la app tardaría algo más en
+  conectar).
+- **LoRa (idea 1):** si algún día se añade, la radio también tendría que escuchar a ratos para no anular el ahorro.
+
+### Material aproximado
+
+- Optoacoplador PC817 + resistencias (o divisor + zener + TVS) para el amarillo.
+- Módulo RTC DS3231 con pila (I²C + pin de alarma).
+- Para el ahorro de verdad: regulador reductor de bajo consumo en reposo en lugar del LM2596 y placa ESP32 de bajo
+  consumo en lugar del DevKitC.
+
+### Pasos, si algún día se hace
+
+1. Medir el amarillo con el polímetro.
+2. Medir el consumo real del montaje actual (polímetro en serie), para saber de qué se parte.
+3. Añadir el DS3231: hora fiable aunque se corte la corriente (útil por sí solo).
+4. Entrada del amarillo con optoacoplador; el firmware solo la lee (¿hay contacto?).
+5. Modo «ahorro máximo»: sueño profundo con despertar por alarma del RTC o por el amarillo.
+6. Si el ahorro se queda corto: cambiar regulador y placa.
+
+---
+
 ## Otras ideas apuntadas
 
 - **Contactar con quien ya lo ha hecho:** en
