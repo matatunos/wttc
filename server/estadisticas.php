@@ -59,6 +59,7 @@ if (($_GET['action'] ?? '') === 'data') {
     }
     exit;
 }
+wttc_visit('estadisticas');
 ?><!DOCTYPE html>
 <html lang="es">
 <head>

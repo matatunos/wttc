@@ -8,6 +8,7 @@
 //   pings     — qué instalaciones informaron cada día (para contar activas por día o semana)
 //   daily     — contadores sumados por día: starts_app, starts_prog, self_stops (sin instalación)
 //   err_daily — códigos de avería sumados por día (sin instalación)
+//   visits    — visitas a la web pública por día y página: páginas vistas y entradas desde fuera de la web
 // Vive fuera de la carpeta web: /var/wttc-data/stats.sqlite (appdata/wttc-data en vigia, montaje propio con escritura).
 // No se guarda la IP ni nada que identifique a la persona: solo un identificador aleatorio de instalación,
 // que la app genera al aceptar y borra (pidiendo aquí su borrado) si se retira el permiso.
@@ -28,8 +29,29 @@ function wttc_db(): PDO {
         -- Contadores y averías por día (sin instalación: solo sumas), para poder filtrar por periodo
         CREATE TABLE IF NOT EXISTS daily (day TEXT NOT NULL, k TEXT NOT NULL, v INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, k));
         CREATE TABLE IF NOT EXISTS err_daily (day TEXT NOT NULL, code TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, code));
+        CREATE TABLE IF NOT EXISTS visits (day TEXT NOT NULL, page TEXT NOT NULL, views INTEGER NOT NULL DEFAULT 0,
+            entries INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, page));
     ');
     return $db;
+}
+
+// Cuenta una carga de una página de la web pública. Sin cookies ni IP: solo sumas por día y página.
+// «entries» = la carga viene de fuera de la web (buscador, enlace, URL escrita), es decir, una visita nueva.
+// Los bots no cuentan. Nunca rompe la página: si algo falla, no se cuenta y ya está.
+function wttc_visit(string $page): void {
+    try {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') return;
+        $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        if ($ua === '' || preg_match('/bot|crawl|spider|slurp|preview|monitor|uptime|headless|curl|wget|python|java\/|go-http|httpclient|okhttp|lighthouse/i', $ua)) return;
+        if (($_SERVER['HTTP_SEC_PURPOSE'] ?? $_SERVER['HTTP_PURPOSE'] ?? '') !== '') return;   // precargas del navegador
+        $ref = parse_url($_SERVER['HTTP_REFERER'] ?? '', PHP_URL_HOST);
+        $entry = $ref !== ($_SERVER['HTTP_HOST'] ?? '') ? 1 : 0;
+        wttc_db()->prepare('INSERT INTO visits (day, page, views, entries) VALUES (?, ?, 1, ?)
+                            ON CONFLICT(day, page) DO UPDATE SET views = views + 1, entries = entries + excluded.entries')
+                 ->execute([gmdate('Y-m-d'), $page, $entry]);
+    } catch (Throwable $e) {
+        error_log('wttc visit: ' . $e->getMessage());
+    }
 }
 
 // Periodo pedido por la página (?period=7d|30d|90d|1y|all o ?from=AAAA-MM-DD&to=AAAA-MM-DD) → [desde, hasta] en UTC
