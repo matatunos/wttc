@@ -12,6 +12,8 @@ ACT=es.favala.wttc/.MainActivity
 EXTRAS="--ez demo true --ez demo_on true --ez capturas true"
 
 adb install -r "$APK"
+# La app sigue el idioma del móvil (el emulador está en inglés): las capturas del README, en español
+adb shell cmd locale set-app-locales es.favala.wttc --locales es-ES
 adb shell settings put system screen_off_timeout 1800000
 adb shell input keyevent KEYCODE_WAKEUP
 adb shell am start -n "$ACT" $EXTRAS

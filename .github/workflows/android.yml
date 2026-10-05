@@ -10,8 +10,7 @@
 name: App Android y Release
 
 on:
-  push:
-    branches: [main]
+  push:          # en cualquier rama se compila; la Release solo se publica desde main (ver «Publicar en Releases»)
     paths: ['android/**', 'firmware/**', 'VERSION', 'CHANGELOG.md', '.github/workflows/android.yml']
   pull_request:
     paths: ['android/**']
