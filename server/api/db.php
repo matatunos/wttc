@@ -52,6 +52,7 @@ function wttc_db(): PDO {
 // Cuenta una carga de una página de la web pública. Sin cookies ni IP: solo sumas por día y página.
 // «entries» = la carga viene de fuera de la web (buscador, enlace, URL escrita), es decir, una visita nueva;
 // de esas se apunta también de dónde vienen, solo el dominio (nunca la URL entera, que puede llevar datos).
+// Un enlace etiquetado (?desde=furgovw o ?utm_source=…) manda sobre el referer: sirve para sitios que no lo envían.
 // Los bots no cuentan. Nunca rompe la página: si algo falla, no se cuenta y ya está.
 function wttc_visit(string $page): void {
     try {
@@ -62,7 +63,9 @@ function wttc_visit(string $page): void {
         // Host no sirve: Caddy reenvía con «Host: tools.favala.es»; el dominio público es fijo
         $ref = (string)($_SERVER['HTTP_REFERER'] ?? '');
         $refHost = strtolower((string)parse_url($ref, PHP_URL_HOST));
-        $entry = $refHost !== WTTC_HOST ? 1 : 0;
+        $tag = (string)($_GET['desde'] ?? $_GET['utm_source'] ?? '');
+        $tag = preg_match('/^[A-Za-z0-9._-]{1,40}$/', $tag) ? strtolower($tag) : '';
+        $entry = ($refHost !== WTTC_HOST || $tag !== '') ? 1 : 0;
         $day = gmdate('Y-m-d');
         $db = wttc_db();
         $db->prepare('INSERT INTO visits (day, page, views, entries) VALUES (?, ?, 1, ?)
@@ -70,7 +73,8 @@ function wttc_visit(string $page): void {
            ->execute([$day, $page, $entry]);
         if ($entry) {
             // Procedencia: dominio sin «www.»; sin referer, «(directo)»; las apps Android mandan android-app://paquete
-            if ($ref === '') $src = '(directo)';
+            if ($tag !== '') $src = 'enlace:' . $tag;
+            elseif ($ref === '') $src = '(directo)';
             elseif (str_starts_with($ref, 'android-app://')) $src = 'app:' . substr(preg_replace('#^android-app://([^/]+).*#', '$1', $ref), 0, 70);
             else $src = preg_replace('/^www\./', '', $refHost);
             if (!preg_match('/^[a-z0-9:._()-]{1,80}$/', $src)) $src = '(otro)';
