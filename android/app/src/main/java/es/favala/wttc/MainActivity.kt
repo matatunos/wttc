@@ -54,6 +54,10 @@ import kotlin.math.ceil
  *  - onResponse(): llega la respuesta a una orden ("orden:datos")
  */
 class MainActivity : Activity(), BleLink.Listener {
+    companion object {
+        // Última versión del firmware y su actualización firmada (lo genera wttc-publicar.sh desde el repo)
+        private const val OTA_MANIFEST = "https://wttc.favala.es/descargas/ota.json"
+    }
 
     // Colores (los mismos que la web del ESP32)
     private val cBg = Color.parseColor("#0F1A2A")
@@ -134,6 +138,9 @@ class MainActivity : Activity(), BleLink.Listener {
     private lateinit var eChat: EditText
     private lateinit var eMinV: EditText
     private lateinit var tCfg: TextView
+    private lateinit var tUpd: TextView                // estado de «Buscar actualizaciones»
+    private var fwVer = ""                             // versión del firmware de la placa (de «cfg»)
+    private var fwOta = false                          // ¿sabe actualizarse sola por internet? (firmware 0.1.5+)
     // Interruptor de las estadísticas anónimas (en «Ajustes de la app»)
     private lateinit var swStats: Switch
 
@@ -270,6 +277,12 @@ class MainActivity : Activity(), BleLink.Listener {
             "forget" -> toast(getString(R.string.forgot_bonds))
             "reboot" -> toast(if (err) msg else getString(R.string.rebooting))
             "time" -> {}
+            // Actualización por internet: «busy» al empezar; luego llega el resultado (ok o err) cuando termina
+            "update" -> when {
+                err -> { tUpd.text = msg; toast(msg) }
+                data == "busy" -> { tUpd.visibility = View.VISIBLE; tUpd.text = getString(R.string.upd_started) }
+                else -> { tUpd.text = data; toast(data) }
+            }
             else -> if (err) toast(msg)
         }
     }
@@ -298,6 +311,8 @@ class MainActivity : Activity(), BleLink.Listener {
             fun l(i: Int): String { val v = g.optDouble(i, 0.0); return (if (v < 10) String.format(numLocale, "%.2f", v) else String.format(numLocale, "%.1f", v)) + " l" }
             tGas.text = if (on) getString(R.string.gas_on, l(0), l(2), l(3)) else getString(R.string.gas_off, l(1), l(2), l(3))
         }
+        val op = j.optInt("op", -1)
+        if (op >= 0) { tUpd.visibility = View.VISIBLE; tUpd.text = getString(R.string.upd_progress, op) }
         val note = j.optString("note")
         val warn = mutableListOf<String>()
         if (!on && note.isNotEmpty()) warn += note
@@ -504,6 +519,10 @@ class MainActivity : Activity(), BleLink.Listener {
         field(getString(R.string.f_minv), InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL).let { cfg.addView(it.first); eMinV = it.second }
         cfg.addView(row(button(getString(R.string.btn_save), true) { saveCfg() }, button(getString(R.string.btn_tg_test)) { link.send("tgtest") }), lp(top = 14))
         cfg.addView(row(button(getString(R.string.btn_wifi15)) { link.send("wifi") }, button(getString(R.string.btn_reboot)) { confirmReboot() }), lp(top = 10))
+        // Actualizaciones del firmware: la app consulta la última versión y, si hay una nueva, la placa la descarga e instala
+        cfg.addView(button(getString(R.string.upd_check)) { checkUpdates() }, lp(top = 10))
+        tUpd = text("", 13f, cMut).apply { visibility = View.GONE }
+        cfg.addView(tUpd, lp(top = 8))
         tCfg = text("", 13f, cMut)
         cfg.addView(tCfg, lp(top = 10))
         controls.addView(cfg, lp(top = 10))
@@ -624,6 +643,42 @@ class MainActivity : Activity(), BleLink.Listener {
             }
             .setNegativeButton(getString(R.string.later), null)
             .show()
+    }
+
+    // ---------- actualizaciones del firmware ----------
+    // Compara versiones «a.b.c»: <0 si a es más antigua que b
+    private fun verCmp(a: String, b: String): Int {
+        val x = a.split('.').map { it.toIntOrNull() ?: 0 }; val y = b.split('.').map { it.toIntOrNull() ?: 0 }
+        for (i in 0 until 3) { val d = x.getOrElse(i) { 0 } - y.getOrElse(i) { 0 }; if (d != 0) return d }
+        return 0
+    }
+
+    // «Buscar actualizaciones»: la app consulta la última versión (ota.json, en la web del proyecto) y, si hay una
+    // nueva, pregunta; si se acepta, la placa la descarga, comprueba la firma, la instala y se reinicia (orden «update»)
+    private fun checkUpdates() {
+        if (link.demo) { toast(getString(R.string.upd_demo)); return }
+        if (fwVer.isEmpty()) return
+        if (!fwOta) { AlertDialog.Builder(this).setMessage(getString(R.string.upd_usb)).setPositiveButton(android.R.string.ok, null).show(); return }
+        tUpd.visibility = View.VISIBLE; tUpd.text = getString(R.string.upd_checking)
+        kotlin.concurrent.thread(name = "wttc-ota", isDaemon = true) {
+            val m = runCatching {
+                val con = java.net.URL(OTA_MANIFEST).openConnection() as java.net.HttpURLConnection
+                con.connectTimeout = 8000; con.readTimeout = 8000
+                JSONObject(con.inputStream.bufferedReader().use { it.readText() }).also { con.disconnect() }
+            }.getOrNull()
+            runOnUiThread {
+                if (m == null) { tUpd.text = getString(R.string.upd_no_net); return@runOnUiThread }
+                val v = m.optString("version")
+                if (verCmp(v, fwVer) <= 0) { tUpd.text = getString(R.string.upd_latest, fwVer); return@runOnUiThread }
+                tUpd.text = getString(R.string.upd_new_title, v)
+                AlertDialog.Builder(this)
+                    .setTitle(getString(R.string.upd_new_title, v))
+                    .setMessage(getString(R.string.upd_new_msg, fwVer, m.optString("notas").ifEmpty { "—" }))
+                    .setPositiveButton(getString(R.string.upd_yes)) { _, _ -> link.send("update") }
+                    .setNegativeButton(getString(R.string.later), null)
+                    .show()
+            }
+        }
     }
 
     // Confirmación antes de poner a cero el gasoil estimado
@@ -764,6 +819,7 @@ class MainActivity : Activity(), BleLink.Listener {
         eMinV.setText(c.optString("minvolt"))
         eTok.hint = getString(if (c.optBoolean("tg")) R.string.hint_token_saved else R.string.hint_not_set)
         eAp.setText(""); ePass.setText(""); eTok.setText("")
+        fwVer = c.optString("ver"); fwOta = c.optInt("ota") == 1
         val bonds = c.optInt("bonds")
         tCfg.text = getString(R.string.cfg_info, c.optString("ver"), bonds)
     }

@@ -133,6 +133,17 @@
     <string name="ap_hint">Neues WLAN-Passwort</string>
     <string name="ap_short">Das Passwort muss mindestens 8 Zeichen lang sein.</string>
     <string name="later">Später</string>
+    <string name="upd_check">Nach Updates suchen</string>
+    <string name="upd_checking">Suche nach Updates…</string>
+    <string name="upd_latest">Die Platine hat bereits die neueste Version (%1$s).</string>
+    <string name="upd_new_title">Neue Version: %1$s</string>
+    <string name="upd_new_msg">Die Platine hat %1$s.\n\nNeu: %2$s\n\nDie Platine lädt es herunter, prüft, ob es offiziell ist, installiert es und startet selbst neu. Sie muss mit einem Netz mit Internet verbunden sein (Einstellungen) und die Heizung muss aus sein.</string>
+    <string name="upd_yes">Aktualisieren</string>
+    <string name="upd_progress">Update wird heruntergeladen und installiert… %1$d %%</string>
+    <string name="upd_started">Die Platine sucht und lädt das Update herunter…</string>
+    <string name="upd_no_net">Die neueste Version konnte nicht abgefragt werden: hat das Handy Internet?</string>
+    <string name="upd_usb">Diese Platine hat eine Firmware von vor den kabellosen Updates: einmal per USB mit der neuesten Version flashen (Anleitung auf wttc.favala.es).</string>
+    <string name="upd_demo">Im Demomodus gibt es nichts zu aktualisieren.</string>
     <string-array name="phases">
         <item>Aus</item>
         <item>Startet…</item>

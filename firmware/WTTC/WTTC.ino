@@ -133,6 +133,17 @@ BLECharacteristic *chState = nullptr, *chResp = nullptr;   // características d
 uint32_t lastBleState = 0;            // última vez que se envió el estado por Bluetooth
 bool rebootPending = false;           // reiniciar en la próxima vuelta de loop() (tras responder)
 
+// ---------- actualización por internet (ver «Buscar e instalar por internet») ----------
+volatile bool otaNetBusy = false;     // hay una búsqueda o descarga en marcha (en otra tarea)
+volatile int otaProg = -1;            // progreso de la descarga (0–100); -1 = ninguna
+volatile bool otaNetEnd = false;      // la tarea ha terminado: loop() responde y, si se instaló, reinicia
+String otaNetMsg;                     // texto del resultado (lo escribe la tarea antes de otaNetEnd)
+String otaNetNotes;                   // novedades de la versión nueva (de ota.json)
+String lastWebMsg;                    // último resultado para la web (estado «om»)
+bool otaNetOk = false, otaNetInstall = false, otaNetAuto = false, otaNetNew = false;
+char otaNetVer[17] = "";              // versión encontrada
+uint32_t otaAutoLast = 0;             // última búsqueda automática (una al día, para avisar por Telegram)
+
 // ---------- objetos globales ----------
 const uint8_t MAX_SCHED = 8;          // número máximo de programas semanales
 HardwareSerial wbus(2);               // UART2 del ESP32: la del W-Bus
@@ -192,6 +203,7 @@ enum Txt {
   T_W_OFF_NOCONF, T_W_SAVED, T_W_SAVED_LATER, T_W_SAVED_REBOOT, T_W_TG_SENDING, T_W_GASRESET, T_W_FORGOT,
   T_W_ORIGIN, T_W_SETUP, T_E_APPASS_DEF,
   T_OTA_HEAT, T_OTA_FORMAT, T_OTA_NOSLOT, T_OTA_WRITE, T_OTA_SIG, T_OTA_OLD, T_OTA_OK, T_LOG_OTA, T_LOG_OTA_OK,
+  T_OTA_NONET, T_OTA_LATEST, T_OTA_NEW, T_OTA_NOTYET, T_OTA_BUSY, T_OTA_DL, T_TG_OTA_NEW,
   T_COUNT
 };
 
@@ -284,6 +296,15 @@ const char* const TXT[T_COUNT][L_N] = {
   /* T_OTA_OK */           {"Actualización %s instalada. Reiniciando; vuelve a conectarte en unos segundos.", "Update %s installed. Restarting; reconnect in a few seconds.", "Update %s installiert. Neustart; in ein paar Sekunden neu verbinden."},
   /* T_LOG_OTA */          {"Actualización instalada: %s", "Update installed: %s", "Update installiert: %s"},
   /* T_LOG_OTA_OK */       {"Firmware %s confirmado tras la actualización", "Firmware %s confirmed after the update", "Firmware %s nach dem Update bestätigt"},
+  /* T_OTA_NONET */        {"La placa no tiene internet: únela a una red con internet (Configuración) o sube el fichero .ota desde su web.", "The board has no internet: join it to a network with internet (Settings) or upload the .ota file from its web page.", "Die Platine hat kein Internet: mit einem Netz mit Internet verbinden (Einstellungen) oder die .ota-Datei über ihre Webseite hochladen."},
+  /* T_OTA_LATEST */       {"Ya tiene la última versión (%s).", "It already has the latest version (%s).", "Sie hat bereits die neueste Version (%s)."},
+  /* T_OTA_NEW */          {"Hay una versión nueva: %s (tiene la %s).", "There is a new version: %s (it has %s).", "Es gibt eine neue Version: %s (installiert ist %s)."},
+  /* T_OTA_NOTYET */       {"La actualización %s aún no está publicada; prueba dentro de un rato.", "Update %s is not published yet; try again in a while.", "Update %s ist noch nicht veröffentlicht; später erneut versuchen."},
+  /* T_OTA_BUSY */         {"Ya hay una actualización en marcha.", "An update is already in progress.", "Es läuft bereits ein Update."},
+  /* T_OTA_DL */           {"Descargando la versión %s…", "Downloading version %s…", "Lade Version %s herunter…"},
+  /* T_TG_OTA_NEW */       {"Hay una versión nueva de WTTC: %s. Se instala desde la app o la web de la placa (Buscar actualizaciones). Novedades: %s",
+                            "A new WTTC version is available: %s. Install it from the app or the board's web page (Check for updates). What's new: %s",
+                            "Neue WTTC-Version verfügbar: %s. Installieren über die App oder die Webseite der Platine (Nach Updates suchen). Neu: %s"},
 };
 
 // Texto en el idioma elegido
@@ -362,7 +383,7 @@ String hhmm() {
 // Se encolan y los envía una tarea aparte: una conexión lenta (TLS tarda un par de segundos) no debe
 // retrasar el mensaje de mantenimiento del W-Bus, que tiene que salir cada 5 s.
 // ============================================================================================================
-struct Msg { char t[240]; };          // un aviso pendiente de enviar
+struct Msg { char t[640]; };          // un aviso pendiente de enviar (cabe el de versión nueva con sus novedades)
 // Raíz de la cadena de api.telegram.org: Go Daddy Root Certificate Authority - G2 (caduca en 2037).
 // SHA-256 45:14:0B:32:47:EB:9C:C8:C5:B4:F0:D7:B5:30:91:F7:32:92:08:9E:6E:5A:63:E2:74:9D:D3:AC:A9:19:8E:DA
 // Con ella se comprueba el certificado: en una red ajena nadie puede hacerse pasar por Telegram y leer el token.
@@ -807,6 +828,7 @@ String cfgJson(bool withPin) {
   j += ",\"minvolt\":";  j += String(minVolt, 1);
   j += ",\"bonds\":";    j += esp_ble_get_bond_device_num();     // cuántos móviles están emparejados
   j += ",\"lang\":\"";  j += LANG_CODES[lang]; j += "\"";     // idioma de la placa (la app lo iguala al del móvil)
+  j += ",\"ota\":1";                                            // sabe buscar y actualizar por internet
   j += ",\"ver\":\"" FW_VERSION "\"}";
   return j;
 }
@@ -903,6 +925,7 @@ String stateJson() {
   // Gasoil estimado: [encendido actual, último, mes, total]
   j += ",\"gas\":[";  j += String(gasCur, 2); j += ","; j += String(gasLast, 2); j += ",";
   j += String(gasMonth, 1); j += ","; j += String(gasTotal, 1); j += "]";
+  j += ",\"op\":";   j += otaProg;                // actualización por internet: 0–100 %, -1 = ninguna
   j += ",\"note\":"; j += js(stopNote.substring(0, 200));   // recortado para que quepa
   j += "}";
   return j;
@@ -1049,6 +1072,10 @@ String runCmd(String c) {
   }
   if (k == "forget") { bleForgetAll(); return "forget:ok"; }
   if (k == "gasreset") { gasMonth = gasTotal = gasLast = 0; gasSave(); addLog(tr(T_LOG_GASRESET)); return "gasreset:ok"; }
+  if (k == "otacheck" || k == "update") {         // buscar actualización / buscar e instalar (va en otra tarea)
+    String e = otaNetStart(k == "update", false);
+    return e.length() ? k + ":err " + e : k + ":busy";   // «busy» = en marcha; el resultado llega luego como k:…
+  }
   if (k == "reboot") {
     if (heaterOn) return String("reboot:err ") + tr(T_E_REBOOT_HEAT);   // sin placa, la Webasto se apaga en segundos
     rebootPending = true;                          // se reinicia en loop(), después de mandar esta respuesta
@@ -1094,6 +1121,9 @@ void handleState() {
   j += ",\"name\":";   j += js(String(cfgName));
   j += ",\"lang\":";   j += js(String(LANG_CODES[lang]));
   j += ",\"apdef\":";  j += apDefault() ? "true" : "false";     // primer uso: la web pide la clave nueva
+  j += ",\"op\":";     j += otaProg;                             // actualización por internet en curso (0–100)
+  j += ",\"om\":";     j += js(lastWebMsg);                      // último resultado de buscar o actualizar
+  j += ",\"onew\":";   j += (otaNetNew && !otaNetBusy) ? "true" : "false";   // ese resultado es «hay versión nueva»
   bool sta = WiFi.status() == WL_CONNECTED;       // ¿unida a la red con internet?
   j += ",\"sta\":";    j += sta ? "true" : "false";
   j += ",\"ssid\":";   j += js(sta ? WiFi.SSID() : String(""));
@@ -1215,7 +1245,6 @@ void otaFinish() {
   if (!ok) { otaFail(T_OTA_SIG); return; }
   if (!Update.end(true)) { otaFail(T_OTA_WRITE); return; }
   ota.done = true;
-  addLog(trf(T_LOG_OTA, ota.ver));
 }
 
 // Manejador de la subida (POST /api/update, multipart): lo llama el servidor web con cada trozo del fichero
@@ -1223,14 +1252,15 @@ void handleUpdateUpload() {
   HTTPUpload& u = server.upload();
   lastWeb = millis();                                         // que la Wi-Fi no se apague a mitad
   if (u.status == UPLOAD_FILE_START) {
+    if (otaNetBusy) { ota.active = true; ota.failed = true; ota.err = tr(T_OTA_BUSY); return; }   // ya descarga por internet
     if (ota.mdOn) mbedtls_md_free(&ota.md);
     ota = Ota();
     ota.active = true;
     if (heaterOn) otaFail(T_OTA_HEAT);                        // nunca mientras calienta
   } else if (u.status == UPLOAD_FILE_WRITE) {
-    if (ota.active) otaFeed(u.buf, u.currentSize);
+    if (ota.active && !otaNetBusy) otaFeed(u.buf, u.currentSize);
   } else if (u.status == UPLOAD_FILE_END) {
-    if (ota.active) otaFinish();
+    if (ota.active && !otaNetBusy) otaFinish();
   } else if (u.status == UPLOAD_FILE_ABORTED) {
     otaFail(T_OTA_WRITE);
   }
@@ -1241,8 +1271,118 @@ void handleUpdateDone() {
   if (!ota.active) { server.send(400, "text/plain", tr(T_OTA_FORMAT)); return; }
   ota.active = false;
   if (!ota.done) { server.send(400, "text/plain", ota.err ? ota.err : tr(T_OTA_WRITE)); return; }
+  addLog(trf(T_LOG_OTA, ota.ver));
   server.send(200, "text/plain", trf(T_OTA_OK, ota.ver));
   rebootPending = true;
+}
+
+// ---------- Buscar e instalar por internet (la placa unida a una red con internet) ----------
+// «Buscar actualizaciones» (orden otacheck) lee ota.json en la web del proyecto: última versión y dirección de su .ota.
+// «Actualizar» (orden update) lo descarga de las Releases de GitHub y lo instala con el mismo código que la subida
+// por la web (otaFeed/otaFinish): firma y versión se comprueban igual. Va en una tarea aparte para que el Bluetooth
+// y la web sigan respondiendo; el progreso sale en el estado («op», 0–100) y el resultado como respuesta «update:…».
+// TLS sin comprobar el certificado a propósito: lo que garantiza que la actualización es buena es su firma, no el
+// servidor del que venga (y las descargas de GitHub saltan entre varios dominios con certificados distintos).
+#define OTA_MANIFEST "https://wttc.favala.es/descargas/ota.json"
+
+// Valor de una clave de un JSON sencillo y plano: {"version":"0.1.5","ota":"https://…"}
+String jsonStr(const String& j, const char* k) {
+  String key = String("\"") + k + "\":\"";
+  int a = j.indexOf(key); if (a < 0) return "";
+  a += key.length(); int b = j.indexOf('"', a);
+  return b < 0 ? "" : j.substring(a, b);
+}
+
+// Espera a la red con internet (la Wi-Fi puede estar apagada por ahorro: loop() la enciende con wifiUntil)
+bool otaNetWait() {
+  for (int i = 0; i < 40 && WiFi.status() != WL_CONNECTED; i++) vTaskDelay(pdMS_TO_TICKS(1000));
+  return WiFi.status() == WL_CONNECTED;
+}
+
+void otaNetDone(bool ok, const String& msg) { otaNetOk = ok; otaNetMsg = msg; otaProg = -1; otaNetEnd = true; }
+
+void otaNetTask(void*) {
+  bool install = otaNetInstall;
+  if (!otaNetWait()) { otaNetDone(false, tr(T_OTA_NONET)); vTaskDelete(nullptr); return; }
+  WiFiClientSecure cli; cli.setInsecure();
+  HTTPClient http; http.setConnectTimeout(10000); http.setTimeout(15000);
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+  // 1) ¿qué versión hay?
+  String body;
+  if (http.begin(cli, OTA_MANIFEST)) { if (http.GET() == 200) body = http.getString(); http.end(); }
+  String ver = jsonStr(body, "version"), url = jsonStr(body, "ota");
+  otaNetNotes = jsonStr(body, "notas");                   // novedades de esa versión (del CHANGELOG)
+  if (!ver.length() || !url.startsWith("https://") || ver.length() > 16) { otaNetDone(false, tr(T_OTA_NONET)); vTaskDelete(nullptr); return; }
+  strlcpy(otaNetVer, ver.c_str(), sizeof otaNetVer);
+  if (verCmp(otaNetVer, FW_VERSION) <= 0) { otaNetDone(true, trf(T_OTA_LATEST, FW_VERSION)); vTaskDelete(nullptr); return; }
+  otaNetNew = true;
+  if (!install) { otaNetDone(true, trf(T_OTA_NEW, otaNetVer, FW_VERSION) + (otaNetNotes.length() ? " " + otaNetNotes : String(""))); vTaskDelete(nullptr); return; }
+  // 2) descargar e instalar
+  if (heaterOn) { otaNetDone(false, tr(T_OTA_HEAT)); vTaskDelete(nullptr); return; }
+  int code = -1;
+  if (http.begin(cli, url)) code = http.GET();
+  if (code != 200) { http.end(); otaNetDone(false, code == 404 ? trf(T_OTA_NOTYET, otaNetVer) : String(tr(T_OTA_NONET))); vTaskDelete(nullptr); return; }
+  int total = http.getSize(), got = 0;
+  WiFiClient* st = http.getStreamPtr();
+  if (ota.mdOn) mbedtls_md_free(&ota.md);
+  ota = Ota(); ota.active = true; otaProg = 0;
+  uint8_t buf[1024]; uint32_t last = millis();
+  while (!ota.failed && (total < 0 || got < total) && millis() - last < 20000) {
+    if (heaterOn) { otaFail(T_OTA_HEAT); break; }               // un programa ha encendido la calefacción: se deja
+    size_t av = st->available();
+    if (!av) { if (!http.connected()) break; vTaskDelay(pdMS_TO_TICKS(5)); continue; }
+    int n = st->readBytes(buf, min(av, sizeof buf));
+    if (n <= 0) continue;
+    otaFeed(buf, n); got += n; last = millis();
+    if (total > 0) otaProg = (int)((int64_t)got * 100 / total);
+  }
+  http.end();
+  if (!ota.failed && total > 0 && got < total) otaFail(T_OTA_WRITE);   // descarga cortada
+  if (!ota.failed) otaFinish();
+  if (ota.done && heaterOn) { ota.done = false; esp_ota_set_boot_partition(esp_ota_get_running_partition()); otaFail(T_OTA_HEAT); }
+  ota.active = false;
+  otaNetDone(ota.done, ota.done ? trf(T_OTA_OK, otaNetVer) : String(ota.err ? ota.err : tr(T_OTA_WRITE)));
+  vTaskDelete(nullptr);
+}
+
+// Lanza la búsqueda (install = false) o la actualización completa (install = true). Devuelve el error, o "" si arranca
+// autoCheck = búsqueda diaria para avisar por Telegram: solo si la Wi-Fi ya está conectada (no la enciende).
+String otaNetStart(bool install, bool autoCheck) {
+  if (otaNetBusy) return tr(T_OTA_BUSY);
+  if (install && heaterOn) return tr(T_OTA_HEAT);
+  if (!staSsid[0]) return tr(T_OTA_NONET);
+  if (!autoCheck && (int32_t)(wifiUntil - (millis() + 120000)) < 0) wifiUntil = millis() + 120000;   // Wi-Fi encendida mientras dura
+  otaNetBusy = true; otaNetEnd = false; otaNetInstall = install; otaNetAuto = autoCheck; otaNetNew = false; otaNetNotes = "";
+  if (!autoCheck) lastWebMsg = "";                    // la web espera a que aparezca el resultado nuevo
+  if (xTaskCreatePinnedToCore(otaNetTask, "ota", 12288, nullptr, 1, nullptr, 0) != pdPASS) { otaNetBusy = false; return tr(T_OTA_WRITE); }
+  return "";
+}
+
+// En loop(): cuando la tarea termina, se apunta, se responde a la app y, si se instaló, se reinicia
+void otaNetPoll() {
+  // Búsqueda diaria: con Telegram configurado y la Wi-Fi ya conectada; la primera, 5 min después de arrancar
+  if (!otaNetBusy && tgToken[0] && tgChat[0] && WiFi.status() == WL_CONNECTED && !heaterOn
+      && (otaAutoLast ? millis() - otaAutoLast > 86400000UL : millis() > 300000)) {
+    otaAutoLast = millis();
+    otaNetStart(false, true);
+  }
+  if (!otaNetEnd) return;
+  otaNetEnd = false; otaNetBusy = false;
+  if (otaNetAuto) {                                       // aviso por Telegram, una sola vez por versión
+    if (otaNetOk && otaNetNew) {
+      prefs.begin("webasto", false);
+      String last = prefs.isKey("otanv") ? prefs.getString("otanv") : String("");
+      if (last != otaNetVer) {
+        notify(trf(T_TG_OTA_NEW, otaNetVer, otaNetNotes.length() ? otaNetNotes.c_str() : "-"));
+        prefs.putString("otanv", otaNetVer);
+      }
+      prefs.end();
+    }
+    return;
+  }
+  if (otaNetOk && otaNetInstall) { addLog(trf(T_LOG_OTA, otaNetVer)); rebootPending = true; }
+  bleSet(chResp, String(otaNetInstall ? "update:" : "otacheck:") + (otaNetOk ? "" : "err ") + otaNetMsg);
+  lastWebMsg = otaNetMsg;
 }
 
 // Vuelta atrás: el núcleo confirmaría el programa nuevo nada más arrancar, pero rollback.cpp le dice «más tarde».
@@ -1398,6 +1538,10 @@ void setup() {
   // Actualización sin cable: misma protección que las órdenes; el primer manejador responde, el segundo recibe el fichero
   server.on("/api/update", HTTP_POST, [] { if (sameOrigin() && setupDone()) handleUpdateDone(); },
             [] { if (originOk() && !apDefault()) handleUpdateUpload(); });
+  server.on("/api/otacheck", HTTP_POST, [] { if (!sameOrigin() || !setupDone()) return; String e = otaNetStart(false, false);
+    server.send(e.length() ? 400 : 202, "text/plain", e.length() ? e : String("")); });
+  server.on("/api/otaupdate", HTTP_POST, [] { if (!sameOrigin() || !setupDone()) return; String e = otaNetStart(true, false);
+    server.send(e.length() ? 400 : 202, "text/plain", e.length() ? e : String("")); });
   static const char* HDRS[] = {"Origin"};          // cabeceras que el servidor guarda para leerlas en los manejadores
   server.collectHeaders(HDRS, 1);
   server.onNotFound([] { server.sendHeader("Location", "/"); server.send(302); });   // cualquier otra ruta: a la página
@@ -1469,4 +1613,5 @@ void loop() {
   }
   checkSchedule();                                // ¿toca encender por programa?
   otaConfirm();                                   // tras una actualización: confirmarla al minuto de funcionar
+  otaNetPoll();                                   // ¿ha terminado una búsqueda o descarga por internet?
 }

@@ -133,6 +133,17 @@
     <string name="ap_hint">Clave nueva de la Wi-Fi</string>
     <string name="ap_short">La clave debe tener al menos 8 caracteres.</string>
     <string name="later">Más tarde</string>
+    <string name="upd_check">Buscar actualizaciones</string>
+    <string name="upd_checking">Buscando actualizaciones…</string>
+    <string name="upd_latest">La placa ya tiene la última versión (%1$s).</string>
+    <string name="upd_new_title">Versión nueva: %1$s</string>
+    <string name="upd_new_msg">La placa tiene la %1$s.\n\nNovedades: %2$s\n\nLa placa la descarga, comprueba que es oficial, la instala y se reinicia sola. Tiene que estar unida a una red con internet (Configuración) y la calefacción, apagada.</string>
+    <string name="upd_yes">Actualizar</string>
+    <string name="upd_progress">Descargando e instalando la actualización… %1$d %%</string>
+    <string name="upd_started">La placa está buscando y descargando la actualización…</string>
+    <string name="upd_no_net">No se pudo consultar la última versión: ¿tiene internet el móvil?</string>
+    <string name="upd_usb">Esta placa tiene un firmware anterior a las actualizaciones sin cable: grábala una vez por USB con la última versión (instrucciones en wttc.favala.es).</string>
+    <string name="upd_demo">En el modo demostración no hay nada que actualizar.</string>
     <string-array name="phases">
         <item>Apagada</item>
         <item>Arrancando…</item>

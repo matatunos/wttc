@@ -134,6 +134,17 @@
     <string name="ap_hint">New Wi-Fi password</string>
     <string name="ap_short">The password must be at least 8 characters long.</string>
     <string name="later">Later</string>
+    <string name="upd_check">Check for updates</string>
+    <string name="upd_checking">Checking for updates…</string>
+    <string name="upd_latest">The board already has the latest version (%1$s).</string>
+    <string name="upd_new_title">New version: %1$s</string>
+    <string name="upd_new_msg">The board has %1$s.\n\nWhat\'s new: %2$s\n\nThe board downloads it, checks that it is official, installs it and restarts by itself. It must be joined to a network with internet (Settings) and the heater must be off.</string>
+    <string name="upd_yes">Update</string>
+    <string name="upd_progress">Downloading and installing the update… %1$d %%</string>
+    <string name="upd_started">The board is fetching and downloading the update…</string>
+    <string name="upd_no_net">Could not check the latest version: does the phone have internet?</string>
+    <string name="upd_usb">This board has firmware older than wireless updates: flash it once over USB with the latest version (instructions at wttc.favala.es).</string>
+    <string name="upd_demo">There is nothing to update in demo mode.</string>
     <string-array name="phases">
         <item>Off</item>
         <item>Starting…</item>
