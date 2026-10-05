@@ -110,7 +110,7 @@ const float    FUEL_L_KWH   = 0.124;  // gasoil por kWh de calor: Thermo Top C �
 const uint32_t WIFI_BOOT_MS = 600000; // ms que la Wi-Fi está encendida tras arrancar, en cualquier modo (rescate)
 const uint32_t WIFI_ASK_MS  = 900000; // ms que la Wi-Fi está encendida al pedirla desde la app
 const uint32_t WIFI_TAIL_MS = 600000; // modo «mientras calienta»: ms que sigue encendida tras apagarse la calefacción
-#define FW_VERSION "0.1.5"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.1.6"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)

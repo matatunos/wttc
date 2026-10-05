@@ -6,6 +6,18 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.1.6 — 2026-10-05
+
+Versión de prueba (sin probar con una Webasto real). Primera que se puede instalar sin cable desde la 0.1.5.
+
+### Placas
+- **ESP32-S3** (DevKitC-1 N16R8, 16 MB) como placa de referencia; el **ESP32 DevKitC** sigue valiendo. Cada una tiene su propio programa y su propia actualización sin cable; la placa descarga la suya.
+- Con los núcleos 3.x, el Bluetooth del ESP32-S3 usa la pila NimBLE: emparejar, contar y borrar emparejamientos funciona igual.
+
+### Instalación
+- **Instalar desde el navegador** (wttc.favala.es/instalar.php): con Chrome o Edge, pinchar la placa por USB y pulsar «Instalar». Sin Arduino IDE. Reinstalar así no borra la configuración ni el PIN.
+- Las Releases llevan ya la actualización firmada de cada placa (`.ota`) y el paquete para instalar desde el navegador.
+
 ## 0.1.5 — 2026-10-05
 
 Versión de prueba (sin probar con una Webasto real). **Actualizaciones sin cable.** Esta versión hay que grabarla una
