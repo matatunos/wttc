@@ -66,9 +66,17 @@ wttc_visit('estadisticas');
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Estadísticas de WTTC</title>
-<meta name="description" content="Uso público y anónimo de la app WTTC para la Webasto Thermo Top C.">
+<title>Estadísticas de uso de WTTC, la app de la Webasto</title>
+<meta name="description" content="Uso público y anónimo de la app WTTC para la Webasto Thermo Top C: instalaciones, versiones, encendidos y averías de quien acepta enviarlos.">
 <link rel="canonical" href="https://wttc.favala.es/estadisticas.php">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="WTTC">
+<meta property="og:locale" content="es_ES">
+<meta property="og:url" content="https://wttc.favala.es/estadisticas.php">
+<meta property="og:title" content="Estadísticas de uso de WTTC">
+<meta property="og:description" content="Uso público y anónimo de la app WTTC para la Webasto Thermo Top C: instalaciones, versiones, encendidos y averías.">
+<meta property="og:image" content="https://wttc.favala.es/og.png">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
