@@ -14,7 +14,8 @@
 
   Hardware
   --------
-    Placa:        ESP32 DevKitC (ESP-WROOM-32)
+    Placa:        ESP32-S3 DevKitC-1 N16R8 (16 MB de flash; la de referencia) o ESP32 DevKitC (ESP-WROOM-32, 4 MB).
+                  El mismo código vale para las dos; cada una necesita su propio programa compilado.
     Transceptor:  TJA1020 (TTL de 3,3 V <-> bus K-Line/LIN de un hilo a 12 V), borna LIN al cable W-Bus
     Alimentación: regulador LM2596 a 5,0 V desde el +12 V permanente del conector del temporizador
     Conexiones:   TX del TJA1020 -> IO16 (RX2 del ESP32) · RX del TJA1020 <- IO17 (TX2) · SLP -> 3V3
@@ -26,9 +27,11 @@
 
   Compilar
   --------
-    Arduino IDE:  placa "ESP32 Dev Module", núcleo ESP32 2.x o 3.x. Sin librerías externas.
-                  Esquema de partición: "Huge APP (3MB No OTA/1MB SPIFFS)" (con Bluetooth + Wi-Fi no cabe en la normal).
-    arduino-cli:  --fqbn esp32:esp32:esp32:PartitionScheme=huge_app
+    Arduino IDE:  placa "ESP32S3 Dev Module" (Flash Size 16MB) o "ESP32 Dev Module", núcleo ESP32 2.x o 3.x.
+                  Sin librerías externas. Esquema de partición: "Huge APP" (solo para el límite de tamaño del IDE:
+                  la tabla que se graba es partitions.csv, con dos huecos para las actualizaciones sin cable).
+    arduino-cli:  --fqbn esp32:esp32:esp32s3:FlashSize=16M,PartitionScheme=huge_app
+                  --fqbn esp32:esp32:esp32:PartitionScheme=huge_app             (ESP32 DevKitC)
     La carpeta debe llamarse WTTC y contener WTTC.ino y web.h (la página web que sirve la placa).
 
   Cómo se maneja
@@ -1287,6 +1290,13 @@ void handleUpdateDone() {
 // TLS sin comprobar el certificado a propósito: lo que garantiza que la actualización es buena es su firma, no el
 // servidor del que venga (y las descargas de GitHub saltan entre varios dominios con certificados distintos).
 #define OTA_MANIFEST "https://wttc.favala.es/descargas/ota.json"
+// Cada placa descarga su propio programa (el de un ESP32 no arranca en un ESP32-S3 y viceversa; el cargador de
+// arranque además lo rechaza por el identificador de chip de la cabecera)
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
+#define OTA_KEY "ota_s3"
+#else
+#define OTA_KEY "ota"
+#endif
 
 // Valor de una clave de un JSON sencillo y plano: {"version":"0.1.5","ota":"https://…"}
 String jsonStr(const String& j, const char* k) {
@@ -1313,7 +1323,7 @@ void otaNetTask(void*) {
   // 1) ¿qué versión hay?
   String body;
   if (http.begin(cli, OTA_MANIFEST)) { if (http.GET() == 200) body = http.getString(); http.end(); }
-  String ver = jsonStr(body, "version"), url = jsonStr(body, "ota");
+  String ver = jsonStr(body, "version"), url = jsonStr(body, OTA_KEY);
   otaNetNotes = jsonStr(body, "notas");                   // novedades de esa versión (del CHANGELOG)
   if (!ver.length() || !url.startsWith("https://") || ver.length() > 16) { otaNetDone(false, tr(T_OTA_NONET)); vTaskDelete(nullptr); return; }
   strlcpy(otaNetVer, ver.c_str(), sizeof otaNetVer);
