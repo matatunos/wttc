@@ -73,7 +73,7 @@ Hechas automáticamente: la web con el simulador y la app en un emulador Android
 | Pieza | Modelo usado | Para qué |
 |---|---|---|
 | Calefactor | Webasto Thermo Top C de fábrica (ref. VW 7H0 010 398 J), mandada por W-Bus | Lo que se controla; el ESP32 se enchufa en el conector del temporizador original |
-| Microcontrolador | ESP32 DevKitC con ESP-WROOM-32 (38 pines, USB CP2102) | Bluetooth, Wi-Fi, programas y W-Bus por UART2 (IO16/IO17) |
+| Microcontrolador | **ESP32-S3 DevKitC-1 N16R8** (16 MB, mejor sobre base con bornas de tornillo) o ESP32 DevKitC con ESP-WROOM-32 (4 MB) | Bluetooth, Wi-Fi, programas y W-Bus por UART2 (IO16/IO17) |
 | Transceptor | Módulo UART ↔ LIN/K-Line con **TJA1020** (o TJA1021, MCP2003, L9637D) | Adapta los 3,3 V del ESP32 al bus de un hilo a 12 V |
 | Alimentación | Regulador **LM2596** ajustado a **5,0 V** | 5 V para el ESP32 desde el +12 V permanente |
 
@@ -87,16 +87,21 @@ dice que algunas Thermo Top C antiguas usan otro protocolo. La primera prueba po
 
 ## Instalar el firmware
 1. Arduino IDE 2 (o arduino-cli) con el núcleo **esp32 de Espressif** (2.x o 3.x). Sin librerías externas.
-2. Placa **ESP32 Dev Module** y esquema de partición **Huge APP (3MB No OTA/1MB SPIFFS)**: con Bluetooth y Wi-Fi no
-   cabe en la partición normal.
-3. Abre `firmware/WTTC/WTTC.ino` (la carpeta entera: lleva también `web.h`) y súbelo. En el monitor serie (115200) aparece el **PIN Bluetooth**.
+2. Placa **ESP32S3 Dev Module** con **Flash Size 16MB** (con la DevKitC, **ESP32 Dev Module**) y esquema de partición
+   **Huge APP**. Ese esquema solo fija el límite de tamaño del IDE: la tabla que se graba es `partitions.csv` de la
+   carpeta, con dos huecos para las actualizaciones sin cable.
+3. Abre `firmware/WTTC/WTTC.ino` (la carpeta entera: lleva también `web.h`, `partitions.csv` y `rollback.cpp`) y
+   súbelo. En el ESP32-S3, por el USB marcado **UART** o **COM**. En el monitor serie (115200) aparece el **PIN Bluetooth**.
 
 ```sh
-arduino-cli compile --fqbn esp32:esp32:esp32:PartitionScheme=huge_app firmware/WTTC
-arduino-cli upload  --fqbn esp32:esp32:esp32:PartitionScheme=huge_app -p /dev/ttyUSB0 firmware/WTTC
+# ESP32-S3 (con la DevKitC: --fqbn esp32:esp32:esp32:PartitionScheme=huge_app)
+arduino-cli compile --fqbn esp32:esp32:esp32s3:FlashSize=16M,PartitionScheme=huge_app firmware/WTTC
+arduino-cli upload  --fqbn esp32:esp32:esp32s3:FlashSize=16M,PartitionScheme=huge_app -p /dev/ttyUSB0 firmware/WTTC
 ```
 
-Cada cambio se compila automáticamente en GitHub Actions con los núcleos 2.0.17 y 3.3.12.
+Después, las versiones nuevas se instalan sin cable: app o web de la placa → **Buscar actualizaciones**.
+
+Cada cambio se compila automáticamente en GitHub Actions para ESP32-S3 y ESP32, con los núcleos 2.0.17 y 3.3.12.
 
 ## App Android
 Se descarga como APK en [Releases](../../releases). Busca el ESP32 por Bluetooth, empareja con el PIN y se conecta

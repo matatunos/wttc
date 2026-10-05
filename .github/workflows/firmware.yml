@@ -23,6 +23,7 @@ jobs:
   compilar:
     name: ${{ matrix.board.name }} · núcleo ${{ matrix.core }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30      # si una máquina de GitHub se queda colgada, que falle en vez de esperar horas
     permissions:
       contents: write          # solo para adjuntar el .ota a la Release (en main y con la clave de firma)
     env:
