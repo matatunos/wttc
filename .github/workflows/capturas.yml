@@ -1,14 +1,14 @@
 # capturas.yml — Rehace las capturas del README: la web pública con Playwright y la app en un emulador Android
 # (en modo demostración, con una placa simulada).
 # Código generado íntegramente con Claude (Anthropic).
-# Se lanza al cambiar el script de capturas o este workflow (o a mano desde la pestaña Actions).
+# Se lanza al cambiar el script de capturas, este workflow o el código de la app (o a mano desde la pestaña Actions).
 # Si las imágenes cambian, las sube al repo (los commits hechos con GITHUB_TOKEN no lanzan otros workflows).
 name: Capturas
 
 on:
   push:
     branches: [main]
-    paths: ['docs/capturas/capturar.mjs', 'docs/capturas/capturar-app.sh', '.github/workflows/capturas.yml']
+    paths: ['docs/capturas/capturar.mjs', 'docs/capturas/capturar-app.sh', '.github/workflows/capturas.yml', 'android/app/src/**']
   workflow_dispatch:
 
 permissions:

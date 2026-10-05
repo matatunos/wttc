@@ -683,9 +683,11 @@ class MainActivity : Activity(), BleLink.Listener {
             val c = card()
             val time = button(hm(p.start)) {
                 TimePickerDialog(this, { _, h, m -> p.start = h * 60 + m; touchProgs(); drawProgs() }, p.start / 60, p.start % 60, true).show()
-            }.apply { textSize = 22f; setTypeface(typeface, Typeface.BOLD) }
+            }.apply { textSize = 22f; setTypeface(typeface, Typeface.BOLD); minWidth = 0; minimumWidth = 0 }
+            // Cerrado, el desplegable usa la plantilla compacta; abierto, la de lista (si no, «30 min» no cabe y sale «30..»)
             val durSp = Spinner(this).apply {
-                adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, durations.map { fmtDur(it) })
+                adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_item, durations.map { fmtDur(it) })
+                    .apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
                 setSelection(durations.indexOfFirst { it >= p.dur }.coerceAtLeast(0))
                 background = rounded(cSf2, 8)
                 onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
@@ -697,7 +699,9 @@ class MainActivity : Activity(), BleLink.Listener {
             }
             val sw = Switch(this).apply { isChecked = p.en }
             sw.setOnCheckedChangeListener { _: CompoundButton, v: Boolean -> p.en = v; touchProgs() }
+            // Botón de borrar estrecho: los Button de Android tienen 88 dp de ancho mínimo y le quitaban sitio al desplegable
             val del = button("✕") { progs.removeAt(idx); touchProgs(); drawProgs() }
+                .apply { minWidth = 0; minimumWidth = 0; setPadding(dp(14), dp(10), dp(14), dp(10)) }
             val top = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                 addView(time, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
