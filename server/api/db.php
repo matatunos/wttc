@@ -78,6 +78,13 @@ function wttc_visit(string $page): void {
             elseif (str_starts_with($ref, 'android-app://')) $src = 'app:' . substr(preg_replace('#^android-app://([^/]+).*#', '$1', $ref), 0, 70);
             else $src = preg_replace('/^www\./', '', $refHost);
             if (!preg_match('/^[a-z0-9:._()-]{1,80}$/', $src)) $src = '(otro)';
+            // Tope de procedencias distintas por día: el referer y ?desde= los manda el visitante y podría
+            // inventarse miles para llenar la base de datos. Pasado el tope, las nuevas cuentan como «(otro)»
+            $known = $db->prepare('SELECT 1 FROM referrers WHERE day = ? AND host = ? LIMIT 1'); $known->execute([$day, $src]);
+            if (!$known->fetchColumn()) {
+                $n = $db->prepare('SELECT COUNT(DISTINCT host) FROM referrers WHERE day = ?'); $n->execute([$day]);
+                if ($n->fetchColumn() >= 200) $src = '(otro)';
+            }
             $db->prepare('INSERT INTO referrers (day, host, page, n) VALUES (?, ?, ?, 1) ON CONFLICT(day, host, page) DO UPDATE SET n = n + 1')
                ->execute([$day, $src, $page]);
         }
@@ -90,8 +97,14 @@ function wttc_visit(string $page): void {
 function wttc_range(array $q): array {
     $to = gmdate('Y-m-d');
     $re = '/^\d{4}-\d{2}-\d{2}$/';
-    if (isset($q['from'], $q['to']) && preg_match($re, $q['from']) && preg_match($re, $q['to'])) {
-        return $q['from'] <= $q['to'] ? [$q['from'], $q['to']] : [$q['to'], $q['from']];
+    if (isset($q['from'], $q['to']) && is_string($q['from']) && is_string($q['to'])
+        && preg_match($re, $q['from']) && preg_match($re, $q['to'])
+        && checkdate((int)substr($q['from'], 5, 2), (int)substr($q['from'], 8, 2), (int)substr($q['from'], 0, 4))
+        && checkdate((int)substr($q['to'], 5, 2), (int)substr($q['to'], 8, 2), (int)substr($q['to'], 0, 4))) {
+        [$a, $b] = $q['from'] <= $q['to'] ? [$q['from'], $q['to']] : [$q['to'], $q['from']];
+        // Dentro de lo que hay datos: desde 2026 hasta hoy. Sin este límite, un rango de siglos hace que la
+        // página monte millones de días en memoria (cualquiera puede pedirlo: la página es pública)
+        return [max($a, '2026-01-01'), min(max($b, '2026-01-01'), $to)];
     }
     $days = ['7d' => 7, '30d' => 30, '90d' => 90, '1y' => 365][$q['period'] ?? '30d'] ?? null;
     if ($days === null) return ['2026-01-01', $to];                  // «Todo»
