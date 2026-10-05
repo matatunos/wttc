@@ -185,6 +185,7 @@ enum Txt {
   T_E_NAME, T_E_APPASS, T_E_PIN, T_E_WIFIMODE, T_E_SSID, T_E_PASS, T_E_TOKEN, T_E_CHAT, T_E_MINVOLT, T_E_LANG, T_E_UNKNOWN_SET,
   T_E_ON, T_OFF_NOCONF_SHORT, T_E_TIME, T_E_FORMAT, T_E_TG_CFG, T_E_TG_NET, T_E_REBOOT_HEAT, T_E_UNKNOWN_CMD,
   T_W_OFF_NOCONF, T_W_SAVED, T_W_SAVED_LATER, T_W_SAVED_REBOOT, T_W_TG_SENDING, T_W_GASRESET, T_W_FORGOT,
+  T_W_ORIGIN,
   T_COUNT
 };
 
@@ -265,6 +266,7 @@ const char* const TXT[T_COUNT][L_N] = {
   /* T_W_TG_SENDING */     {"Enviando… mira «Último aviso» en unos segundos.", "Sending… check “Last notification” in a few seconds.", "Wird gesendet… in ein paar Sekunden „Letzte Benachrichtigung“ prüfen."},
   /* T_W_GASRESET */       {"Contador de gasoil a cero.", "Diesel counter reset.", "Dieselzähler zurückgesetzt."},
   /* T_W_FORGOT */         {"Borrados %d emparejamientos.", "Deleted %d pairings.", "%d Kopplungen gelöscht."},
+  /* T_W_ORIGIN */         {"Petición rechazada: viene de otra web.", "Request rejected: it comes from another website.", "Anfrage abgelehnt: sie kommt von einer anderen Webseite."},
 };
 
 // Texto en el idioma elegido
@@ -1059,6 +1061,19 @@ void handleState() {
   server.send(200, "application/json", j);
 }
 
+// Protección CSRF de la API web. Una página ajena abierta en el móvil (conectado a la Wi-Fi de la placa o a la red
+// donde está wttc.local) podría mandar formularios a /api/… y, por ejemplo, encender la calefacción. Los navegadores
+// ponen la cabecera Origin en esas peticiones: si viene y no es la propia placa, se rechaza. Sin Origin (curl,
+// navegadores antiguos) se admite. Origin solo se lee porque setup() lo pide con collectHeaders().
+bool sameOrigin() {
+  String o = server.header("Origin");
+  if (!o.length()) return true;
+  int p = o.indexOf("://");
+  if (p >= 0 && o.substring(p + 3) == server.hostHeader()) return true;
+  server.send(403, "text/plain", tr(T_W_ORIGIN));
+  return false;
+}
+
 // POST /api/on (min=minutos): encender
 void handleOn() {
   int m = server.arg("min").toInt();
@@ -1176,16 +1191,19 @@ void setup() {
   // Rutas del servidor web
   server.on("/", HTTP_GET, [] { server.send_P(200, "text/html", INDEX_HTML); });   // la página (desde la flash)
   server.on("/api/state", HTTP_GET, handleState);
-  server.on("/api/on", HTTP_POST, handleOn);
-  server.on("/api/off", HTTP_POST, handleOff);
-  server.on("/api/sched", HTTP_POST, handleSched);
-  server.on("/api/time", HTTP_POST, handleTime);
+  // Las órdenes (POST) solo se aceptan desde la propia web de la placa (ver sameOrigin)
+  server.on("/api/on", HTTP_POST, [] { if (sameOrigin()) handleOn(); });
+  server.on("/api/off", HTTP_POST, [] { if (sameOrigin()) handleOff(); });
+  server.on("/api/sched", HTTP_POST, [] { if (sameOrigin()) handleSched(); });
+  server.on("/api/time", HTTP_POST, [] { if (sameOrigin()) handleTime(); });
   server.on("/api/errors", HTTP_GET, [] { server.send(200, "application/json", errorsJson()); });
   server.on("/api/cfg", HTTP_GET, [] { server.send(200, "application/json", cfgJson()); });
-  server.on("/api/cfg", HTTP_POST, handleCfgPost);
-  server.on("/api/tgtest", HTTP_POST, handleTgTest);
-  server.on("/api/gasreset", HTTP_POST, [] { runCmd("gasreset"); server.send(200, "text/plain", tr(T_W_GASRESET)); });
-  server.on("/api/forget", HTTP_POST, [] { int n = bleForgetAll(); server.send(200, "text/plain", trf(T_W_FORGOT, n)); });
+  server.on("/api/cfg", HTTP_POST, [] { if (sameOrigin()) handleCfgPost(); });
+  server.on("/api/tgtest", HTTP_POST, [] { if (sameOrigin()) handleTgTest(); });
+  server.on("/api/gasreset", HTTP_POST, [] { if (!sameOrigin()) return; runCmd("gasreset"); server.send(200, "text/plain", tr(T_W_GASRESET)); });
+  server.on("/api/forget", HTTP_POST, [] { if (!sameOrigin()) return; int n = bleForgetAll(); server.send(200, "text/plain", trf(T_W_FORGOT, n)); });
+  static const char* HDRS[] = {"Origin"};          // cabeceras que el servidor guarda para leerlas en los manejadores
+  server.collectHeaders(HDRS, 1);
   server.onNotFound([] { server.sendHeader("Location", "/"); server.send(302); });   // cualquier otra ruta: a la página
 
   bleInit();
