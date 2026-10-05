@@ -8,7 +8,7 @@ Código tal cual se ejecuta en https://wttc.favala.es (PHP 8 + SQLite), publicad
 - `api/db.php`: esquema SQLite (instalaciones, días con informe, totales y averías).
 - `estadisticas.php`: la página pública con los datos agregados.
 - Visitas a la web: `wttc_visit()` en `api/db.php` suma por día las páginas vistas y las llegadas desde fuera de la web,
-  sin cookies ni IP y sin contar bots. Solo se ve en la vista privada.
+  con el dominio del que vienen (nunca la URL entera), sin cookies ni IP y sin contar bots. Solo se ve en la vista privada.
 
 Qué envía la app: identificador aleatorio de instalación, versión de la app y del firmware, versión de Android, tipo de
 dispositivo (móvil, tablet o radio), país según el idioma del sistema, encendidos (desde la app y por programa), veces
