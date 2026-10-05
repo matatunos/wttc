@@ -6,6 +6,15 @@ Contenido generado con Claude (Anthropic) a partir de las conversaciones con el 
 
 Prioridad actual: que la versión 0.x funcione con una Webasto real. Hasta entonces, esto solo se apunta.
 
+## Prioridades (cuando lo básico funcione)
+
+| Prioridad | Idea |
+|---|---|
+| **Imprescindible** | [10. Actualizar el firmware sin cable](#10-actualizar-el-firmware-sin-cable-ota) |
+| Favoritas | [4. Proteger la batería mientras calienta](#4-proteger-la-batería-mientras-calienta) · [5. Mandar por Telegram](#5-mandar-por-telegram-no-solo-recibir-avisos) · [12. Placa de circuito propia](#12-placa-de-circuito-propia) |
+| Útiles | [6. Horas y arranques de la Webasto](#6-horas-de-funcionamiento-y-arranques-de-la-webasto) · [7. Aviso de «ya está caliente»](#7-aviso-de-ya-está-caliente) |
+| Algún día | Las demás |
+
 ---
 
 ## 1. Mando a distancia por LoRa
@@ -133,6 +142,137 @@ luces, es la iluminación del mando (borne 58) y no vale.
 4. Entrada del amarillo con optoacoplador; el firmware solo la lee (¿hay contacto?).
 5. Modo «ahorro máximo»: sueño profundo con despertar por alarma del RTC o por el amarillo.
 6. Si el ahorro se queda corto: cambiar regulador y placa.
+
+---
+
+## 3. Encender por «hora de salida»
+
+**La idea:** en lugar de «encender a las 7:30 durante 30 min», decir «quiero salir a las 8:00». La placa decide
+cuándo arrancar según lo que ha tardado otras veces en calentar el agua y la temperatura de partida (el agua del
+motor, y la del habitáculo si hay sensor, idea 11). Es como lo hacen los temporizadores oficiales de Webasto.
+
+**A tener en cuenta:** necesita guardar un histórico corto de encendidos (temperatura inicial → minutos hasta
+llegar a, por ejemplo, 50 °C) y un margen de seguridad. Los primeros días, sin histórico, usar una tabla fija.
+El programa sigue teniendo una duración máxima (60 min).
+
+---
+
+## 4. Proteger la batería mientras calienta
+
+**La idea:** hoy la batería mínima solo se mira **al arrancar un programa**. Vigilarla también durante todo el
+encendido y apagar (con aviso por la app y Telegram) si cae por debajo del límite durante un rato seguido.
+Evita quedarse sin poder arrancar el motor.
+
+**A tener en cuenta:** la bujía y la bomba tiran mucho al arrancar y la tensión baja unos segundos: hay que
+mirar una media de, por ejemplo, 1–2 minutos, no lecturas sueltas, y no contar el arranque. La tensión ya la da
+la propia Webasto por W-Bus. Cambio pequeño en el firmware.
+
+---
+
+## 5. Mandar por Telegram, no solo recibir avisos
+
+**La idea:** si la furgo tiene internet (router 4G o el punto de acceso de un móvil que se queda dentro), encender
+y apagar desde cualquier sitio con mensajes al bot: `/encender 30`, `/apagar`, `/estado`. Sin hardware extra; es
+lo que hace el ThermoConnect de pago.
+
+**A tener en cuenta:**
+- Solo obedecer al **chat ID configurado**; cualquier otro mensaje se ignora.
+- La placa tiene que preguntar a Telegram cada poco si hay mensajes nuevos: eso exige la Wi-Fi encendida con red
+  (más consumo) y choca con el modo «ahorro máximo» de la idea 2. Quizá solo en el modo «siempre encendida».
+- Confirmar cada orden con la respuesta del estado real (si arrancó o no).
+
+---
+
+## 6. Horas de funcionamiento y arranques de la Webasto
+
+**La idea:** leer por W-Bus los contadores internos de la Webasto (horas de funcionamiento, número de arranques)
+y enseñarlos en la app y la web. Sirven para saber cuándo toca revisión y como dato de diagnóstico.
+
+**A tener en cuenta:** según libwbus están en los registros de información de funcionamiento (orden 0x50); hay
+que comprobar en una Thermo Top C real qué registros contesta. Si se añaden a las **estadísticas anónimas**
+(horas y arranques acumulados), darían una idea del uso real; habría que contarlo en el texto del permiso.
+
+---
+
+## 7. Aviso de «ya está caliente»
+
+**La idea:** una notificación (app y Telegram) cuando el agua del motor llega a una temperatura, por ejemplo
+50 °C, para saber que ya se puede salir o entrar.
+
+**A tener en cuenta:** por Telegram solo llega si la placa tiene internet en ese momento; en la app, solo si
+está conectada por Bluetooth. Un aviso por encendido, no uno cada vez que la temperatura sube y baja.
+
+---
+
+## 8. Calentar antes de que suene el despertador
+
+**La idea:** Android sabe a qué hora suena la próxima alarma del móvil. La app podría programar el encendido
+para 30 minutos antes, sin tener que crear un programa.
+
+**A tener en cuenta:** el móvil tiene que estar al alcance del Bluetooth un rato antes para mandarle la orden a la
+placa, o mandarle un programa puntual la noche anterior (mejor). Que sea opcional y se vea claro.
+
+---
+
+## 9. Accesos rápidos en Android
+
+**La idea:** un widget en la pantalla de inicio y un botón en los ajustes rápidos («Webasto 30 min») para encender
+con un toque, sin abrir la app.
+
+**A tener en cuenta:** tiene que conectar por Bluetooth en segundo plano y confirmar si la orden llegó.
+
+---
+
+## 10. Actualizar el firmware sin cable (OTA)
+
+**La idea:** poder actualizar la placa sin desmontarla ni llevar un PC: desde la web de la placa (subir el fichero)
+o desde la app por Bluetooth, con la versión de las Releases de GitHub. **Fundamental** para que la gente actualice
+de verdad (correcciones de seguridad incluidas).
+
+**A tener en cuenta:**
+- **Lo primero: la memoria.** El esquema de particiones actual (*Huge APP, No OTA*) no deja sitio para una
+  segunda copia del programa, que es lo que necesita una actualización sin cable. Habría que pasar a uno con dos
+  huecos y comprobar que el firmware (Bluetooth + Wi-Fi) cabe en cada uno. Quien ya la tenga montada tendría que
+  cambiarlo **una última vez por USB**.
+- **Seguridad:** que solo acepte firmware **firmado** por el proyecto (si no, quien entre en la Wi-Fi podría
+  meterle cualquier cosa) y que vuelva a la versión anterior si la nueva no arranca bien.
+- **Nunca mientras calienta.**
+
+---
+
+## 11. Sensor de temperatura del habitáculo
+
+**La idea:** un sensor DS18B20 (menos de 2 €, un cable) para ver la temperatura dentro de la furgo en la app y la
+web, y afinar la «hora de salida» (idea 3).
+
+**A tener en cuenta:** la Thermo Top C calienta el agua del motor; el aire de dentro lo mueve el ventilador del
+coche. El sensor informa, no controla. Ponerlo lejos de las salidas de aire.
+
+---
+
+## 12. Placa de circuito propia
+
+**La idea:** diseñar una placa (PCB) con todo integrado (ESP32, transceptor W-Bus, regulador y protecciones) que se
+enchufe directamente en el conector del temporizador, sin cables dupont ni empalmes. El montaje pasaría de
+«electrónica» a «enchufar»: es lo que más ayudaría a que otros lo usen.
+
+**A tener en cuenta:**
+- Conseguir o identificar el **conector** del temporizador original (medidas y referencia) para que encaje.
+- Aprovechar para meter lo de las ideas 2 y 11: regulador de bajo consumo en reposo, entrada del contacto con
+  optoacoplador, reloj DS3231 con pila y conector para el sensor.
+- Protecciones de automoción (fusible, picos de tensión, polaridad inversa).
+- Hacerla abierta (KiCad) y fabricable en servicios tipo JLCPCB.
+- Esperar a tener el montaje con módulos **probado en una furgo**: la placa sería la versión «definitiva».
+
+---
+
+## 13. Más idiomas
+
+**La idea:** francés, italiano, neerlandés… Con lo que ya está montado (tabla del firmware, diccionario de su web,
+`strings.xml` de la app y textos de la web pública), es sobre todo traducir.
+
+**A tener en cuenta:** cada idioma nuevo hay que mantenerlo en cuatro sitios a la vez. Mejor cuando los textos
+estén estables.
 
 ---
 
