@@ -79,7 +79,13 @@
 #include <BLEServer.h>          // Bluetooth LE: servidor GATT (servicio y características)
 #include <BLE2902.h>            // descriptor CCCD, necesario para las notificaciones
 #include <BLESecurity.h>        // emparejamiento con PIN
-#include <esp_gap_ble_api.h>    // funciones de bajo nivel para listar y borrar emparejamientos
+// Emparejamientos: el ESP32 (y el S3 con núcleo 2.x) usa la pila Bluetooth Bluedroid; el ESP32-S3 con núcleo 3.x usa
+// NimBLE. Cada una tiene sus funciones para contar y borrar emparejamientos (ver bondCount y bleForgetAll)
+#if defined(CONFIG_BLUEDROID_ENABLED)
+#include <esp_gap_ble_api.h>
+#else
+#include <host/ble_store.h>
+#endif
 #include <time.h>               // hora local (programas, registro)
 #include <stdarg.h>             // trf(): textos traducidos con datos (printf)
 #include <Update.h>             // actualización sin cable (OTA): escribe el programa nuevo en el hueco libre
@@ -832,7 +838,7 @@ String cfgJson(bool withPin) {
   j += ",\"tg\":";       j += tgToken[0] ? "true" : "false";      // solo si hay token guardado, no el token
   j += ",\"tgchat\":";   j += js(String(tgChat));
   j += ",\"minvolt\":";  j += String(minVolt, 1);
-  j += ",\"bonds\":";    j += esp_ble_get_bond_device_num();     // cuántos móviles están emparejados
+  j += ",\"bonds\":";    j += bondCount();                       // cuántos móviles están emparejados
   j += ",\"lang\":\"";  j += LANG_CODES[lang]; j += "\"";     // idioma de la placa (la app lo iguala al del móvil)
   j += ",\"ota\":1";                                            // sabe buscar y actualizar por internet
   j += ",\"ver\":\"" FW_VERSION "\"}";
@@ -1010,15 +1016,29 @@ void bleInit() {
   BLEDevice::startAdvertising();
 }
 
+// Cuántos móviles hay emparejados con la placa
+int bondCount() {
+#if defined(CONFIG_BLUEDROID_ENABLED)
+  return esp_ble_get_bond_device_num();
+#else
+  ble_addr_t a[16]; int n = 0;
+  return ble_store_util_bonded_peers(a, &n, 16) == 0 ? n : 0;
+#endif
+}
+
 // Borra todos los dispositivos emparejados (si se pierde un móvil). Devuelve cuántos había.
 int bleForgetAll() {
-  int n = esp_ble_get_bond_device_num();
+  int n = bondCount();
   if (n <= 0) return 0;
+#if defined(CONFIG_BLUEDROID_ENABLED)
   esp_ble_bond_dev_t* l = (esp_ble_bond_dev_t*)malloc(sizeof(esp_ble_bond_dev_t) * n);
   if (!l) return 0;
   if (esp_ble_get_bond_device_list(&n, l) == ESP_OK)
     for (int i = 0; i < n; i++) esp_ble_remove_bond_device(l[i].bd_addr);
   free(l);
+#else
+  ble_store_clear();
+#endif
   addLog(trf(T_LOG_FORGET, n));
   return n;
 }
