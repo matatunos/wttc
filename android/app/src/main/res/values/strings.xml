@@ -1,4 +1,153 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Textos de la app en inglés: también para cualquier idioma que no sea español ni alemán. Generado con Claude (Anthropic); mismas claves en values, values-es y values-de. -->
 <resources>
     <string name="app_name">WTTC</string>
+    <string name="lang_code">en</string>
+    <string name="link_no_bt">Bluetooth is off</string>
+    <string name="link_not_paired">No board paired</string>
+    <string name="link_scanning">Searching…</string>
+    <string name="link_pairing">Pairing: enter the PIN</string>
+    <string name="link_connecting">Connecting…</string>
+    <string name="link_connected">Connected to %1$s</string>
+    <string name="link_out_of_range">Out of range: it will reconnect by itself</string>
+    <string name="link_demo">Demo mode: simulated board</string>
+    <string name="no_bt_permission">Without Bluetooth permission the app cannot talk to the board.</string>
+    <string name="pair_no_bt">Turn on Bluetooth on this device to connect to the board.</string>
+    <string name="pair_pairing">Android will ask for the board\'s 6-digit PIN. It is shown on the serial console at boot and on the ESP32 web page (Settings).</string>
+    <string name="pair_help">Tap “Find board”, choose your WTTC and enter its PIN. You only do this once: after that the app connects by itself when the board is nearby.</string>
+    <string name="btn_out_of_range">Out of range</string>
+    <string name="btn_no_link">Not connected</string>
+    <string name="saved">Saved</string>
+    <string name="log_empty">Log is empty.</string>
+    <string name="wifi_on">ESP32 Wi-Fi on for 15 minutes</string>
+    <string name="tg_sent">Test notification sent: check Telegram in a few seconds</string>
+    <string name="gas_zeroed">Diesel counter reset</string>
+    <string name="forgot_bonds">Pairings deleted on the board. Also remove the board in Android\'s Bluetooth settings.</string>
+    <string name="rebooting">Restarting the board…</string>
+    <string name="hot_water">Water is hot: it will relight by itself.</string>
+    <string name="remaining">%1$s left</string>
+    <string name="by_schedule">(schedule)</string>
+    <string name="battery">Battery</string>
+    <string name="flame">Flame</string>
+    <string name="power">Power</string>
+    <string name="yes">yes</string>
+    <string name="no">no</string>
+    <string name="gas_on">Diesel (estimate): %1$s this run · this month %2$s · total %3$s</string>
+    <string name="gas_off">Diesel (estimate): last run %1$s · this month %2$s · total %3$s</string>
+    <string name="warn_bus">The Webasto does not answer on the W-Bus. Check the bus wire, the common ground and the TJA1020 module.</string>
+    <string name="warn_clock">The board\'s clock is not set: schedules will not run.</string>
+    <string name="btn_turn_off">Switch off</string>
+    <string name="btn_turn_on">Switch on %1$s</string>
+    <string name="btn_turning_off">Switching off…</string>
+    <string name="btn_turning_on">Switching on…</string>
+    <string name="notif_self_off">The heater switched itself off</string>
+    <string name="notif_no_answer">The Webasto is not answering</string>
+    <string name="notif_no_answer_body">No answer on the W-Bus; without keep-alive it switches itself off.</string>
+    <string name="water">engine coolant</string>
+    <string name="btn_scan">Find board</string>
+    <string name="btn_enable_bt">Turn on Bluetooth</string>
+    <string name="btn_demo">Try without a board (demo mode)</string>
+    <string name="demo_bar">Demo mode: the data is simulated and nothing is sent to any board.</string>
+    <string name="btn_exit_demo">Leave demo mode</string>
+    <string name="sec_programs">Schedules</string>
+    <string name="sec_programs_sub">They switch on by themselves at a set time and days; the board stores them.</string>
+    <string name="programs_active">Schedules enabled</string>
+    <string name="btn_save_programs">Save schedules</string>
+    <string name="btn_add_program">Add schedule</string>
+    <string name="sec_diag">Diagnostics</string>
+    <string name="btn_read_faults">Read faults</string>
+    <string name="btn_view_log">View log</string>
+    <string name="reading">Reading…</string>
+    <string name="btn_gas_reset">Reset the diesel estimate</string>
+    <string name="sec_config">Settings</string>
+    <string name="sec_config_sub">Stored on the board. Name, PIN and internet network apply after restarting it.</string>
+    <string name="cfg_own">Own Bluetooth and Wi-Fi</string>
+    <string name="f_name">Name (Wi-Fi and Bluetooth)</string>
+    <string name="f_pin">Pairing PIN (6 digits)</string>
+    <string name="f_ap">Own Wi-Fi password (at least 8)</string>
+    <string name="hint_unchanged">unchanged</string>
+    <string name="f_wm">Own Wi-Fi</string>
+    <string name="cfg_inet">Network with internet (optional)</string>
+    <string name="f_ssid">Wi-Fi network (home or phone hotspot)</string>
+    <string name="f_pass">Password</string>
+    <string name="cfg_tg">Telegram notifications (optional)</string>
+    <string name="f_tok">Bot token (from @BotFather)</string>
+    <string name="f_chat">Chat ID (empty: notifications off)</string>
+    <string name="cfg_safety">Safety</string>
+    <string name="f_minv">Minimum battery to start a schedule (V)</string>
+    <string name="btn_save">Save</string>
+    <string name="btn_tg_test">Test Telegram</string>
+    <string name="btn_wifi15">Wi-Fi on for 15 min</string>
+    <string name="btn_reboot">Restart board</string>
+    <string name="sec_app">App settings</string>
+    <string name="sec_app_sub">Stored on this phone or radio, not on the board.</string>
+    <string name="btn_forget">Forget board</string>
+    <string name="btn_bt_settings">Bluetooth settings</string>
+    <string name="stats_switch">Send anonymous statistics</string>
+    <string name="stats_help">At most once a day: versions, device type, country, number of starts and faults. No location, names, networks or PIN, and your IP is not stored.</string>
+    <string name="btn_public_stats">View public statistics</string>
+    <string name="footer">WTTC app %1$s · wttc.favala.es\nCode generated entirely with Claude (Anthropic) · github.com/matatunos/wttc</string>
+    <string name="scan_title">Searching for WTTC boards…</string>
+    <string name="cancel">Cancel</string>
+    <string name="stats_title">Help us with anonymous statistics?</string>
+    <string name="stats_msg">WTTC can send, at most once a day: app and firmware version, Android version, device type (phone, tablet or radio), country from the system language, number of starts and stops, and fault codes.\n\nLocation, names, Wi-Fi networks, PIN and schedules are never sent, and your IP is not stored. The results are public at wttc.favala.es/estadisticas.php.\n\nYou can change your mind at any time in “App settings”, at the bottom of the screen.</string>
+    <string name="stats_yes">Yes, send</string>
+    <string name="stats_no">No, thanks</string>
+    <string name="gas_title">Diesel estimate</string>
+    <string name="gas_msg">Reset the last run, the month and the total? The estimate comes from the power reported by the Webasto (≈ 0.62 l/h at full load) and can be off by 20%.</string>
+    <string name="gas_ok">Reset</string>
+    <string name="forget_title">Forget the board</string>
+    <string name="forget_msg">The app will stop connecting to this board. To pair it again, also remove it in Android\'s Bluetooth settings and search for it again.</string>
+    <string name="forget_ok">Forget</string>
+    <string name="reboot_title">Restart the board</string>
+    <string name="reboot_msg">Pending changes are applied. If it is heating, the board does not restart.</string>
+    <string name="reboot_ok">Restart</string>
+    <string name="max_programs">At most 8 schedules</string>
+    <string name="no_programs">No schedules.</string>
+    <string name="need_restart">Saved. It will apply after restarting the board (“Restart board”).</string>
+    <string name="hint_token_saved">stored (empty: unchanged)</string>
+    <string name="hint_not_set">not set</string>
+    <string name="cfg_info">WTTC firmware %1$s · devices paired with the board: %2$d</string>
+    <string name="cfg_sent">Settings sent</string>
+    <string name="faults_no_answer">The Webasto did not answer.</string>
+    <string name="faults_none">No faults stored.</string>
+    <string name="fault_line">Code 0x%1$s (%2$d times)</string>
+    <string name="channel_name">Heater alerts</string>
+    <string name="ble_scan_failed">Could not search (%1$d)</string>
+    <string name="ble_scan_done">Search finished</string>
+    <string name="ble_pair_failed">Pairing cancelled or wrong PIN</string>
+    <string name="ble_bond_failed">Android could not start pairing</string>
+    <string name="ble_preparing">Preparing…</string>
+    <string name="ble_no_service">This board does not have the WTTC service</string>
+    <string name="demo_log_boot">Boot (demo mode)</string>
+    <string name="demo_log_on">Switched on (%1$s, %2$d min)</string>
+    <string name="demo_log_off">Switched off (%1$s) · diesel ≈ %2$s l</string>
+    <string name="demo_why_end">time is up</string>
+    <string name="demo_src_app">app</string>
+    <string name="demo_src_prog">schedule</string>
+    <string name="demo_log_sched">Schedules saved</string>
+    <string name="demo_unknown">Unknown command</string>
+    <string name="demo_ver">demo</string>
+    <string name="demo_ssid">My phone</string>
+    <string-array name="phases">
+        <item>Off</item>
+        <item>Starting…</item>
+        <item>Heating</item>
+        <item>Paused</item>
+        <item>No answer</item>
+    </string-array>
+    <string-array name="wifi_modes">
+        <item>Always on (uses more power)</item>
+        <item>Only while heating</item>
+        <item>Only on request (maximum saving)</item>
+    </string-array>
+    <string-array name="day_letters">
+        <item>M</item>
+        <item>T</item>
+        <item>W</item>
+        <item>T</item>
+        <item>F</item>
+        <item>S</item>
+        <item>S</item>
+    </string-array>
 </resources>

@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Textos de la app en español. Generado con Claude (Anthropic); mismas claves en values, values-es y values-de. -->
+<resources>
+    <string name="lang_code">es</string>
+    <string name="link_no_bt">Bluetooth desactivado</string>
+    <string name="link_not_paired">Sin placa emparejada</string>
+    <string name="link_scanning">Buscando…</string>
+    <string name="link_pairing">Emparejando: escribe el PIN</string>
+    <string name="link_connecting">Conectando…</string>
+    <string name="link_connected">Conectado a %1$s</string>
+    <string name="link_out_of_range">Fuera de alcance: se conectará sola</string>
+    <string name="link_demo">Modo demostración: placa simulada</string>
+    <string name="no_bt_permission">Sin permiso de Bluetooth la app no puede hablar con la placa.</string>
+    <string name="pair_no_bt">Activa el Bluetooth del dispositivo para conectar con la placa.</string>
+    <string name="pair_pairing">Android te pedirá el PIN de 6 cifras de la placa. Sale en la consola serie al arrancar y en la web del ESP32 (Configuración).</string>
+    <string name="pair_help">Pulsa «Buscar placa», elige tu WTTC y escribe su PIN. Solo hay que hacerlo una vez: después la app se conecta sola cuando la placa está cerca.</string>
+    <string name="btn_out_of_range">Fuera de alcance</string>
+    <string name="btn_no_link">Sin conexión</string>
+    <string name="saved">Guardado</string>
+    <string name="log_empty">Registro vacío.</string>
+    <string name="wifi_on">Wi-Fi del ESP32 encendida 15 minutos</string>
+    <string name="tg_sent">Aviso de prueba enviado: mira Telegram en unos segundos</string>
+    <string name="gas_zeroed">Contador de gasoil a cero</string>
+    <string name="forgot_bonds">Emparejamientos borrados en la placa. Quita también la placa en los Ajustes de Bluetooth de Android.</string>
+    <string name="rebooting">Reiniciando la placa…</string>
+    <string name="hot_water">Agua caliente: vuelve a prender sola.</string>
+    <string name="remaining">Quedan %1$s</string>
+    <string name="by_schedule">(programa)</string>
+    <string name="battery">Batería</string>
+    <string name="flame">Llama</string>
+    <string name="power">Potencia</string>
+    <string name="yes">sí</string>
+    <string name="no">no</string>
+    <string name="gas_on">Gasoil (estimado): %1$s en este encendido · este mes %2$s · total %3$s</string>
+    <string name="gas_off">Gasoil (estimado): último encendido %1$s · este mes %2$s · total %3$s</string>
+    <string name="warn_bus">La Webasto no responde por W-Bus. Revisa el cable del bus, la masa común y el módulo TJA1020.</string>
+    <string name="warn_clock">La placa no está en hora: los programas no se ejecutarán.</string>
+    <string name="btn_turn_off">Apagar</string>
+    <string name="btn_turn_on">Encender %1$s</string>
+    <string name="btn_turning_off">Apagando…</string>
+    <string name="btn_turning_on">Encendiendo…</string>
+    <string name="notif_self_off">La calefacción se ha apagado sola</string>
+    <string name="notif_no_answer">La Webasto no responde</string>
+    <string name="notif_no_answer_body">Sin respuesta por W-Bus; sin mantenimiento se apaga sola.</string>
+    <string name="water">agua del motor</string>
+    <string name="btn_scan">Buscar placa</string>
+    <string name="btn_enable_bt">Activar Bluetooth</string>
+    <string name="btn_demo">Probar sin placa (modo demostración)</string>
+    <string name="demo_bar">Modo demostración: los datos son simulados y no se manda nada a ninguna placa.</string>
+    <string name="btn_exit_demo">Salir del modo demostración</string>
+    <string name="sec_programs">Programas</string>
+    <string name="sec_programs_sub">Se encienden solos a una hora y unos días; la placa los guarda.</string>
+    <string name="programs_active">Programas activos</string>
+    <string name="btn_save_programs">Guardar programas</string>
+    <string name="btn_add_program">Añadir programa</string>
+    <string name="sec_diag">Diagnóstico</string>
+    <string name="btn_read_faults">Leer averías</string>
+    <string name="btn_view_log">Ver registro</string>
+    <string name="reading">Leyendo…</string>
+    <string name="btn_gas_reset">Poner a cero el gasoil estimado</string>
+    <string name="sec_config">Configuración</string>
+    <string name="sec_config_sub">Se guarda en la placa. El nombre, el PIN y la red con internet se aplican al reiniciarla.</string>
+    <string name="cfg_own">Bluetooth y Wi-Fi propios</string>
+    <string name="f_name">Nombre (Wi-Fi y Bluetooth)</string>
+    <string name="f_pin">PIN de emparejamiento (6 cifras)</string>
+    <string name="f_ap">Clave de la Wi-Fi propia (mínimo 8)</string>
+    <string name="hint_unchanged">sin cambios</string>
+    <string name="f_wm">Wi-Fi propia</string>
+    <string name="cfg_inet">Red con internet (opcional)</string>
+    <string name="f_ssid">Red Wi-Fi (casa o punto de acceso del móvil)</string>
+    <string name="f_pass">Contraseña</string>
+    <string name="cfg_tg">Avisos por Telegram (opcional)</string>
+    <string name="f_tok">Token del bot (de @BotFather)</string>
+    <string name="f_chat">Chat ID (vacío: avisos desactivados)</string>
+    <string name="cfg_safety">Seguridad</string>
+    <string name="f_minv">Batería mínima para arrancar un programa (V)</string>
+    <string name="btn_save">Guardar</string>
+    <string name="btn_tg_test">Probar Telegram</string>
+    <string name="btn_wifi15">Encender Wi-Fi 15 min</string>
+    <string name="btn_reboot">Reiniciar placa</string>
+    <string name="sec_app">Ajustes de la app</string>
+    <string name="sec_app_sub">Se guardan en este móvil o radio, no en la placa.</string>
+    <string name="btn_forget">Olvidar placa</string>
+    <string name="btn_bt_settings">Ajustes Bluetooth</string>
+    <string name="stats_switch">Enviar estadísticas anónimas</string>
+    <string name="stats_help">Una vez al día como mucho: versiones, tipo de dispositivo, país, número de encendidos y averías. Sin ubicación, nombres, redes ni PIN, y sin guardar tu IP.</string>
+    <string name="btn_public_stats">Ver estadísticas públicas</string>
+    <string name="footer">App WTTC %1$s · wttc.favala.es\nCódigo generado íntegramente con Claude (Anthropic) · github.com/matatunos/wttc</string>
+    <string name="scan_title">Buscando placas WTTC…</string>
+    <string name="cancel">Cancelar</string>
+    <string name="stats_title">¿Nos ayudas con estadísticas anónimas?</string>
+    <string name="stats_msg">WTTC puede enviar, una vez al día como mucho: versión de la app y del firmware, versión de Android, tipo de dispositivo (móvil, tablet o radio), país según el idioma del sistema, número de encendidos y apagados y los códigos de avería.\n\nNunca se envía ubicación, nombres, redes Wi-Fi, PIN ni horarios, y no se guarda tu IP. Los resultados son públicos en wttc.favala.es/estadisticas.php.\n\nPuedes cambiar de idea cuando quieras en «Ajustes de la app», al final de la pantalla.</string>
+    <string name="stats_yes">Sí, enviar</string>
+    <string name="stats_no">No, gracias</string>
+    <string name="gas_title">Gasoil estimado</string>
+    <string name="gas_msg">¿Poner a cero el último encendido, el mes y el total? La estimación sale de la potencia que informa la Webasto (≈ 0,62 l/h a plena carga) y puede desviarse un 20 %.</string>
+    <string name="gas_ok">Poner a cero</string>
+    <string name="forget_title">Olvidar la placa</string>
+    <string name="forget_msg">La app dejará de conectarse a esta placa. Para emparejarla de nuevo, quítala también en los Ajustes de Bluetooth de Android y vuelve a buscarla.</string>
+    <string name="forget_ok">Olvidar</string>
+    <string name="reboot_title">Reiniciar la placa</string>
+    <string name="reboot_msg">Se aplican los cambios pendientes. Si está calentando, la placa no se reinicia.</string>
+    <string name="reboot_ok">Reiniciar</string>
+    <string name="max_programs">Máximo 8 programas</string>
+    <string name="no_programs">Sin programas.</string>
+    <string name="need_restart">Guardado. Se aplicará al reiniciar la placa («Reiniciar placa»).</string>
+    <string name="hint_token_saved">guardado (vacío: sin cambios)</string>
+    <string name="hint_not_set">sin configurar</string>
+    <string name="cfg_info">Firmware WTTC %1$s · dispositivos emparejados con la placa: %2$d</string>
+    <string name="cfg_sent">Configuración enviada</string>
+    <string name="faults_no_answer">La Webasto no respondió.</string>
+    <string name="faults_none">Sin averías guardadas.</string>
+    <string name="fault_line">Código 0x%1$s (%2$d veces)</string>
+    <string name="channel_name">Avisos de la calefacción</string>
+    <string name="ble_scan_failed">No se pudo buscar (%1$d)</string>
+    <string name="ble_scan_done">Búsqueda terminada</string>
+    <string name="ble_pair_failed">Emparejamiento cancelado o PIN incorrecto</string>
+    <string name="ble_bond_failed">Android no ha podido iniciar el emparejamiento</string>
+    <string name="ble_preparing">Preparando…</string>
+    <string name="ble_no_service">Esta placa no tiene el servicio WTTC</string>
+    <string name="demo_log_boot">Arranque (modo demostración)</string>
+    <string name="demo_log_on">Encendida (%1$s, %2$d min)</string>
+    <string name="demo_log_off">Apagada (%1$s) · gasoil ≈ %2$s l</string>
+    <string name="demo_why_end">fin de tiempo</string>
+    <string name="demo_src_app">app</string>
+    <string name="demo_src_prog">programa</string>
+    <string name="demo_log_sched">Programas guardados</string>
+    <string name="demo_unknown">Orden desconocida</string>
+    <string name="demo_ver">demostración</string>
+    <string name="demo_ssid">Mi móvil</string>
+    <string-array name="phases">
+        <item>Apagada</item>
+        <item>Arrancando…</item>
+        <item>Calentando</item>
+        <item>En pausa</item>
+        <item>Sin respuesta</item>
+    </string-array>
+    <string-array name="wifi_modes">
+        <item>Siempre encendida (gasta más)</item>
+        <item>Solo mientras calienta</item>
+        <item>Solo a petición (máximo ahorro)</item>
+    </string-array>
+    <string-array name="day_letters">
+        <item>L</item>
+        <item>M</item>
+        <item>X</item>
+        <item>J</item>
+        <item>V</item>
+        <item>S</item>
+        <item>D</item>
+    </string-array>
+</resources>

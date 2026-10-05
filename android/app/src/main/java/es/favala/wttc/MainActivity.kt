@@ -68,11 +68,13 @@ class MainActivity : Activity(), BleLink.Listener {
 
     // Duraciones que se ofrecen (el firmware no admite más de 60 min) y letras de los días (lunes primero)
     private val durations = intArrayOf(15, 30, 45, 60)
-    private val dayLetters = arrayOf("L", "M", "X", "J", "V", "S", "D")
+    private val dayLetters by lazy { resources.getStringArray(R.array.day_letters) }
     // Nombres del estado real que manda el firmware en "ph" (0 apagada … 4 sin respuesta)
-    // Números siempre con coma decimal, aunque el móvil esté en otro idioma
-    private val es = java.util.Locale("es", "ES")
-    private val phases = arrayOf("Apagada", "Arrancando…", "Calentando", "En pausa", "Sin respuesta")
+    private val phases by lazy { resources.getStringArray(R.array.phases) }
+    // Idioma de la interfaz (es, en o de: el del móvil, o inglés si no es ninguno de los tres). Los números van
+    // con la coma o el punto de ese idioma, aunque el móvil tenga otra región
+    private val lang by lazy { getString(R.string.lang_code) }
+    private val numLocale by lazy { java.util.Locale(lang) }
 
     // Enlace Bluetooth, último estado recibido de la placa y duración elegida en los botones
     private lateinit var link: BleLink
@@ -202,36 +204,34 @@ class MainActivity : Activity(), BleLink.Listener {
             permissions[i] == Manifest.permission.POST_NOTIFICATIONS || grantResults[i] == PackageManager.PERMISSION_GRANTED
         }
         if (bt) startLink()
-        else onLink(BleLink.State.NO_BLUETOOTH, "Sin permiso de Bluetooth la app no puede hablar con la placa.")
+        else onLink(BleLink.State.NO_BLUETOOTH, getString(R.string.no_bt_permission))
     }
 
     // ---------- BleLink.Listener ----------
     // El enlace ha cambiado de estado: texto y color de la cabecera, caja de emparejar y controles activos o no
     override fun onLink(state: BleLink.State, detail: String) {
         val (txt, col) = when (state) {
-            BleLink.State.NO_BLUETOOTH -> "Bluetooth desactivado" to cBad
-            BleLink.State.NOT_PAIRED -> "Sin placa emparejada" to cMut
-            BleLink.State.SCANNING -> "Buscando…" to cIce
-            BleLink.State.PAIRING -> "Emparejando: escribe el PIN" to cIce
-            BleLink.State.CONNECTING -> "Conectando…" to cIce
-            BleLink.State.CONNECTED -> "Conectado a ${link.savedName ?: "WTTC"}" to cOk
-            BleLink.State.OUT_OF_RANGE -> "Fuera de alcance: se conectará sola" to cMut
+            BleLink.State.NO_BLUETOOTH -> getString(R.string.link_no_bt) to cBad
+            BleLink.State.NOT_PAIRED -> getString(R.string.link_not_paired) to cMut
+            BleLink.State.SCANNING -> getString(R.string.link_scanning) to cIce
+            BleLink.State.PAIRING -> getString(R.string.link_pairing) to cIce
+            BleLink.State.CONNECTING -> getString(R.string.link_connecting) to cIce
+            BleLink.State.CONNECTED -> getString(R.string.link_connected, link.savedName ?: "WTTC") to cOk
+            BleLink.State.OUT_OF_RANGE -> getString(R.string.link_out_of_range) to cMut
         }
-        tLink.text = if (link.demo) "Modo demostración: placa simulada" else if (detail.isNotEmpty()) "$txt · $detail" else txt
+        tLink.text = if (link.demo) getString(R.string.link_demo) else if (detail.isNotEmpty()) "$txt · $detail" else txt
         demoBar.visibility = if (link.demo) View.VISIBLE else View.GONE
         (dot.background as GradientDrawable).setColor(col)
 
         val paired = link.savedAddress != null && link.isPaired()
         pairBox.visibility = if ((paired || link.demo) && state != BleLink.State.NO_BLUETOOTH) View.GONE else View.VISIBLE
         tPair.text = when (state) {
-            BleLink.State.NO_BLUETOOTH -> "Activa el Bluetooth del dispositivo para conectar con la placa."
-            BleLink.State.PAIRING -> "Android te pedirá el PIN de 6 cifras de la placa. Sale en la consola serie al arrancar " +
-                "y en la web del ESP32 (Configuración)."
-            else -> "Pulsa «Buscar placa», elige tu WTTC y escribe su PIN. Solo hay que hacerlo una vez: después la app se " +
-                "conecta sola cuando la placa está cerca."
+            BleLink.State.NO_BLUETOOTH -> getString(R.string.pair_no_bt)
+            BleLink.State.PAIRING -> getString(R.string.pair_pairing)
+            else -> getString(R.string.pair_help)
         }
         setEnabledDeep(controls, state == BleLink.State.CONNECTED)
-        if (state != BleLink.State.CONNECTED) bigBtn.text = if (state == BleLink.State.OUT_OF_RANGE) "Fuera de alcance" else "Sin conexión"
+        if (state != BleLink.State.CONNECTED) bigBtn.text = getString(if (state == BleLink.State.OUT_OF_RANGE) R.string.btn_out_of_range else R.string.btn_no_link)
     }
 
     // Llega el estado de la placa (JSON con las claves de stateJson() del firmware)
@@ -249,20 +249,24 @@ class MainActivity : Activity(), BleLink.Listener {
                 if (err) toast(msg) else if (cmd == "on" && !link.demo) Stats.count(this, "starts_app")
                 link.refresh()
             }
-            "cfg" -> runCatching { val c = JSONObject(data); fillCfg(c); Stats.setFirmware(this, c.optString("ver")) }
+            "cfg" -> runCatching {
+                val c = JSONObject(data); fillCfg(c); Stats.setFirmware(this, c.optString("ver"))
+                // La placa habla el idioma de la app (registro, avisos y web). Solo si su firmware lo admite (trae "lang")
+                if (c.has("lang") && c.optString("lang") != lang) link.send("set lang=$lang")
+            }
             "sched" -> parseSched(data)
-            "setsched" -> { if (err) toast(msg) else { progsDirty = false; bSaveProgs.text = "Guardado"; refreshSaveBtn() } }
+            "setsched" -> { if (err) toast(msg) else { progsDirty = false; bSaveProgs.text = getString(R.string.saved); refreshSaveBtn() } }
             "errors" -> tDiag.text = formatErrors(data)
-            "log" -> tDiag.text = if (data.isBlank()) "Registro vacío." else data
+            "log" -> tDiag.text = if (data.isBlank()) getString(R.string.log_empty) else data
             "set" -> when {
                 err -> toast(msg)
                 data.startsWith("restart") -> needRestart = true
             }
-            "wifi" -> toast("Wi-Fi del ESP32 encendida 15 minutos")
-            "tgtest" -> toast(if (err) msg else "Aviso de prueba enviado: mira Telegram en unos segundos")
-            "gasreset" -> { toast("Contador de gasoil a cero"); link.refresh() }
-            "forget" -> toast("Emparejamientos borrados en la placa. Quita también la placa en los Ajustes de Bluetooth de Android.")
-            "reboot" -> toast(if (err) msg else "Reiniciando la placa…")
+            "wifi" -> toast(getString(R.string.wifi_on))
+            "tgtest" -> toast(if (err) msg else getString(R.string.tg_sent))
+            "gasreset" -> { toast(getString(R.string.gas_zeroed)); link.refresh() }
+            "forget" -> toast(getString(R.string.forgot_bonds))
+            "reboot" -> toast(if (err) msg else getString(R.string.rebooting))
             "time" -> {}
             else -> if (err) toast(msg)
         }
@@ -277,41 +281,41 @@ class MainActivity : Activity(), BleLink.Listener {
         val ph = j.optInt("ph")
         val t = j.optInt("t", -999)
         tTemp.text = if (t > -100) "$t°" else "--°"
-        tPhase.text = if (on) phases.getOrElse(ph) { "Calentando" } else "Apagada"
+        tPhase.text = if (on) phases.getOrElse(ph) { phases[2] } else phases[0]
         tPhase.setTextColor(if (on) cFl else cInk)
         val rem = j.optInt("rem")
-        tRem.text = if (on) (if (ph == 3) "Agua caliente: vuelve a prender sola. " else "") + "Quedan ${fmtRem(rem)}" +
-            (if (j.optString("src") == "programa") " (programa)" else "") else ""
+        tRem.text = if (on) (if (ph == 3) getString(R.string.hot_water) + " " else "") + getString(R.string.remaining, fmtRem(rem)) +
+            (if (j.optString("src") == "programa") " " + getString(R.string.by_schedule) else "") else ""
         val v = j.optDouble("v", -1.0)
         val fl = j.optInt("fl", -1)
         val pw = j.optInt("pw", -1)
-        tStats.text = "Batería ${if (v > 0) String.format(es, "%.1f V", v) else "--"}   ·   Llama ${if (fl < 0) "--" else if (fl > 0) "sí" else "no"}   ·   " +
-            "Potencia ${if (pw < 0) "--" else "$pw W"}"
+        tStats.text = getString(R.string.battery) + " ${if (v > 0) String.format(numLocale, "%.1f V", v) else "--"}   ·   " +
+            getString(R.string.flame) + " ${if (fl < 0) "--" else getString(if (fl > 0) R.string.yes else R.string.no)}   ·   " +
+            getString(R.string.power) + " ${if (pw < 0) "--" else "$pw W"}"
         j.optJSONArray("gas")?.let { g ->
-            fun l(i: Int): String { val v = g.optDouble(i, 0.0); return (if (v < 10) String.format(es, "%.2f", v) else String.format(es, "%.1f", v)) + " l" }
-            tGas.text = "Gasoil (estimado): " + (if (on) "${l(0)} en este encendido" else "último encendido ${l(1)}") +
-                " · este mes ${l(2)} · total ${l(3)}"
+            fun l(i: Int): String { val v = g.optDouble(i, 0.0); return (if (v < 10) String.format(numLocale, "%.2f", v) else String.format(numLocale, "%.1f", v)) + " l" }
+            tGas.text = if (on) getString(R.string.gas_on, l(0), l(2), l(3)) else getString(R.string.gas_off, l(1), l(2), l(3))
         }
         val note = j.optString("note")
         val warn = mutableListOf<String>()
         if (!on && note.isNotEmpty()) warn += note
-        if (j.optInt("bus") == 0) warn += "La Webasto no responde por W-Bus. Revisa el cable del bus, la masa común y el módulo TJA1020."
-        if (j.optInt("tv") == 0) warn += "La placa no está en hora: los programas no se ejecutarán."
+        if (j.optInt("bus") == 0) warn += getString(R.string.warn_bus)
+        if (j.optInt("tv") == 0) warn += getString(R.string.warn_clock)
         tNote.text = warn.joinToString("\n\n")
         tNote.visibility = if (warn.isEmpty()) View.GONE else View.VISIBLE
-        bigBtn.text = if (on) "Apagar" else "Encender ${fmtDur(dur)}"
+        bigBtn.text = if (on) getString(R.string.btn_turn_off) else getString(R.string.btn_turn_on, fmtDur(dur))
         bigBtn.background = rounded(if (on) cSf2 else cFl, 16)
         bigBtn.setTextColor(if (on) cInk else Color.parseColor("#1A1000"))
 
         // Avisos del sistema (con la app abierta o en segundo plano reciente) y contadores de las estadísticas
         if (haveState && !link.demo) {                 // en modo demostración no hay avisos ni estadísticas
             if (lastOn && !on && note.isNotEmpty() && note != lastNote) {
-                notifyUser("La calefacción se ha apagado sola", note)
+                notifyUser(getString(R.string.notif_self_off), note)
                 Stats.count(this, "self_stops")
                 Stats.countErrors(this, Regex("0x([0-9A-F]{2})").findAll(note).map { it.groupValues[1] }.toSet())
             }
             if (!lastOn && on && j.optString("src") == "programa") Stats.count(this, "starts_prog")
-            if (on && ph == 4 && lastOn) notifyUser("La Webasto no responde", "Sin respuesta por W-Bus; sin mantenimiento se apaga sola.")
+            if (on && ph == 4 && lastOn) notifyUser(getString(R.string.notif_no_answer), getString(R.string.notif_no_answer_body))
         }
         haveState = true
         lastOn = on
@@ -412,16 +416,16 @@ class MainActivity : Activity(), BleLink.Listener {
         pairBox = card()
         tPair = text("", 14f, cMut)
         pairBox.addView(tPair)
-        pairBox.addView(row(button("Buscar placa", true) { scanDialog() }, button("Activar Bluetooth") { enableBluetooth() }), lp(top = 12))
+        pairBox.addView(row(button(getString(R.string.btn_scan), true) { scanDialog() }, button(getString(R.string.btn_enable_bt)) { enableBluetooth() }), lp(top = 12))
         // Probar la app sin tener nada montado: placa simulada
-        pairBox.addView(button("Probar sin placa (modo demostración)") { demoMode = true; demoHeating = false; startLink() }, lp(top = 10))
+        pairBox.addView(button(getString(R.string.btn_demo)) { demoMode = true; demoHeating = false; startLink() }, lp(top = 10))
         root.addView(pairBox, lp(top = 14))
 
         // Franja del modo demostración
         demoBar = card().apply {
             background = rounded(Color.parseColor("#3A2A0A"), 14)
-            addView(text("Modo demostración: los datos son simulados y no se manda nada a ninguna placa.", 14f, cInk))
-            addView(button("Salir del modo demostración") { exitDemo() }, lp(top = 10))
+            addView(text(getString(R.string.demo_bar), 14f, cInk))
+            addView(button(getString(R.string.btn_exit_demo)) { exitDemo() }, lp(top = 10))
             visibility = View.GONE
         }
         root.addView(demoBar, lp(top = 14))
@@ -433,7 +437,7 @@ class MainActivity : Activity(), BleLink.Listener {
         val st = card().apply { gravity = Gravity.CENTER_HORIZONTAL }
         tTemp = text("--°", 64f, cInk).apply { gravity = Gravity.CENTER; typeface = Typeface.create("sans-serif-light", Typeface.NORMAL) }
         st.addView(tTemp, lp())
-        st.addView(text("agua del motor", 13f, cMut).apply { gravity = Gravity.CENTER }, lp())
+        st.addView(text(getString(R.string.water), 13f, cMut).apply { gravity = Gravity.CENTER }, lp())
         tPhase = text("—", 22f, cInk, true).apply { gravity = Gravity.CENTER }
         st.addView(tPhase, lp(top = 10))
         tRem = text("", 14f, cMut).apply { gravity = Gravity.CENTER }
@@ -452,74 +456,73 @@ class MainActivity : Activity(), BleLink.Listener {
         segRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; background = rounded(cSf, 12); setPadding(dp(4), dp(4), dp(4), dp(4)) }
         controls.addView(segRow, lp(top = 12))
         drawSeg()
-        bigBtn = button("Sin conexión") { toggleHeater() }.apply { textSize = 18f; setPadding(dp(16), dp(18), dp(16), dp(18)) }
+        bigBtn = button(getString(R.string.btn_no_link)) { toggleHeater() }.apply { textSize = 18f; setPadding(dp(16), dp(18), dp(16), dp(18)) }
         controls.addView(bigBtn, lp(top = 12))
 
         // Programas
-        section(controls, "Programas", "Se encienden solos a una hora y unos días; la placa los guarda.")
-        swAuto = Switch(this).apply { text = "Programas activos"; setTextColor(cInk); textSize = 16f }
+        section(controls, getString(R.string.sec_programs), getString(R.string.sec_programs_sub))
+        swAuto = Switch(this).apply { text = getString(R.string.programs_active); setTextColor(cInk); textSize = 16f }
         swAuto.setOnCheckedChangeListener { _: CompoundButton, c: Boolean -> if (c != progsAuto) { progsAuto = c; touchProgs() } }
         controls.addView(card().apply { addView(swAuto) }, lp(top = 10))
         progList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         controls.addView(progList)
-        bSaveProgs = button("Guardar programas", true) { saveProgs() }
-        controls.addView(row(button("Añadir programa") { addProg() }, bSaveProgs), lp(top = 10))
+        bSaveProgs = button(getString(R.string.btn_save_programs), true) { saveProgs() }
+        controls.addView(row(button(getString(R.string.btn_add_program)) { addProg() }, bSaveProgs), lp(top = 10))
         drawProgs()
 
         // Diagnóstico
-        section(controls, "Diagnóstico")
+        section(controls, getString(R.string.sec_diag))
         tDiag = text("", 13f, cMut).apply { setTextIsSelectable(true) }
-        controls.addView(row(button("Leer averías") { tDiag.text = "Leyendo…"; link.send("errors") },
-            button("Ver registro") { tDiag.text = "Leyendo…"; link.send("log") }), lp(top = 10))
-        controls.addView(button("Poner a cero el gasoil estimado") { confirmGasReset() }, lp(top = 10))
+        controls.addView(row(button(getString(R.string.btn_read_faults)) { tDiag.text = getString(R.string.reading); link.send("errors") },
+            button(getString(R.string.btn_view_log)) { tDiag.text = getString(R.string.reading); link.send("log") }), lp(top = 10))
+        controls.addView(button(getString(R.string.btn_gas_reset)) { confirmGasReset() }, lp(top = 10))
         controls.addView(tDiag, lp(top = 10))
 
         // Configuración
-        section(controls, "Configuración", "Se guarda en la placa. El nombre, el PIN y la red con internet se aplican al reiniciarla.")
+        section(controls, getString(R.string.sec_config), getString(R.string.sec_config_sub))
         val cfg = card()
-        cfg.addView(text("Bluetooth y Wi-Fi propios", 15f, cInk, true))
-        field("Nombre (Wi-Fi y Bluetooth)").let { cfg.addView(it.first); eName = it.second }
-        field("PIN de emparejamiento (6 cifras)", InputType.TYPE_CLASS_NUMBER).let { cfg.addView(it.first); ePin = it.second }
-        field("Clave de la Wi-Fi propia (mínimo 8)", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD, "sin cambios").let { cfg.addView(it.first); eAp = it.second }
-        cfg.addView(text("Wi-Fi propia", 13f, cMut), lp(top = 10))
+        cfg.addView(text(getString(R.string.cfg_own), 15f, cInk, true))
+        field(getString(R.string.f_name)).let { cfg.addView(it.first); eName = it.second }
+        field(getString(R.string.f_pin), InputType.TYPE_CLASS_NUMBER).let { cfg.addView(it.first); ePin = it.second }
+        field(getString(R.string.f_ap), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD, getString(R.string.hint_unchanged)).let { cfg.addView(it.first); eAp = it.second }
+        cfg.addView(text(getString(R.string.f_wm), 13f, cMut), lp(top = 10))
         spWm = Spinner(this).apply {
             adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item,
-                listOf("Siempre encendida (gasta más)", "Solo mientras calienta", "Solo a petición (máximo ahorro)"))
+                resources.getStringArray(R.array.wifi_modes).toList())
             background = rounded(cSf2, 10)
         }
         cfg.addView(spWm, lp(top = 4))
-        cfg.addView(text("Red con internet (opcional)", 15f, cInk, true), lp(top = 18))
-        field("Red Wi-Fi (casa o punto de acceso del móvil)").let { cfg.addView(it.first); eSsid = it.second }
-        field("Contraseña", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD, "sin cambios").let { cfg.addView(it.first); ePass = it.second }
-        cfg.addView(text("Avisos por Telegram (opcional)", 15f, cInk, true), lp(top = 18))
-        field("Token del bot (de @BotFather)", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD, "sin cambios").let { cfg.addView(it.first); eTok = it.second }
-        field("Chat ID (vacío: avisos desactivados)", InputType.TYPE_CLASS_TEXT).let { cfg.addView(it.first); eChat = it.second }
-        cfg.addView(text("Seguridad", 15f, cInk, true), lp(top = 18))
-        field("Batería mínima para arrancar un programa (V)", InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL).let { cfg.addView(it.first); eMinV = it.second }
-        cfg.addView(row(button("Guardar", true) { saveCfg() }, button("Probar Telegram") { link.send("tgtest") }), lp(top = 14))
-        cfg.addView(row(button("Encender Wi-Fi 15 min") { link.send("wifi") }, button("Reiniciar placa") { confirmReboot() }), lp(top = 10))
+        cfg.addView(text(getString(R.string.cfg_inet), 15f, cInk, true), lp(top = 18))
+        field(getString(R.string.f_ssid)).let { cfg.addView(it.first); eSsid = it.second }
+        field(getString(R.string.f_pass), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD, getString(R.string.hint_unchanged)).let { cfg.addView(it.first); ePass = it.second }
+        cfg.addView(text(getString(R.string.cfg_tg), 15f, cInk, true), lp(top = 18))
+        field(getString(R.string.f_tok), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD, getString(R.string.hint_unchanged)).let { cfg.addView(it.first); eTok = it.second }
+        field(getString(R.string.f_chat), InputType.TYPE_CLASS_TEXT).let { cfg.addView(it.first); eChat = it.second }
+        cfg.addView(text(getString(R.string.cfg_safety), 15f, cInk, true), lp(top = 18))
+        field(getString(R.string.f_minv), InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL).let { cfg.addView(it.first); eMinV = it.second }
+        cfg.addView(row(button(getString(R.string.btn_save), true) { saveCfg() }, button(getString(R.string.btn_tg_test)) { link.send("tgtest") }), lp(top = 14))
+        cfg.addView(row(button(getString(R.string.btn_wifi15)) { link.send("wifi") }, button(getString(R.string.btn_reboot)) { confirmReboot() }), lp(top = 10))
         tCfg = text("", 13f, cMut)
         cfg.addView(tCfg, lp(top = 10))
         controls.addView(cfg, lp(top = 10))
 
         // Dispositivo
-        section(root, "Ajustes de la app", "Se guardan en este móvil o radio, no en la placa.")
-        root.addView(row(button("Olvidar placa") { confirmForget() }, button("Ajustes Bluetooth") {
+        section(root, getString(R.string.sec_app), getString(R.string.sec_app_sub))
+        root.addView(row(button(getString(R.string.btn_forget)) { confirmForget() }, button(getString(R.string.btn_bt_settings)) {
             startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
         }), lp(top = 10))
         swStats = Switch(this).apply {
-            text = "Enviar estadísticas anónimas"; setTextColor(cInk); textSize = 15f
+            text = getString(R.string.stats_switch); setTextColor(cInk); textSize = 15f
             isChecked = Stats.consent(this@MainActivity) == true
         }
         swStats.setOnCheckedChangeListener { _: CompoundButton, c: Boolean -> Stats.setConsent(this, c); if (c) Stats.maybeSend(this) }
         root.addView(card().apply {
             addView(swStats)
-            addView(text("Una vez al día como mucho: versiones, tipo de dispositivo, país, número de encendidos y averías. " +
-                "Sin ubicación, nombres, redes ni PIN, y sin guardar tu IP.", 13f, cMut), lp(top = 6))
-            addView(button("Ver estadísticas públicas") { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Stats.URL_PUBLIC))) }, lp(top = 10))
+            addView(text(getString(R.string.stats_help), 13f, cMut), lp(top = 6))
+            addView(button(getString(R.string.btn_public_stats)) { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Stats.URL_PUBLIC))) }, lp(top = 10))
         }, lp(top = 10))
         val ver = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "?"
-        root.addView(text("App WTTC $ver · wttc.favala.es\nCódigo generado íntegramente con Claude (Anthropic) · github.com/matatunos/wttc", 13f, cMut).apply {
+        root.addView(text(getString(R.string.footer, ver), 13f, cMut).apply {
             setOnClickListener { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wttc.favala.es"))) }
         }, lp(top = 20))
 
@@ -552,7 +555,7 @@ class MainActivity : Activity(), BleLink.Listener {
 
     private fun toggleHeater() {
         val on = dev?.optInt("on") == 1
-        bigBtn.text = if (on) "Apagando…" else "Encendiendo…"
+        bigBtn.text = getString(if (on) R.string.btn_turning_off else R.string.btn_turning_on)
         link.send(if (on) "off" else "on $dur")
     }
 
@@ -577,9 +580,9 @@ class MainActivity : Activity(), BleLink.Listener {
         val found = mutableListOf<Pair<BluetoothDevice, String>>()
         val names = ArrayAdapter<String>(this, android.R.layout.simple_list_item_1)
         val dlg = AlertDialog.Builder(this)
-            .setTitle("Buscando placas WTTC…")
+            .setTitle(getString(R.string.scan_title))
             .setAdapter(names) { _, i -> val (d, n) = found[i]; link.choose(d, n) }
-            .setNegativeButton("Cancelar") { _, _ -> link.stopScan(); link.start() }
+            .setNegativeButton(getString(R.string.cancel)) { _, _ -> link.stopScan(); link.start() }
             .create()
         dlg.show()
         link.scan { d, n ->
@@ -593,24 +596,20 @@ class MainActivity : Activity(), BleLink.Listener {
     /** Primer inicio: estadísticas anónimas. Dos botones iguales y nada marcado de antemano. */
     private fun askStats() {
         AlertDialog.Builder(this)
-            .setTitle("¿Nos ayudas con estadísticas anónimas?")
-            .setMessage("WTTC puede enviar, una vez al día como mucho: versión de la app y del firmware, versión de Android, " +
-                "tipo de dispositivo (móvil, tablet o radio), país según el idioma del sistema, número de encendidos y apagados " +
-                "y los códigos de avería.\n\nNunca se envía ubicación, nombres, redes Wi-Fi, PIN ni horarios, y no se guarda tu IP. " +
-                "Los resultados son públicos en wttc.favala.es/estadisticas.php.\n\nPuedes cambiar de idea cuando quieras en «Ajustes de la app», al final de la pantalla.")
+            .setTitle(getString(R.string.stats_title))
+            .setMessage(getString(R.string.stats_msg))
             .setCancelable(false)
-            .setPositiveButton("Sí, enviar") { _, _ -> swStats.isChecked = true }      // el interruptor guarda el permiso y envía
-            .setNegativeButton("No, gracias") { _, _ -> Stats.setConsent(this, false); swStats.isChecked = false }
+            .setPositiveButton(getString(R.string.stats_yes)) { _, _ -> swStats.isChecked = true }      // el interruptor guarda el permiso y envía
+            .setNegativeButton(getString(R.string.stats_no)) { _, _ -> Stats.setConsent(this, false); swStats.isChecked = false }
             .show()
     }
 
     // Confirmación antes de poner a cero el gasoil estimado
     private fun confirmGasReset() {
         AlertDialog.Builder(this)
-            .setTitle("Gasoil estimado")
-            .setMessage("¿Poner a cero el último encendido, el mes y el total? La estimación sale de la potencia que informa " +
-                "la Webasto (≈ 0,62 l/h a plena carga) y puede desviarse un 20 %.")
-            .setPositiveButton("Poner a cero") { _, _ -> link.send("gasreset") }
+            .setTitle(getString(R.string.gas_title))
+            .setMessage(getString(R.string.gas_msg))
+            .setPositiveButton(getString(R.string.gas_ok)) { _, _ -> link.send("gasreset") }
             .setNegativeButton("Cancelar", null)
             .show()
     }
@@ -618,10 +617,9 @@ class MainActivity : Activity(), BleLink.Listener {
     // Confirmación antes de olvidar la placa en la app
     private fun confirmForget() {
         AlertDialog.Builder(this)
-            .setTitle("Olvidar la placa")
-            .setMessage("La app dejará de conectarse a esta placa. Para emparejarla de nuevo, quítala también en los Ajustes de " +
-                "Bluetooth de Android y vuelve a buscarla.")
-            .setPositiveButton("Olvidar") { _, _ -> link.forget(); dev = null }
+            .setTitle(getString(R.string.forget_title))
+            .setMessage(getString(R.string.forget_msg))
+            .setPositiveButton(getString(R.string.forget_ok)) { _, _ -> link.forget(); dev = null }
             .setNegativeButton("Cancelar", null)
             .show()
     }
@@ -629,9 +627,9 @@ class MainActivity : Activity(), BleLink.Listener {
     // Confirmación antes de reiniciar la placa (el firmware se niega si está calentando)
     private fun confirmReboot() {
         AlertDialog.Builder(this)
-            .setTitle("Reiniciar la placa")
-            .setMessage("Se aplican los cambios pendientes. Si está calentando, la placa no se reinicia.")
-            .setPositiveButton("Reiniciar") { _, _ -> link.send("reboot"); needRestart = false }
+            .setTitle(getString(R.string.reboot_title))
+            .setMessage(getString(R.string.reboot_msg))
+            .setPositiveButton(getString(R.string.reboot_ok)) { _, _ -> link.send("reboot"); needRestart = false }
             .setNegativeButton("Cancelar", null)
             .show()
     }
@@ -654,7 +652,7 @@ class MainActivity : Activity(), BleLink.Listener {
     // Marca que hay cambios en los programas pendientes de guardar
     private fun touchProgs() {
         progsDirty = true
-        bSaveProgs.text = "Guardar programas"
+        bSaveProgs.text = getString(R.string.btn_save_programs)
         refreshSaveBtn()
     }
 
@@ -663,7 +661,7 @@ class MainActivity : Activity(), BleLink.Listener {
 
     // Añade un programa: 07:00, 30 min, de lunes a viernes (31 = bits de lunes a viernes)
     private fun addProg() {
-        if (progs.size >= 8) { toast("Máximo 8 programas"); return }
+        if (progs.size >= 8) { toast(getString(R.string.max_programs)); return }
         progs += Prog(true, 31, 7 * 60, 30)
         touchProgs(); drawProgs()
     }
@@ -678,7 +676,7 @@ class MainActivity : Activity(), BleLink.Listener {
     private fun drawProgs() {
         progList.removeAllViews()
         if (progs.isEmpty()) {
-            progList.addView(text("Sin programas.", 14f, cMut), lp(top = 10))
+            progList.addView(text(getString(R.string.no_programs), 14f, cMut), lp(top = 10))
             refreshSaveBtn(); return
         }
         progs.forEachIndexed { idx, p ->
@@ -728,7 +726,7 @@ class MainActivity : Activity(), BleLink.Listener {
     // ---------- configuración ----------
     // Algún ajuste guardado necesita reiniciar la placa para aplicarse: se avisa al usuario
     private var needRestart = false
-        set(v) { field = v; if (v) toast("Guardado. Se aplicará al reiniciar la placa («Reiniciar placa»).") }
+        set(v) { field = v; if (v) toast(getString(R.string.need_restart)) }
 
     // Rellena el formulario con la configuración de la placa (las claves nunca vienen: los campos quedan vacíos)
     private fun fillCfg(c: JSONObject) {
@@ -738,10 +736,10 @@ class MainActivity : Activity(), BleLink.Listener {
         eSsid.setText(c.optString("ssid"))
         eChat.setText(c.optString("tgchat"))
         eMinV.setText(c.optString("minvolt"))
-        eTok.hint = if (c.optBoolean("tg")) "guardado (vacío: sin cambios)" else "sin configurar"
+        eTok.hint = getString(if (c.optBoolean("tg")) R.string.hint_token_saved else R.string.hint_not_set)
         eAp.setText(""); ePass.setText(""); eTok.setText("")
         val bonds = c.optInt("bonds")
-        tCfg.text = "Firmware WTTC ${c.optString("ver")} · dispositivos emparejados con la placa: $bonds"
+        tCfg.text = getString(R.string.cfg_info, c.optString("ver"), bonds)
     }
 
     // Manda cada ajuste con "set clave=valor"; las claves vacías no se envían (la placa conserva las que tenía)
@@ -759,7 +757,7 @@ class MainActivity : Activity(), BleLink.Listener {
         if (eTok.text.isNotBlank()) sets += "tgtok" to eTok.text.toString().trim()
         for ((k, v) in sets) link.send("set $k=$v")
         link.send("cfg")
-        toast("Configuración enviada")
+        toast(getString(R.string.cfg_sent))
     }
 
     // ---------- utilidades ----------
@@ -767,11 +765,11 @@ class MainActivity : Activity(), BleLink.Listener {
     // Averías en JSON -> una línea por código
     private fun formatErrors(data: String): String = runCatching {
         val j = JSONObject(data)
-        if (!j.optBoolean("ok")) return@runCatching "La Webasto no respondió."
+        if (!j.optBoolean("ok")) return@runCatching getString(R.string.faults_no_answer)
         val codes = j.optJSONArray("codes")
-        if (codes == null || codes.length() == 0) "Sin averías guardadas."
+        if (codes == null || codes.length() == 0) getString(R.string.faults_none)
         else (0 until codes.length()).joinToString("\n") { i ->
-            val c = codes.getJSONObject(i); "Código 0x${c.optString("c")} (${c.optInt("n")} veces)"
+            val c = codes.getJSONObject(i); getString(R.string.fault_line, c.optString("c"), c.optInt("n"))
         }
     }.getOrDefault(data)
 
@@ -783,7 +781,7 @@ class MainActivity : Activity(), BleLink.Listener {
 
     // Canal de notificaciones de Android (obligatorio desde Android 8)
     private fun createChannel() {
-        val ch = NotificationChannel("avisos", "Avisos de la calefacción", NotificationManager.IMPORTANCE_HIGH)
+        val ch = NotificationChannel("avisos", getString(R.string.channel_name), NotificationManager.IMPORTANCE_HIGH)
         getSystemService(NotificationManager::class.java).createNotificationChannel(ch)
     }
 

@@ -129,8 +129,8 @@ class BleLink(private val ctx: Context, private val listener: Listener) {
     /** Arranca el modo demostración (heating = empezar ya encendida y caliente). */
     fun startDemo(heating: Boolean) {
         stop()
-        demoDev = DemoDevice(main, listener, heating).also { it.start() }
-        setState(State.CONNECTED, "modo demostración")
+        demoDev = DemoDevice(ctx, main, listener, heating).also { it.start() }
+        setState(State.CONNECTED)
         // Igual que al conectar con una placa real: pedir configuración y programas
         send("cfg")
         send("sched")
@@ -180,7 +180,7 @@ class BleLink(private val ctx: Context, private val listener: Listener) {
             val name = result.scanRecord?.deviceName ?: result.device.name ?: "WTTC"
             main.post { onFound?.invoke(result.device, name) }
         }
-        override fun onScanFailed(errorCode: Int) { scanning = false; setState(State.NOT_PAIRED, "No se pudo buscar ($errorCode)") }
+        override fun onScanFailed(errorCode: Int) { scanning = false; setState(State.NOT_PAIRED, ctx.getString(R.string.ble_scan_failed, errorCode)) }
     }
 
     /** Busca placas WTTC (por el UUID de su servicio) durante 15 s. */
@@ -197,7 +197,7 @@ class BleLink(private val ctx: Context, private val listener: Listener) {
         main.postDelayed(scanEnd, SCAN_MS)
     }
 
-    private val scanEnd = Runnable { if (scanning) { stopScan(); if (state == State.SCANNING) setState(State.NOT_PAIRED, "Búsqueda terminada") } }
+    private val scanEnd = Runnable { if (scanning) { stopScan(); if (state == State.SCANNING) setState(State.NOT_PAIRED, ctx.getString(R.string.ble_scan_done)) } }
 
     fun stopScan() {
         main.removeCallbacks(scanEnd)      // si se vuelve a buscar, el plazo de la búsqueda anterior no corta la nueva
@@ -216,7 +216,7 @@ class BleLink(private val ctx: Context, private val listener: Listener) {
             if (dev?.address != savedAddress) return
             when (i.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.ERROR)) {
                 BluetoothDevice.BOND_BONDED -> { unregisterBond(); wantConnected = true; connect(dev!!, auto = false) }
-                BluetoothDevice.BOND_NONE -> { unregisterBond(); setState(State.NOT_PAIRED, "Emparejamiento cancelado o PIN incorrecto") }
+                BluetoothDevice.BOND_NONE -> { unregisterBond(); setState(State.NOT_PAIRED, ctx.getString(R.string.ble_pair_failed)) }
             }
         }
     }
@@ -241,7 +241,7 @@ class BleLink(private val ctx: Context, private val listener: Listener) {
         if (dev.bondState == BluetoothDevice.BOND_BONDED) { wantConnected = true; connect(dev, auto = false); return }
         registerBond()
         setState(State.PAIRING)
-        if (!dev.createBond()) { unregisterBond(); setState(State.NOT_PAIRED, "Android no ha podido iniciar el emparejamiento") }
+        if (!dev.createBond()) { unregisterBond(); setState(State.NOT_PAIRED, ctx.getString(R.string.ble_bond_failed)) }
     }
 
     // ---------- conexión ----------
@@ -257,7 +257,7 @@ class BleLink(private val ctx: Context, private val listener: Listener) {
     private val gattCb = object : BluetoothGattCallback() {
         override fun onConnectionStateChange(g: BluetoothGatt, status: Int, newState: Int) {
             if (newState == BluetoothProfile.STATE_CONNECTED) {
-                setState(State.CONNECTING, "Preparando…")
+                setState(State.CONNECTING, ctx.getString(R.string.ble_preparing))
                 main.post { if (!g.requestMtu(517)) g.discoverServices() }
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 main.post {
@@ -281,7 +281,7 @@ class BleLink(private val ctx: Context, private val listener: Listener) {
         override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
             val svc = g.getService(SVC)
             if (status != BluetoothGatt.GATT_SUCCESS || svc == null) {
-                setState(State.OUT_OF_RANGE, "Esta placa no tiene el servicio WTTC")
+                setState(State.OUT_OF_RANGE, ctx.getString(R.string.ble_no_service))
                 return
             }
             enqueue { enableNotify(g, svc.getCharacteristic(CH_STATE)) }

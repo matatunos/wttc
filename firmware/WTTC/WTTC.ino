@@ -41,8 +41,10 @@
     - Consola serie (115200 baudios): on [min] | off | status | errores | cfg | set clave=valor | wifi | forget | reboot | gasreset
     - Avisos por Telegram (opcional): token del bot y chat ID en Configuración. Solo salen si el ESP32 llega
       a una red con internet; para enviarlos enciende la Wi-Fi unos minutos.
-    - Todo lo configurable (nombre, claves, PIN, modo de la Wi-Fi, Telegram, batería mínima) se cambia desde
-      la web o la app y se guarda en la memoria de la placa: no hace falta tocar el código.
+    - Todo lo configurable (idioma, nombre, claves, PIN, modo de la Wi-Fi, Telegram, batería mínima) se cambia
+      desde la web o la app y se guarda en la memoria de la placa: no hace falta tocar el código.
+    - Idioma: español, inglés o alemán (registro, avisos, mensajes y web). La app pone el del móvil al conectar.
+      La consola serie sigue en español.
 
   Protocolo W-Bus (resumen)
   -------------------------
@@ -73,6 +75,7 @@
 #include <BLESecurity.h>        // emparejamiento con PIN
 #include <esp_gap_ble_api.h>    // funciones de bajo nivel para listar y borrar emparejamientos
 #include <time.h>               // hora local (programas, registro)
+#include <stdarg.h>             // trf(): textos traducidos con datos (printf)
 #include <sys/time.h>           // settimeofday(): poner en hora desde el móvil
 #include "web.h"                // INDEX_HTML: la página web completa (va aparte para que el preprocesador no la toque)
 
@@ -163,6 +166,131 @@ String logBuf[20];
 int logN = 0;
 
 // ============================================================================================================
+// Idioma: español, inglés o alemán (ajuste "lang"; la app pone el del móvil al conectar, la web lo deja elegir)
+// Todos los textos que ve el usuario (registro, avisos, motivos de apagado y errores) salen de esta tabla.
+// Las palabras del protocolo ("programa", "app"…, en onSrc) no se traducen: la app y la web las reconocen.
+// ============================================================================================================
+enum { L_ES, L_EN, L_DE, L_N };
+uint8_t lang = L_ES;
+const char* const LANG_CODES[L_N] = {"es", "en", "de"};
+
+enum Txt {
+  T_SRC_APP, T_SRC_MANUAL, T_SRC_CONSOLE, T_SRC_PROG,
+  T_LOG_ON, T_LOG_ON_FAIL, T_TG_ON_FAIL, T_OFF, T_OFF_NOCONF, T_GAS_SUFFIX,
+  T_FAULTS, T_NOTE_QUIT, T_TG_QUIT, T_ERR_NORESP, T_ERR_NONE,
+  T_WHY_FLAME_OUT, T_WHY_NO_IGNITION, T_WHY_NO_ORDER, T_WHY_END, T_WHY_NO_COMM,
+  T_LOG_SCHED, T_LOG_WIFI_ON, T_LOG_WIFI_OFF, T_LOG_SKIP, T_LOG_FORGET, T_LOG_TIME_APP, T_LOG_TIME_WEB,
+  T_LOG_GASRESET, T_LOG_CFG, T_LOG_BOOT, T_LOG_BUS_BACK, T_LOG_BUS_LOST, T_TG_BUS_LOST, T_NOTE_LOST, T_TG_LOST,
+  T_TG_TEST, T_TG_QUEUE_FULL, T_TG_NO_NET, T_TG_SENT, T_TG_ERROR,
+  T_E_NAME, T_E_APPASS, T_E_PIN, T_E_WIFIMODE, T_E_SSID, T_E_PASS, T_E_TOKEN, T_E_CHAT, T_E_MINVOLT, T_E_LANG, T_E_UNKNOWN_SET,
+  T_E_ON, T_OFF_NOCONF_SHORT, T_E_TIME, T_E_FORMAT, T_E_TG_CFG, T_E_TG_NET, T_E_REBOOT_HEAT, T_E_UNKNOWN_CMD,
+  T_W_OFF_NOCONF, T_W_SAVED, T_W_SAVED_LATER, T_W_SAVED_REBOOT, T_W_TG_SENDING, T_W_GASRESET, T_W_FORGOT,
+  T_COUNT
+};
+
+const char* const TXT[T_COUNT][L_N] = {
+  /* T_SRC_APP */          {"app", "app", "App"},
+  /* T_SRC_MANUAL */       {"manual", "manual", "manuell"},
+  /* T_SRC_CONSOLE */      {"consola", "console", "Konsole"},
+  /* T_SRC_PROG */         {"programa", "schedule", "Zeitplan"},
+  /* T_LOG_ON */           {"Encendida (%s, %d min)", "Switched on (%s, %d min)", "Eingeschaltet (%s, %d min)"},
+  /* T_LOG_ON_FAIL */      {"Error: la Webasto no respondió al encendido", "Error: the Webasto did not answer the start command", "Fehler: Webasto hat auf den Einschaltbefehl nicht geantwortet"},
+  /* T_TG_ON_FAIL */       {"No se pudo encender (%s): la Webasto no responde por W-Bus", "Could not switch on (%s): the Webasto does not answer on the W-Bus", "Einschalten nicht möglich (%s): Webasto antwortet nicht über W-Bus"},
+  /* T_OFF */              {"Apagada (%s)", "Switched off (%s)", "Ausgeschaltet (%s)"},
+  /* T_OFF_NOCONF */       {"Apagada (%s, sin confirmación)", "Switched off (%s, not confirmed)", "Ausgeschaltet (%s, ohne Bestätigung)"},
+  /* T_GAS_SUFFIX */       {" · gasoil ≈ %s", " · diesel ≈ %s", " · Diesel ≈ %s"},
+  /* T_FAULTS */           {"Averías: %s", "Faults: %s", "Fehler: %s"},
+  /* T_NOTE_QUIT */        {"Se ha apagado sola: %s. Averías: %s.", "It switched itself off: %s. Faults: %s.", "Hat sich selbst abgeschaltet: %s. Fehler: %s."},
+  /* T_TG_QUIT */          {"Se ha apagado sola: %s. Averías: %s. Gasoil ≈ %s", "It switched itself off: %s. Faults: %s. Diesel ≈ %s", "Hat sich selbst abgeschaltet: %s. Fehler: %s. Diesel ≈ %s"},
+  /* T_ERR_NORESP */       {"sin respuesta", "no answer", "keine Antwort"},
+  /* T_ERR_NONE */         {"ninguna guardada", "none stored", "keine gespeichert"},
+  /* T_WHY_FLAME_OUT */    {"se ha apagado la llama", "the flame went out", "die Flamme ist erloschen"},
+  /* T_WHY_NO_IGNITION */  {"no ha llegado a prender", "it never ignited", "sie hat nicht gezündet"},
+  /* T_WHY_NO_ORDER */     {"ya no tiene la orden de calentar", "it no longer has the heating command", "sie hat den Heizbefehl nicht mehr"},
+  /* T_WHY_END */          {"fin de tiempo", "time is up", "Zeit abgelaufen"},
+  /* T_WHY_NO_COMM */      {"sin comunicación con la Webasto", "no communication with the Webasto", "keine Verbindung zur Webasto"},
+  /* T_LOG_SCHED */        {"Programas guardados (%d)", "Schedules saved (%d)", "Zeitpläne gespeichert (%d)"},
+  /* T_LOG_WIFI_ON */      {"Wi-Fi encendida", "Wi-Fi on", "WLAN an"},
+  /* T_LOG_WIFI_OFF */     {"Wi-Fi apagada para ahorrar", "Wi-Fi off to save power", "WLAN aus (Strom sparen)"},
+  /* T_LOG_SKIP */         {"Programa omitido: batería a %s V", "Schedule skipped: battery at %s V", "Zeitplan ausgelassen: Batterie bei %s V"},
+  /* T_LOG_FORGET */       {"Emparejamientos Bluetooth borrados (%d)", "Bluetooth pairings deleted (%d)", "Bluetooth-Kopplungen gelöscht (%d)"},
+  /* T_LOG_TIME_APP */     {"Hora ajustada desde la app", "Clock set from the app", "Uhrzeit von der App gestellt"},
+  /* T_LOG_TIME_WEB */     {"Hora ajustada desde el móvil", "Clock set from the phone", "Uhrzeit vom Handy gestellt"},
+  /* T_LOG_GASRESET */     {"Contador de gasoil a cero", "Diesel counter reset", "Dieselzähler zurückgesetzt"},
+  /* T_LOG_CFG */          {"Configuración guardada", "Settings saved", "Einstellungen gespeichert"},
+  /* T_LOG_BOOT */         {"Arranque, firmware %s", "Boot, firmware %s", "Start, Firmware %s"},
+  /* T_LOG_BUS_BACK */     {"La Webasto vuelve a responder", "The Webasto is answering again", "Webasto antwortet wieder"},
+  /* T_LOG_BUS_LOST */     {"Aviso: la Webasto no responde al mantenimiento", "Warning: the Webasto does not answer the keep-alive", "Warnung: Webasto antwortet nicht auf das Keep-Alive"},
+  /* T_TG_BUS_LOST */      {"La Webasto no responde por W-Bus. Sin mantenimiento se apaga sola en unos segundos; revisa el cableado.",
+                            "The Webasto does not answer on the W-Bus. Without keep-alive it switches itself off within seconds; check the wiring.",
+                            "Webasto antwortet nicht über W-Bus. Ohne Keep-Alive schaltet sie sich in Sekunden selbst ab; Verkabelung prüfen."},
+  /* T_NOTE_LOST */        {"Se perdió la comunicación con la Webasto. Sin mantenimiento se apaga sola, pero compruébalo.",
+                            "Lost communication with the Webasto. Without keep-alive it switches itself off, but check it.",
+                            "Verbindung zur Webasto verloren. Ohne Keep-Alive schaltet sie sich selbst ab, bitte trotzdem prüfen."},
+  /* T_TG_LOST */          {"Sigue sin responder tras 2 minutos: la doy por apagada. Compruébalo en la furgo.",
+                            "Still no answer after 2 minutes: assuming it is off. Check it in the van.",
+                            "Nach 2 Minuten immer noch keine Antwort: gilt als aus. Bitte im Fahrzeug prüfen."},
+  /* T_TG_TEST */          {"Prueba de aviso", "Test notification", "Testbenachrichtigung"},
+  /* T_TG_QUEUE_FULL */    {"Cola de avisos llena: se ha perdido uno", "Notification queue full: one was lost", "Benachrichtigungen voll: eine ging verloren"},
+  /* T_TG_NO_NET */        {"Perdido, sin red: %s", "Lost, no network: %s", "Verloren, kein Netz: %s"},
+  /* T_TG_SENT */          {"Enviado: %s", "Sent: %s", "Gesendet: %s"},
+  /* T_TG_ERROR */         {"Error %d (sin internet, o token/chat mal): %s", "Error %d (no internet, or wrong token/chat): %s", "Fehler %d (kein Internet oder Token/Chat falsch): %s"},
+  /* T_E_NAME */           {"El nombre debe tener entre 1 y 29 caracteres.", "The name must be 1 to 29 characters long.", "Der Name muss 1 bis 29 Zeichen lang sein."},
+  /* T_E_APPASS */         {"La clave de la Wi-Fi debe tener entre 8 y 63 caracteres.", "The Wi-Fi password must be 8 to 63 characters long.", "Das WLAN-Passwort muss 8 bis 63 Zeichen lang sein."},
+  /* T_E_PIN */            {"El PIN debe tener 6 cifras y no empezar por 0.", "The PIN must have 6 digits and not start with 0.", "Die PIN muss 6 Ziffern haben und darf nicht mit 0 beginnen."},
+  /* T_E_WIFIMODE */       {"Modo de Wi-Fi no válido.", "Invalid Wi-Fi mode.", "Ungültiger WLAN-Modus."},
+  /* T_E_SSID */           {"Nombre de red demasiado largo.", "Network name too long.", "Netzwerkname zu lang."},
+  /* T_E_PASS */           {"Contraseña demasiado larga.", "Password too long.", "Passwort zu lang."},
+  /* T_E_TOKEN */          {"Token demasiado largo.", "Token too long.", "Token zu lang."},
+  /* T_E_CHAT */           {"Chat ID demasiado largo.", "Chat ID too long.", "Chat-ID zu lang."},
+  /* T_E_MINVOLT */        {"La batería mínima debe estar entre 10,5 y 13,0 V.", "The minimum battery must be between 10.5 and 13.0 V.", "Die Mindestspannung muss zwischen 10,5 und 13,0 V liegen."},
+  /* T_E_LANG */           {"Idioma no válido.", "Invalid language.", "Ungültige Sprache."},
+  /* T_E_UNKNOWN_SET */    {"Ajuste desconocido: %s", "Unknown setting: %s", "Unbekannte Einstellung: %s"},
+  /* T_E_ON */             {"La Webasto no respondió al encendido.", "The Webasto did not answer the start command.", "Webasto hat auf den Einschaltbefehl nicht geantwortet."},
+  /* T_OFF_NOCONF_SHORT */ {"sin confirmación de la Webasto", "not confirmed by the Webasto", "ohne Bestätigung der Webasto"},
+  /* T_E_TIME */           {"Hora no válida", "Invalid time", "Ungültige Uhrzeit"},
+  /* T_E_FORMAT */         {"Formato", "Format", "Format"},
+  /* T_E_TG_CFG */         {"Primero guarda el token y el chat ID.", "Save the token and the chat ID first.", "Zuerst Token und Chat-ID speichern."},
+  /* T_E_TG_NET */         {"Falta la red con internet (Configuración).", "No internet network set (Settings).", "Kein Netzwerk mit Internet eingestellt (Einstellungen)."},
+  /* T_E_REBOOT_HEAT */    {"Está calentando: reiniciar la apagaría.", "It is heating: restarting would switch it off.", "Sie heizt gerade: ein Neustart würde sie abschalten."},
+  /* T_E_UNKNOWN_CMD */    {"Orden desconocida", "Unknown command", "Unbekannter Befehl"},
+  /* T_W_OFF_NOCONF */     {"Apagada sin confirmación de la Webasto.", "Switched off, not confirmed by the Webasto.", "Ausgeschaltet, ohne Bestätigung der Webasto."},
+  /* T_W_SAVED */          {"Guardado.", "Saved.", "Gespeichert."},
+  /* T_W_SAVED_LATER */    {"Guardado. Se aplicará al reiniciar (ahora está calentando: reiniciar la apagaría).",
+                            "Saved. It will apply after a restart (it is heating now: restarting would switch it off).",
+                            "Gespeichert. Wird nach einem Neustart wirksam (sie heizt gerade: ein Neustart würde sie abschalten)."},
+  /* T_W_SAVED_REBOOT */   {"Guardado. Reiniciando para aplicarlo; vuelve a conectarte en unos segundos (si cambiaste el nombre o la clave de la Wi-Fi, con los nuevos).",
+                            "Saved. Restarting to apply it; reconnect in a few seconds (with the new name or Wi-Fi password if you changed them).",
+                            "Gespeichert. Neustart zum Übernehmen; in ein paar Sekunden neu verbinden (mit neuem Namen bzw. WLAN-Passwort, falls geändert)."},
+  /* T_W_TG_SENDING */     {"Enviando… mira «Último aviso» en unos segundos.", "Sending… check “Last notification” in a few seconds.", "Wird gesendet… in ein paar Sekunden „Letzte Benachrichtigung“ prüfen."},
+  /* T_W_GASRESET */       {"Contador de gasoil a cero.", "Diesel counter reset.", "Dieselzähler zurückgesetzt."},
+  /* T_W_FORGOT */         {"Borrados %d emparejamientos.", "Deleted %d pairings.", "%d Kopplungen gelöscht."},
+};
+
+// Texto en el idioma elegido
+const char* tr(Txt t) { return TXT[t][lang]; }
+
+// Texto con datos (printf), en el idioma elegido. t es int y no Txt: va_start no admite un enum como último parámetro
+String trf(int t, ...) {
+  char b[300];
+  va_list ap; va_start(ap, t);
+  vsnprintf(b, sizeof b, TXT[t][lang], ap);
+  va_end(ap);
+  return b;
+}
+
+// Quién la encendió, para mostrarlo (onSrc guarda la palabra del protocolo)
+const char* srcName(const String& s) {
+  if (s == "programa") return tr(T_SRC_PROG);
+  if (s == "app") return tr(T_SRC_APP);
+  if (s == "consola") return tr(T_SRC_CONSOLE);
+  return tr(T_SRC_MANUAL);
+}
+
+// Número con un decimal o los que se pidan, con la coma o el punto que toca según el idioma
+String num(float v, int dec) { String s = String(v, dec); if (lang != L_EN) s.replace('.', ','); return s; }
+
+// ============================================================================================================
 // Utilidades
 // ============================================================================================================
 
@@ -236,7 +364,7 @@ void notify(const String& m) {
   if (!tgQueue || !tgToken[0] || !tgChat[0]) return;
   Msg x;
   snprintf(x.t, sizeof x.t, "Webasto · %s%s", hhmm().c_str(), m.c_str());   // "Webasto · 07:42 Encendida…"
-  if (xQueueSend(tgQueue, &x, 0) != pdTRUE) strlcpy(tgLast, "Cola de avisos llena: se ha perdido uno", sizeof tgLast);
+  if (xQueueSend(tgQueue, &x, 0) != pdTRUE) strlcpy(tgLast, tr(T_TG_QUEUE_FULL), sizeof tgLast);
   // Con la Wi-Fi apagada por ahorro, se enciende unos minutos (3) para que el aviso pueda salir
   if (staSsid[0] && (int32_t)(wifiUntil - (millis() + 180000)) < 0) wifiUntil = millis() + 180000;
 }
@@ -248,7 +376,7 @@ void tgTask(void*) {
     if (xQueueReceive(tgQueue, &x, portMAX_DELAY) != pdTRUE) continue;   // espera (dormida) a que haya un aviso
     // Espera a tener red (hasta 10 min: 120 × 5 s); si no llega, el aviso se pierde
     for (int i = 0; i < 120 && WiFi.status() != WL_CONNECTED; i++) vTaskDelay(pdMS_TO_TICKS(5000));
-    if (WiFi.status() != WL_CONNECTED) { snprintf(tgLast, sizeof tgLast, "Perdido, sin red: %s", x.t); continue; }
+    if (WiFi.status() != WL_CONNECTED) { strlcpy(tgLast, trf(T_TG_NO_NET, x.t).c_str(), sizeof tgLast); continue; }
     // Copia local del token y el chat: la configuración puede cambiar desde otra tarea mientras se envía
     char tok[64], chat[24];
     strlcpy(tok, tgToken, sizeof tok);
@@ -266,8 +394,8 @@ void tgTask(void*) {
       http.end();
     }
     // El resultado se muestra en la web (Configuración → «Último aviso»)
-    if (code == 200) snprintf(tgLast, sizeof tgLast, "Enviado: %s", x.t);
-    else snprintf(tgLast, sizeof tgLast, "Error %d (sin internet, o token/chat mal): %s", code, x.t);
+    if (code == 200) strlcpy(tgLast, trf(T_TG_SENT, x.t).c_str(), sizeof tgLast);
+    else strlcpy(tgLast, trf(T_TG_ERROR, code, x.t).c_str(), sizeof tgLast);
   }
 }
 
@@ -358,8 +486,8 @@ bool readSensors() {
 // Respuesta: 01 · número de averías · [código · veces] × número
 String errorsText() {
   uint8_t d[1] = {0x01}, r[64], n;
-  if (!wbusCmd(0x56, d, 1, r, n)) return "sin respuesta";
-  if (n < 2 || !r[1]) return "ninguna guardada";
+  if (!wbusCmd(0x56, d, 1, r, n)) return tr(T_ERR_NORESP);
+  if (n < 2 || !r[1]) return tr(T_ERR_NONE);
   String s; char c[20];
   for (int i = 0; i < r[1] && 3 + 2 * i < n; i++) {   // sin pasarse del final de la respuesta
     sprintf(c, "%s0x%02X (%d)", i ? ", " : "", r[2 + 2 * i], r[3 + 2 * i]);
@@ -374,8 +502,8 @@ String errorsText() {
 // No es una medida del depósito: la Webasto no sabe cuánto queda, solo cuánto quema.
 // ============================================================================================================
 
-// "0,25 l" (dos decimales por debajo de 10 litros, uno por encima), con coma decimal
-String litros(float l) { String s = String(l, l < 10 ? 2 : 1); s.replace('.', ','); return s + " l"; }
+// "0,25 l" (dos decimales por debajo de 10 litros, uno por encima), con la coma o el punto del idioma
+String litros(float l) { return num(l, l < 10 ? 2 : 1) + " l"; }
 
 // Guarda los contadores en la memoria no volátil
 void gasSave() {
@@ -431,18 +559,19 @@ bool startHeater(uint16_t minutes, const char* src) {
       stopNote = "";                              // se borra el aviso de un apagado anterior
       gasCur = 0; gasRate = 0; lastGasT = 0;      // gasoil de este encendido desde cero
       onSrc = src;
-      addLog(String("Encendida (") + src + ", " + minutes + " min)");
-      notify(String("Encendida (") + src + ", " + minutes + " min)");
+      addLog(trf(T_LOG_ON, srcName(src), minutes));
+      notify(trf(T_LOG_ON, srcName(src), minutes));
       return true;
     }
     delay(300);                                   // pequeña pausa antes de reintentar
   }
-  addLog("Error: la Webasto no respondió al encendido");
-  notify(String("No se pudo encender (") + src + "): la Webasto no responde por W-Bus");
+  addLog(tr(T_LOG_ON_FAIL));
+  notify(trf(T_TG_ON_FAIL, srcName(src)));
   return false;
 }
 
-// Apaga la calefacción (orden 0x10; la Webasto hace su postbarrido). why dice el motivo; tell = avisar por Telegram.
+// Apaga la calefacción (orden 0x10; la Webasto hace su postbarrido). why dice el motivo, ya en el idioma elegido;
+// tell = avisar por Telegram.
 // Devuelve true si la Webasto confirmó el apagado.
 bool stopHeater(const char* why, bool tell) {
   uint8_t r[64], n; bool ok = false;
@@ -453,9 +582,9 @@ bool stopHeater(const char* why, bool tell) {
   heaterOn = false;
   phase = PH_OFF;
   lastHeatOff = millis();                         // para el modo de Wi-Fi «mientras calienta»
-  String g = was ? String(" · gasoil ≈ ") + litros(gasLast) : String("");
-  addLog(String("Apagada (") + why + (ok ? ")" : ", sin confirmación)") + g);
-  if (tell) notify(String("Apagada (") + why + ")" + g);
+  String g = was ? trf(T_GAS_SUFFIX, litros(gasLast).c_str()) : String("");
+  addLog(trf(ok ? T_OFF : T_OFF_NOCONF, why) + g);
+  if (tell) notify(trf(T_OFF, why) + g);
   return ok;
 }
 
@@ -463,9 +592,9 @@ bool stopHeater(const char* why, bool tell) {
 void heaterQuit(const char* why) {
   stopHeater(why, false);                         // sin aviso propio: va uno más completo abajo
   String e = errorsText();
-  addLog(String("Averías: ") + e);
-  stopNote = hhmm() + "Se ha apagado sola: " + why + ". Averías: " + e + ".";   // se queda en la web y la app
-  notify(String("Se ha apagado sola: ") + why + ". Averías: " + e + ". Gasoil ≈ " + litros(gasLast));
+  addLog(trf(T_FAULTS, e.c_str()));
+  stopNote = hhmm() + trf(T_NOTE_QUIT, why, e.c_str());   // se queda en la web y la app
+  notify(trf(T_TG_QUIT, why, e.c_str(), litros(gasLast).c_str()));
 }
 
 // Estado real a partir de la llama y la temperatura que da la propia Webasto (se llama tras cada lectura)
@@ -478,7 +607,7 @@ void evalHeater() {
   if (!noFlameSince) noFlameSince = millis();
   // Respaldo: demasiado tiempo sin llama con el agua fría = se da por apagada
   if (millis() - noFlameSince >= NOFLAME_MS)
-    heaterQuit(flameSeen ? "se ha apagado la llama" : "no ha llegado a prender");
+    heaterQuit(tr(flameSeen ? T_WHY_FLAME_OUT : T_WHY_NO_IGNITION));
 }
 
 // ============================================================================================================
@@ -507,7 +636,9 @@ void loadCfg() {
   gasMonthKey = prefs.getUInt("gkey", 0);
   wifiMode = prefs.getUChar("wmode", WM_HEAT);
   minVolt  = prefs.getFloat("minv", 12.0);
+  lang     = prefs.getUChar("lang", L_ES);
   prefs.end();
+  if (lang >= L_N) lang = L_ES;
   if (wifiMode > WM_DEMAND) wifiMode = WM_HEAT;   // valor imposible: el de por defecto
   if (blePin < 100000 || blePin > 999999) {       // primer arranque: PIN al azar, distinto en cada placa
     blePin = 100000 + esp_random() % 900000;      // esp_random() usa el generador de números aleatorios por hardware
@@ -548,7 +679,7 @@ void applySched(const String& a, const String& L) {
     }
   }
   saveSched();
-  addLog(String("Programas guardados (") + nSch + ")");
+  addLog(trf(T_LOG_SCHED, nSch));
 }
 
 // Los programas en el mismo formato de texto, para la app ("1|1,31,420,30;0,96,600,15")
@@ -569,43 +700,48 @@ int cfgSet(String k, String v, String& err) {
   prefs.begin("webasto", false);
   int r = 1;
   if (k == "name") {
-    if (v.length() < 1 || v.length() >= sizeof cfgName) { err = "El nombre debe tener entre 1 y 29 caracteres."; r = 0; }
+    if (v.length() < 1 || v.length() >= sizeof cfgName) { err = tr(T_E_NAME); r = 0; }
     else if (v != cfgName) { strlcpy(cfgName, v.c_str(), sizeof cfgName); prefs.putString("name", cfgName); r = 2; }
   } else if (k == "appass") {
     if (!v.length()) r = 1;                       // vacío: se queda la clave que había
-    else if (v.length() < 8 || v.length() >= sizeof cfgApPass) { err = "La clave de la Wi-Fi debe tener entre 8 y 63 caracteres."; r = 0; }
+    else if (v.length() < 8 || v.length() >= sizeof cfgApPass) { err = tr(T_E_APPASS); r = 0; }
     else { strlcpy(cfgApPass, v.c_str(), sizeof cfgApPass); prefs.putString("appass", cfgApPass); r = 2; }
   } else if (k == "pin") {
     long n = v.toInt();
-    if (v.length() != 6 || n < 100000 || n > 999999) { err = "El PIN debe tener 6 cifras y no empezar por 0."; r = 0; }
+    if (v.length() != 6 || n < 100000 || n > 999999) { err = tr(T_E_PIN); r = 0; }
     else if ((uint32_t)n != blePin) { blePin = n; prefs.putUInt("pin", blePin); r = 2; }
   } else if (k == "wifimode") {
     int m = v.toInt();
-    if (m < WM_ALWAYS || m > WM_DEMAND || !v.length()) { err = "Modo de Wi-Fi no válido."; r = 0; }
+    if (m < WM_ALWAYS || m > WM_DEMAND || !v.length()) { err = tr(T_E_WIFIMODE); r = 0; }
     else { wifiMode = m; prefs.putUChar("wmode", wifiMode); }   // se aplica al momento (loop() enciende o apaga)
   } else if (k == "ssid") {
-    if (v.length() >= sizeof staSsid) { err = "Nombre de red demasiado largo."; r = 0; }
+    if (v.length() >= sizeof staSsid) { err = tr(T_E_SSID); r = 0; }
     else if (v != staSsid) { strlcpy(staSsid, v.c_str(), sizeof staSsid); prefs.putString("ssid", staSsid); r = 2; }
   } else if (k == "pass") {
-    if (v.length() >= sizeof staPass) { err = "Contraseña demasiado larga."; r = 0; }
+    if (v.length() >= sizeof staPass) { err = tr(T_E_PASS); r = 0; }
     else if (v.length()) { strlcpy(staPass, v.c_str(), sizeof staPass); prefs.putString("pass", staPass); r = 2; }
   } else if (k == "tgtok") {
-    if (v.length() >= sizeof tgToken) { err = "Token demasiado largo."; r = 0; }
+    if (v.length() >= sizeof tgToken) { err = tr(T_E_TOKEN); r = 0; }
     else if (v.length()) { strlcpy(tgToken, v.c_str(), sizeof tgToken); prefs.putString("tgtok", tgToken); }
   } else if (k == "tgchat") {
-    if (v.length() >= sizeof tgChat) { err = "Chat ID demasiado largo."; r = 0; }
+    if (v.length() >= sizeof tgChat) { err = tr(T_E_CHAT); r = 0; }
     else { strlcpy(tgChat, v.c_str(), sizeof tgChat); prefs.putString("tgchat", tgChat); }   // vacío = avisos desactivados
   } else if (k == "minvolt") {
     float f = v.toFloat();
-    if (f < 10.5 || f > 13.0) { err = "La batería mínima debe estar entre 10,5 y 13,0 V."; r = 0; }
+    if (f < 10.5 || f > 13.0) { err = tr(T_E_MINVOLT); r = 0; }
     else { minVolt = f; prefs.putFloat("minv", minVolt); }
-  } else { err = "Ajuste desconocido: " + k; r = 0; }
+  } else if (k == "lang") {
+    int l = -1;
+    for (int i = 0; i < L_N; i++) if (v == LANG_CODES[i]) l = i;
+    if (l < 0) { err = tr(T_E_LANG); r = 0; }
+    else if (l != lang) { lang = l; prefs.putUChar("lang", lang); }   // se aplica al momento; solo se escribe si cambia
+  } else { err = trf(T_E_UNKNOWN_SET, k.c_str()); r = 0; }
   prefs.end();
   return r;
 }
 
 // Ajustes que admite el formulario de configuración de la web (en este orden)
-const char* CFG_KEYS[] = {"name", "appass", "pin", "wifimode", "ssid", "pass", "tgtok", "tgchat", "minvolt"};
+const char* CFG_KEYS[] = {"lang", "name", "appass", "pin", "wifimode", "ssid", "pass", "tgtok", "tgchat", "minvolt"};
 
 // La configuración en JSON para la web y la app. Las claves (Wi-Fi y token) no se devuelven nunca.
 String cfgJson() {
@@ -617,6 +753,7 @@ String cfgJson() {
   j += ",\"tgchat\":";   j += js(String(tgChat));
   j += ",\"minvolt\":";  j += String(minVolt, 1);
   j += ",\"bonds\":";    j += esp_ble_get_bond_device_num();     // cuántos móviles están emparejados
+  j += ",\"lang\":\"";  j += LANG_CODES[lang]; j += "\"";     // idioma de la placa (la app lo iguala al del móvil)
   j += ",\"ver\":\"" FW_VERSION "\"}";
   return j;
 }
@@ -647,7 +784,7 @@ void wifiStart() {
   MDNS.addService("http", "tcp", 80);
   server.begin();
   wifiActive = true;
-  addLog("Wi-Fi encendida");
+  addLog(tr(T_LOG_WIFI_ON));
 }
 
 // Apaga todo lo de la Wi-Fi para ahorrar (el Bluetooth sigue funcionando)
@@ -659,7 +796,7 @@ void wifiStop() {
   WiFi.mode(WIFI_OFF);
   wifiActive = false;
   lastWeb = 0;
-  addLog("Wi-Fi apagada para ahorrar");
+  addLog(tr(T_LOG_WIFI_OFF));
 }
 
 // ============================================================================================================
@@ -679,8 +816,8 @@ void checkSchedule() {
       // Antes de encender se mira la batería: con poca tensión, no se arranca (para poder arrancar el motor)
       readSensors();
       if (volt > 0 && volt < minVolt) {
-        addLog(String("Programa omitido: batería a ") + String(volt, 1) + " V");
-        notify(String("Programa omitido: batería a ") + String(volt, 1) + " V");
+        addLog(trf(T_LOG_SKIP, num(volt, 1).c_str()));
+        notify(trf(T_LOG_SKIP, num(volt, 1).c_str()));
         return;
       }
       startHeater(sch[i].dur, "programa");
@@ -800,7 +937,7 @@ int bleForgetAll() {
   if (esp_ble_get_bond_device_list(&n, l) == ESP_OK)
     for (int i = 0; i < n; i++) esp_ble_remove_bond_device(l[i].bd_addr);
   free(l);
-  addLog(String("Emparejamientos Bluetooth borrados (") + n + ")");
+  addLog(trf(T_LOG_FORGET, n));
   return n;
 }
 
@@ -816,22 +953,22 @@ String runCmd(String c) {
   k.toLowerCase();
   if (k == "on") {                                 // on [minutos]
     int m = a.toInt();
-    return startHeater(m > 0 ? m : 30, "app") ? "on:ok" : "on:err La Webasto no respondió al encendido.";
+    return startHeater(m > 0 ? m : 30, "app") ? String("on:ok") : String("on:err ") + tr(T_E_ON);
   }
-  if (k == "off") return stopHeater("app", true) ? "off:ok" : "off:ok sin confirmación de la Webasto";
+  if (k == "off") return stopHeater(tr(T_SRC_APP), true) ? String("off:ok") : String("off:ok ") + tr(T_OFF_NOCONF_SHORT);
   if (k == "state") return "state:" + stateJson();
   if (k == "time") {                               // time <segundos desde 1970>: la app pone la placa en hora
     long e = a.toInt();
-    if (e < 1700000000) return "time:err Hora no válida";
+    if (e < 1700000000) return String("time:err ") + tr(T_E_TIME);
     struct timeval tv = { (time_t)e, 0 };
     settimeofday(&tv, nullptr);
-    addLog("Hora ajustada desde la app");
+    addLog(tr(T_LOG_TIME_APP));
     return "time:ok";
   }
   if (k == "sched") return "sched:" + schedText();
   if (k == "setsched") {                           // setsched <auto>|<lista>
     int b = a.indexOf('|');
-    if (b < 0) return "setsched:err Formato";
+    if (b < 0) return String("setsched:err ") + tr(T_E_FORMAT);
     applySched(a.substring(0, b), a.substring(b + 1));
     return "setsched:ok";
   }
@@ -844,7 +981,7 @@ String runCmd(String c) {
   if (k == "cfg") return "cfg:" + cfgJson();
   if (k == "set") {                                // set clave=valor
     int e = a.indexOf('=');
-    if (e < 0) return "set:err Formato";
+    if (e < 0) return String("set:err ") + tr(T_E_FORMAT);
     String err;
     int r = cfgSet(a.substring(0, e), a.substring(e + 1), err);
     if (r == 0) return String("set:err ") + err;
@@ -852,19 +989,19 @@ String runCmd(String c) {
   }
   if (k == "wifi") { wifiUntil = millis() + WIFI_ASK_MS; return "wifi:ok"; }   // encender la Wi-Fi 15 min
   if (k == "tgtest") {                             // aviso de prueba por Telegram
-    if (!tgToken[0] || !tgChat[0]) return "tgtest:err Primero guarda el token y el chat ID.";
-    if (!staSsid[0]) return "tgtest:err Falta la red con internet (Configuración).";
-    notify("Prueba de aviso");
+    if (!tgToken[0] || !tgChat[0]) return String("tgtest:err ") + tr(T_E_TG_CFG);
+    if (!staSsid[0]) return String("tgtest:err ") + tr(T_E_TG_NET);
+    notify(tr(T_TG_TEST));
     return "tgtest:ok";
   }
   if (k == "forget") { bleForgetAll(); return "forget:ok"; }
-  if (k == "gasreset") { gasMonth = gasTotal = gasLast = 0; gasSave(); addLog("Contador de gasoil a cero"); return "gasreset:ok"; }
+  if (k == "gasreset") { gasMonth = gasTotal = gasLast = 0; gasSave(); addLog(tr(T_LOG_GASRESET)); return "gasreset:ok"; }
   if (k == "reboot") {
-    if (heaterOn) return "reboot:err Está calentando: reiniciar la apagaría.";   // sin placa, la Webasto se apaga en segundos
+    if (heaterOn) return String("reboot:err ") + tr(T_E_REBOOT_HEAT);   // sin placa, la Webasto se apaga en segundos
     rebootPending = true;                          // se reinicia en loop(), después de mandar esta respuesta
     return "reboot:ok";
   }
-  return k + ":err Orden desconocida";
+  return k + ":err " + tr(T_E_UNKNOWN_CMD);
 }
 
 // ============================================================================================================
@@ -902,6 +1039,7 @@ void handleState() {
   j += ",\"wm\":";     j += wifiMode;
   j += ",\"ble\":";    j += bleConn;
   j += ",\"name\":";   j += js(String(cfgName));
+  j += ",\"lang\":";   j += js(String(LANG_CODES[lang]));
   bool sta = WiFi.status() == WL_CONNECTED;       // ¿unida a la red con internet?
   j += ",\"sta\":";    j += sta ? "true" : "false";
   j += ",\"ssid\":";   j += js(sta ? WiFi.SSID() : String(""));
@@ -926,13 +1064,13 @@ void handleOn() {
   int m = server.arg("min").toInt();
   if (m <= 0) m = 30;
   bool ok = startHeater(m, "manual");
-  server.send(ok ? 200 : 502, "text/plain", ok ? "ok" : "La Webasto no respondió al encendido.");
+  server.send(ok ? 200 : 502, "text/plain", ok ? "ok" : tr(T_E_ON));
 }
 
 // POST /api/off: apagar
 void handleOff() {
-  bool ok = stopHeater("manual", true);
-  server.send(200, "text/plain", ok ? "ok" : "Apagada sin confirmación de la Webasto.");
+  bool ok = stopHeater(tr(T_SRC_MANUAL), true);
+  server.send(200, "text/plain", ok ? "ok" : tr(T_W_OFF_NOCONF));
 }
 
 // POST /api/sched (auto, list): guardar programas
@@ -944,10 +1082,10 @@ void handleSched() {
 // POST /api/time (epoch): poner en hora desde el navegador
 void handleTime() {
   long e = server.arg("epoch").toInt();
-  if (e < 1700000000) { server.send(400, "text/plain", "Hora no válida"); return; }
+  if (e < 1700000000) { server.send(400, "text/plain", tr(T_E_TIME)); return; }
   struct timeval tv = { (time_t)e, 0 };
   settimeofday(&tv, nullptr);
-  addLog("Hora ajustada desde el móvil");
+  addLog(tr(T_LOG_TIME_WEB));
   server.send(200, "text/plain", "ok");
 }
 
@@ -980,10 +1118,10 @@ void handleCfgPost() {
     if (r == 0) { server.send(400, "text/plain", err); return; }   // el primer valor incorrecto corta y se explica
     if (r == 2) restart = true;
   }
-  addLog("Configuración guardada");
-  if (!restart) { server.send(200, "text/plain", "Guardado."); return; }
-  if (heaterOn) { server.send(200, "text/plain", "Guardado. Se aplicará al reiniciar (ahora está calentando: reiniciar la apagaría)."); return; }
-  server.send(200, "text/plain", "Guardado. Reiniciando para aplicarlo; vuelve a conectarte en unos segundos (si cambiaste el nombre o la clave de la Wi-Fi, con los nuevos).");
+  addLog(tr(T_LOG_CFG));
+  if (!restart) { server.send(200, "text/plain", tr(T_W_SAVED)); return; }
+  if (heaterOn) { server.send(200, "text/plain", tr(T_W_SAVED_LATER)); return; }
+  server.send(200, "text/plain", tr(T_W_SAVED_REBOOT));
   rebootPending = true;
 }
 
@@ -991,7 +1129,7 @@ void handleCfgPost() {
 void handleTgTest() {
   String r = runCmd("tgtest");
   if (r.startsWith("tgtest:err ")) { server.send(400, "text/plain", r.substring(11)); return; }
-  server.send(200, "text/plain", "Enviando… mira «Último aviso» en unos segundos.");
+  server.send(200, "text/plain", tr(T_W_TG_SENDING));
 }
 
 // ============================================================================================================
@@ -1003,7 +1141,7 @@ void serialCli() {
   c.trim();
   String l = c; l.toLowerCase();                  // l en minúsculas para comparar; c conserva el original (claves)
   if (l.startsWith("on")) { int m = l.substring(2).toInt(); startHeater(m > 0 ? m : 30, "consola"); }
-  else if (l == "off") stopHeater("consola", true);
+  else if (l == "off") stopHeater(tr(T_SRC_CONSOLE), true);
   else if (l == "status") {
     readSensors();
     static const char* PH[] = {"apagada", "arrancando", "con llama", "pausa de regulación", "sin respuesta"};
@@ -1046,15 +1184,15 @@ void setup() {
   server.on("/api/cfg", HTTP_GET, [] { server.send(200, "application/json", cfgJson()); });
   server.on("/api/cfg", HTTP_POST, handleCfgPost);
   server.on("/api/tgtest", HTTP_POST, handleTgTest);
-  server.on("/api/gasreset", HTTP_POST, [] { runCmd("gasreset"); server.send(200, "text/plain", "Contador de gasoil a cero."); });
-  server.on("/api/forget", HTTP_POST, [] { int n = bleForgetAll(); server.send(200, "text/plain", String("Borrados ") + n + " emparejamientos."); });
+  server.on("/api/gasreset", HTTP_POST, [] { runCmd("gasreset"); server.send(200, "text/plain", tr(T_W_GASRESET)); });
+  server.on("/api/forget", HTTP_POST, [] { int n = bleForgetAll(); server.send(200, "text/plain", trf(T_W_FORGOT, n)); });
   server.onNotFound([] { server.sendHeader("Location", "/"); server.send(302); });   // cualquier otra ruta: a la página
 
   bleInit();
   wifiUntil = millis() + WIFI_BOOT_MS;   // rescate: Wi-Fi encendida los primeros minutos en cualquier modo
   wifiStart();
 
-  addLog(String("Arranque, firmware " FW_VERSION));
+  addLog(trf(T_LOG_BOOT, FW_VERSION));
   // El PIN Bluetooth sale aquí: es la forma de conocerlo la primera vez (o en la web, Configuración)
   Serial.printf("WTTC %s | Bluetooth y Wi-Fi: \"%s\" | PIN Bluetooth: %06u\n", FW_VERSION, cfgName, (unsigned)blePin);
   Serial.println("Consola: on [min] | off | status | errores | cfg | set clave=valor | wifi | forget | reboot | gasreset");
@@ -1089,25 +1227,25 @@ void loop() {
 
   uint32_t now = millis();
   if (heaterOn) {
-    if ((int32_t)(now - onUntil) >= 0) stopHeater("fin de tiempo", true);   // se acabó el tiempo pedido
+    if ((int32_t)(now - onUntil) >= 0) stopHeater(tr(T_WHY_END), true);   // se acabó el tiempo pedido
     else if (now - lastKA >= KEEPALIVE_MS) {
       // Mensaje de mantenimiento: «sigue con la orden 0x21». Sin él, la Webasto se apaga sola.
       uint8_t d[2] = {0x21, 0x00}, r[64], n;
       lastKA = now;
       if (wbusCmd(0x44, d, 2, r, n)) {
-        if (kaFails >= 5) addLog("La Webasto vuelve a responder");
+        if (kaFails >= 5) addLog(tr(T_LOG_BUS_BACK));
         kaFails = 0;
         // Respuesta 00: sigue con la orden. 01: ya no la tiene, se ha apagado por su cuenta (dos seguidas para descartar errores)
-        if (n >= 1 && r[0] == 0x01) { if (++kaOff >= 2) heaterQuit("ya no tiene la orden de calentar"); }
+        if (n >= 1 && r[0] == 0x01) { if (++kaOff >= 2) heaterQuit(tr(T_WHY_NO_ORDER)); }
         else kaOff = 0;
       } else if (++kaFails == 5) {                   // 25 s sin respuesta: avisar
         phase = PH_LOST;
-        addLog("Aviso: la Webasto no responde al mantenimiento");
-        notify("La Webasto no responde por W-Bus. Sin mantenimiento se apaga sola en unos segundos; revisa el cableado.");
+        addLog(tr(T_LOG_BUS_LOST));
+        notify(tr(T_TG_BUS_LOST));
       } else if (kaFails >= 24) {                    // 2 minutos sin respuesta: se da por apagada
-        stopHeater("sin comunicación con la Webasto", false);
-        stopNote = hhmm() + "Se perdió la comunicación con la Webasto. Sin mantenimiento se apaga sola, pero compruébalo.";
-        notify("Sigue sin responder tras 2 minutos: la doy por apagada. Compruébalo en la furgo.");
+        stopHeater(tr(T_WHY_NO_COMM), false);
+        stopNote = hhmm() + tr(T_NOTE_LOST);
+        notify(tr(T_TG_LOST));
       }
     }
   }

@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Textos de la app en alemán. Generado con Claude (Anthropic); mismas claves en values, values-es y values-de. -->
+<resources>
+    <string name="lang_code">de</string>
+    <string name="link_no_bt">Bluetooth ist aus</string>
+    <string name="link_not_paired">Keine Platine gekoppelt</string>
+    <string name="link_scanning">Suche…</string>
+    <string name="link_pairing">Kopplung: PIN eingeben</string>
+    <string name="link_connecting">Verbinde…</string>
+    <string name="link_connected">Verbunden mit %1$s</string>
+    <string name="link_out_of_range">Außer Reichweite: verbindet sich von selbst</string>
+    <string name="link_demo">Demomodus: simulierte Platine</string>
+    <string name="no_bt_permission">Ohne Bluetooth-Berechtigung kann die App nicht mit der Platine sprechen.</string>
+    <string name="pair_no_bt">Bluetooth auf diesem Gerät einschalten, um die Platine zu verbinden.</string>
+    <string name="pair_pairing">Android fragt nach der 6-stelligen PIN der Platine. Sie steht beim Start in der seriellen Konsole und auf der Webseite des ESP32 (Einstellungen).</string>
+    <string name="pair_help">„Platine suchen“ antippen, dein WTTC wählen und die PIN eingeben. Das ist nur einmal nötig: danach verbindet sich die App von selbst, wenn die Platine in der Nähe ist.</string>
+    <string name="btn_out_of_range">Außer Reichweite</string>
+    <string name="btn_no_link">Nicht verbunden</string>
+    <string name="saved">Gespeichert</string>
+    <string name="log_empty">Protokoll ist leer.</string>
+    <string name="wifi_on">WLAN des ESP32 für 15 Minuten an</string>
+    <string name="tg_sent">Testbenachrichtigung gesendet: in ein paar Sekunden Telegram prüfen</string>
+    <string name="gas_zeroed">Dieselzähler zurückgesetzt</string>
+    <string name="forgot_bonds">Kopplungen auf der Platine gelöscht. Die Platine auch in den Bluetooth-Einstellungen von Android entfernen.</string>
+    <string name="rebooting">Platine wird neu gestartet…</string>
+    <string name="hot_water">Wasser ist heiß: zündet von selbst wieder.</string>
+    <string name="remaining">noch %1$s</string>
+    <string name="by_schedule">(Zeitplan)</string>
+    <string name="battery">Batterie</string>
+    <string name="flame">Flamme</string>
+    <string name="power">Leistung</string>
+    <string name="yes">ja</string>
+    <string name="no">nein</string>
+    <string name="gas_on">Diesel (geschätzt): %1$s bei diesem Lauf · dieser Monat %2$s · gesamt %3$s</string>
+    <string name="gas_off">Diesel (geschätzt): letzter Lauf %1$s · dieser Monat %2$s · gesamt %3$s</string>
+    <string name="warn_bus">Webasto antwortet nicht über W-Bus. Buskabel, gemeinsame Masse und TJA1020-Modul prüfen.</string>
+    <string name="warn_clock">Die Uhr der Platine ist nicht gestellt: Zeitpläne laufen nicht.</string>
+    <string name="btn_turn_off">Ausschalten</string>
+    <string name="btn_turn_on">Einschalten %1$s</string>
+    <string name="btn_turning_off">Schalte aus…</string>
+    <string name="btn_turning_on">Schalte ein…</string>
+    <string name="notif_self_off">Die Heizung hat sich selbst abgeschaltet</string>
+    <string name="notif_no_answer">Webasto antwortet nicht</string>
+    <string name="notif_no_answer_body">Keine Antwort über W-Bus; ohne Keep-Alive schaltet sie sich selbst ab.</string>
+    <string name="water">Kühlwasser</string>
+    <string name="btn_scan">Platine suchen</string>
+    <string name="btn_enable_bt">Bluetooth einschalten</string>
+    <string name="btn_demo">Ohne Platine testen (Demomodus)</string>
+    <string name="demo_bar">Demomodus: die Daten sind simuliert, es wird nichts an eine Platine gesendet.</string>
+    <string name="btn_exit_demo">Demomodus beenden</string>
+    <string name="sec_programs">Zeitpläne</string>
+    <string name="sec_programs_sub">Sie starten von selbst zu einer Uhrzeit an bestimmten Tagen; die Platine speichert sie.</string>
+    <string name="programs_active">Zeitpläne aktiv</string>
+    <string name="btn_save_programs">Zeitpläne speichern</string>
+    <string name="btn_add_program">Zeitplan hinzufügen</string>
+    <string name="sec_diag">Diagnose</string>
+    <string name="btn_read_faults">Fehler auslesen</string>
+    <string name="btn_view_log">Protokoll anzeigen</string>
+    <string name="reading">Lese…</string>
+    <string name="btn_gas_reset">Dieselschätzung zurücksetzen</string>
+    <string name="sec_config">Einstellungen</string>
+    <string name="sec_config_sub">Wird auf der Platine gespeichert. Name, PIN und Internet-Netz gelten nach einem Neustart.</string>
+    <string name="cfg_own">Eigenes Bluetooth und WLAN</string>
+    <string name="f_name">Name (WLAN und Bluetooth)</string>
+    <string name="f_pin">Kopplungs-PIN (6 Ziffern)</string>
+    <string name="f_ap">Passwort des eigenen WLANs (mind. 8)</string>
+    <string name="hint_unchanged">unverändert</string>
+    <string name="f_wm">Eigenes WLAN</string>
+    <string name="cfg_inet">Netzwerk mit Internet (optional)</string>
+    <string name="f_ssid">WLAN (Zuhause oder Handy-Hotspot)</string>
+    <string name="f_pass">Passwort</string>
+    <string name="cfg_tg">Telegram-Benachrichtigungen (optional)</string>
+    <string name="f_tok">Bot-Token (von @BotFather)</string>
+    <string name="f_chat">Chat-ID (leer: Benachrichtigungen aus)</string>
+    <string name="cfg_safety">Sicherheit</string>
+    <string name="f_minv">Mindestspannung der Batterie für einen Zeitplan (V)</string>
+    <string name="btn_save">Speichern</string>
+    <string name="btn_tg_test">Telegram testen</string>
+    <string name="btn_wifi15">WLAN 15 Min. an</string>
+    <string name="btn_reboot">Platine neu starten</string>
+    <string name="sec_app">App-Einstellungen</string>
+    <string name="sec_app_sub">Werden auf diesem Handy oder Radio gespeichert, nicht auf der Platine.</string>
+    <string name="btn_forget">Platine vergessen</string>
+    <string name="btn_bt_settings">Bluetooth-Einstellungen</string>
+    <string name="stats_switch">Anonyme Statistiken senden</string>
+    <string name="stats_help">Höchstens einmal am Tag: Versionen, Gerätetyp, Land, Anzahl der Starts und Fehler. Kein Standort, keine Namen, Netzwerke oder PIN, und deine IP wird nicht gespeichert.</string>
+    <string name="btn_public_stats">Öffentliche Statistiken ansehen</string>
+    <string name="footer">WTTC-App %1$s · wttc.favala.es\nCode vollständig mit Claude (Anthropic) erzeugt · github.com/matatunos/wttc</string>
+    <string name="scan_title">Suche WTTC-Platinen…</string>
+    <string name="cancel">Abbrechen</string>
+    <string name="stats_title">Hilfst du uns mit anonymen Statistiken?</string>
+    <string name="stats_msg">WTTC kann höchstens einmal am Tag senden: App- und Firmware-Version, Android-Version, Gerätetyp (Handy, Tablet oder Radio), Land laut Systemsprache, Anzahl der Starts und Abschaltungen und die Fehlercodes.\n\nStandort, Namen, WLANs, PIN und Zeitpläne werden nie gesendet, und deine IP wird nicht gespeichert. Die Ergebnisse sind öffentlich unter wttc.favala.es/estadisticas.php.\n\nDu kannst es jederzeit unter „App-Einstellungen“ unten auf dem Bildschirm ändern.</string>
+    <string name="stats_yes">Ja, senden</string>
+    <string name="stats_no">Nein, danke</string>
+    <string name="gas_title">Dieselschätzung</string>
+    <string name="gas_msg">Letzten Lauf, Monat und Gesamtwert zurücksetzen? Die Schätzung beruht auf der von der Webasto gemeldeten Leistung (≈ 0,62 l/h bei Volllast) und kann um 20 % abweichen.</string>
+    <string name="gas_ok">Zurücksetzen</string>
+    <string name="forget_title">Platine vergessen</string>
+    <string name="forget_msg">Die App verbindet sich nicht mehr mit dieser Platine. Um sie erneut zu koppeln, sie auch in den Bluetooth-Einstellungen von Android entfernen und neu suchen.</string>
+    <string name="forget_ok">Vergessen</string>
+    <string name="reboot_title">Platine neu starten</string>
+    <string name="reboot_msg">Ausstehende Änderungen werden übernommen. Wenn sie heizt, startet die Platine nicht neu.</string>
+    <string name="reboot_ok">Neu starten</string>
+    <string name="max_programs">Höchstens 8 Zeitpläne</string>
+    <string name="no_programs">Keine Zeitpläne.</string>
+    <string name="need_restart">Gespeichert. Wird nach einem Neustart der Platine wirksam („Platine neu starten“).</string>
+    <string name="hint_token_saved">gespeichert (leer: unverändert)</string>
+    <string name="hint_not_set">nicht eingerichtet</string>
+    <string name="cfg_info">WTTC-Firmware %1$s · mit der Platine gekoppelte Geräte: %2$d</string>
+    <string name="cfg_sent">Einstellungen gesendet</string>
+    <string name="faults_no_answer">Webasto hat nicht geantwortet.</string>
+    <string name="faults_none">Keine Fehler gespeichert.</string>
+    <string name="fault_line">Code 0x%1$s (%2$d-mal)</string>
+    <string name="channel_name">Heizungsmeldungen</string>
+    <string name="ble_scan_failed">Suche nicht möglich (%1$d)</string>
+    <string name="ble_scan_done">Suche beendet</string>
+    <string name="ble_pair_failed">Kopplung abgebrochen oder falsche PIN</string>
+    <string name="ble_bond_failed">Android konnte die Kopplung nicht starten</string>
+    <string name="ble_preparing">Wird vorbereitet…</string>
+    <string name="ble_no_service">Diese Platine hat den WTTC-Dienst nicht</string>
+    <string name="demo_log_boot">Start (Demomodus)</string>
+    <string name="demo_log_on">Eingeschaltet (%1$s, %2$d min)</string>
+    <string name="demo_log_off">Ausgeschaltet (%1$s) · Diesel ≈ %2$s l</string>
+    <string name="demo_why_end">Zeit abgelaufen</string>
+    <string name="demo_src_app">App</string>
+    <string name="demo_src_prog">Zeitplan</string>
+    <string name="demo_log_sched">Zeitpläne gespeichert</string>
+    <string name="demo_unknown">Unbekannter Befehl</string>
+    <string name="demo_ver">Demo</string>
+    <string name="demo_ssid">Mein Handy</string>
+    <string-array name="phases">
+        <item>Aus</item>
+        <item>Startet…</item>
+        <item>Heizt</item>
+        <item>Pause</item>
+        <item>Keine Antwort</item>
+    </string-array>
+    <string-array name="wifi_modes">
+        <item>Immer an (verbraucht mehr)</item>
+        <item>Nur während des Heizens</item>
+        <item>Nur auf Anfrage (maximal sparsam)</item>
+    </string-array>
+    <string-array name="day_letters">
+        <item>M</item>
+        <item>D</item>
+        <item>M</item>
+        <item>D</item>
+        <item>F</item>
+        <item>S</item>
+        <item>S</item>
+    </string-array>
+</resources>

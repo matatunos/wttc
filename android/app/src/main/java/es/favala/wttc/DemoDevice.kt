@@ -1,5 +1,6 @@
 package es.favala.wttc
 
+import android.content.Context
 import android.os.Handler
 import org.json.JSONArray
 import org.json.JSONObject
@@ -20,11 +21,12 @@ import java.util.Locale
  * La "física" es muy simple y aproximada: el agua sube mientras hay llama (más rápido a plena carga), a 75 °C
  * pasa a carga parcial, a 82 °C entra en pausa, y el gasoil se integra con la potencia (≈ 0,124 l por kWh).
  *
+ * @param ctx      para los textos (en el idioma de la app, como haría la placa real al ponerse en ese idioma)
  * @param main     hilo principal (todo pasa en él)
  * @param listener a quién se le entregan el estado y las respuestas (la pantalla)
  * @param heating  empezar ya encendida y caliente (para las capturas)
  */
-class DemoDevice(private val main: Handler, private val listener: BleLink.Listener, heating: Boolean) {
+class DemoDevice(private val ctx: Context, private val main: Handler, private val listener: BleLink.Listener, heating: Boolean) {
 
     // ---------- estado simulado ----------
     private var on = false                 // ¿calentando?
@@ -45,9 +47,11 @@ class DemoDevice(private val main: Handler, private val listener: BleLink.Listen
 
     // Configuración de ejemplo (datos inventados)
     private val cfg = JSONObject()
-        .put("name", "WTTC").put("pin", 482915).put("wifimode", 1).put("ssid", "Mi móvil")
+        .put("name", "WTTC").put("pin", 482915).put("wifimode", 1).put("ssid", ctx.getString(R.string.demo_ssid))
         .put("tg", true).put("tgchat", "123456789").put("minvolt", "12.0").put("bonds", 1)
-        .put("ver", "demostración")
+        .put("lang", ctx.getString(R.string.lang_code)).put("ver", ctx.getString(R.string.demo_ver))
+    // Números con la coma o el punto del idioma de la app
+    private val numLocale = Locale(ctx.getString(R.string.lang_code))
 
     // Cada 2 s: avanza la simulación y manda el estado (igual que la placa real)
     private val tick = object : Runnable {
@@ -59,7 +63,7 @@ class DemoDevice(private val main: Handler, private val listener: BleLink.Listen
     }
 
     init {
-        addLog("Arranque (modo demostración)")
+        addLog(ctx.getString(R.string.demo_log_boot))
         if (heating) {
             // Para las capturas: un programa encendido hace 8 minutos, con el agua ya templada
             turnOn(30, "programa")
@@ -79,14 +83,17 @@ class DemoDevice(private val main: Handler, private val listener: BleLink.Listen
     private fun turnOn(min: Int, s: String) {
         on = true; ph = 1; total = min * 60; until = now() + min * 60000L; startedAt = now()
         src = s; note = ""; gasCur = 0.0
-        addLog("Encendida ($s, $min min)")
+        addLog(ctx.getString(R.string.demo_log_on, srcName(s), min))
     }
 
     private fun turnOff(why: String) {
         if (on) gasLast = gasCur
         on = false; ph = 0
-        addLog("Apagada ($why) · gasoil ≈ ${String.format(Locale("es", "ES"), "%.2f", gasLast)} l")
+        addLog(ctx.getString(R.string.demo_log_off, why, String.format(numLocale, "%.2f", gasLast)))
     }
+
+    // Quién la encendió, para el registro (src guarda la palabra del protocolo, como el firmware)
+    private fun srcName(s: String) = ctx.getString(if (s == "programa") R.string.demo_src_prog else R.string.demo_src_app)
 
     // Potencia como la daría la Webasto: plena carga hasta 75 °C, parcial por encima, nada sin llama
     private fun power() = if (!on || ph != 2) 0 else if (temp < 75) 5000 else 2500
@@ -94,7 +101,7 @@ class DemoDevice(private val main: Handler, private val listener: BleLink.Listen
     // Avanza la simulación «sec» segundos
     private fun step(sec: Double) {
         if (on) {
-            if (now() >= until) { turnOff("fin de tiempo"); return }
+            if (now() >= until) { turnOff(ctx.getString(R.string.demo_why_end)); return }
             val since = (now() - startedAt) / 1000
             ph = when {
                 since < 60 -> 1                          // primer minuto: arrancando (bujía, ventilador…)
@@ -129,17 +136,18 @@ class DemoDevice(private val main: Handler, private val listener: BleLink.Listen
         val a = if (sp < 0) "" else c.substring(sp + 1)
         val r = when (k) {
             "on" -> { turnOn((a.toIntOrNull() ?: 30).coerceIn(1, 60), "app"); "ok" }
-            "off" -> { turnOff("app"); "ok" }
+            "off" -> { turnOff(srcName("app")); "ok" }
             "time" -> "ok"
             "state" -> { emitState(); return }
             "sched" -> sched
-            "setsched" -> { sched = a; auto = a.startsWith("1"); addLog("Programas guardados"); "ok" }
-            "errors" -> """{"ok":true,"raw":"(demostración)","codes":[{"c":"02","n":1}]}"""
+            "setsched" -> { sched = a; auto = a.startsWith("1"); addLog(ctx.getString(R.string.demo_log_sched)); "ok" }
+            "errors" -> """{"ok":true,"raw":"(${ctx.getString(R.string.demo_ver)})","codes":[{"c":"02","n":1}]}"""
             "log" -> log.reversed().joinToString("\n")
             "cfg" -> cfg.toString()
-            "set", "wifi", "tgtest", "forget", "reboot" -> "ok"
+            "set" -> { if (a.startsWith("lang=")) cfg.put("lang", a.substring(5)); "ok" }
+            "wifi", "tgtest", "forget", "reboot" -> "ok"
             "gasreset" -> { gasLast = 0.0; gasMonth = 0.0; gasTotal = 0.0; "ok" }
-            else -> "err Orden desconocida"
+            else -> "err " + ctx.getString(R.string.demo_unknown)
         }
         main.post { listener.onResponse(k, r); emitState() }
     }
@@ -148,7 +156,7 @@ class DemoDevice(private val main: Handler, private val listener: BleLink.Listen
     private fun r1(x: Double) = Math.round(x * 10) / 10.0
 
     private fun addLog(m: String) {
-        val t = SimpleDateFormat("dd/MM HH:mm", Locale("es", "ES")).format(Date())
+        val t = SimpleDateFormat("dd/MM HH:mm", Locale.ROOT).format(Date())
         log.addLast("$t  $m")
         while (log.size > 20) log.removeFirst()
     }
