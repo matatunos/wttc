@@ -6,6 +6,19 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.1.4 — 2026-10-05
+
+Versión de prueba (sin probar con una Webasto real). Mejoras de seguridad.
+
+### Firmware
+- **Primer uso**: mientras la Wi-Fi de la placa tenga la clave de fábrica (`calefaccion`, que es pública), su web solo deja elegir una nueva: no admite órdenes ni enseña el PIN de Bluetooth. No se puede volver a poner la de fábrica.
+- La web de la placa rechaza órdenes enviadas desde otras webs abiertas en el móvil.
+- Los avisos de Telegram comprueban el certificado del servidor: en una red ajena nadie puede hacerse pasar por Telegram y leer el token del bot.
+
+### App Android
+- Si la placa sigue con la clave de fábrica de la Wi-Fi, la app la pide al conectar.
+- La duración de cada programa ya no sale cortada.
+
 ## 0.1.3 — 2026-10-05
 
 Versión de prueba (sin probar con una Webasto real).
