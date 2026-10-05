@@ -6,6 +6,7 @@
 // Solo cuenta instalaciones que han aceptado enviar datos anónimos; nada identifica a nadie (ver api/stats.php).
 require_once __DIR__ . '/api/db.php';
 ini_set('display_errors', '0');
+wttc_public_only();
 
 // ---------- datos para las gráficas (mismo patrón que el resto del portal: ?action=data&period=…) ----------
 if (($_GET['action'] ?? '') === 'data') {
@@ -67,6 +68,7 @@ wttc_visit('estadisticas');
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Estadísticas de WTTC</title>
 <meta name="description" content="Uso público y anónimo de la app WTTC para la Webasto Thermo Top C.">
+<link rel="canonical" href="https://wttc.favala.es/estadisticas.php">
 <style>
   :root{
     --bg-page:#0f1117; --bg-card:#1a1d27; --bg-inner:#13151f;

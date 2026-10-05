@@ -15,6 +15,17 @@
 
 if (!defined('WTTC_DB')) define('WTTC_DB', '/var/wttc-data/stats.sqlite');   // las pruebas pueden definir otra
 const WTTC_KINDS = ['movil', 'tablet', 'radio'];
+const WTTC_HOST = 'wttc.favala.es';
+
+// La web también se abre en tools.favala.es/wttc/ (misma carpeta): esas visitas van al dominio público,
+// para que los buscadores solo vean una copia. Caddy pone el dominio original en X-Forwarded-Host;
+// si no viene, no se redirige (así nunca hay bucle).
+function wttc_public_only(): void {
+    if (($_SERVER['HTTP_X_FORWARDED_HOST'] ?? '') !== 'tools.favala.es') return;
+    $uri = preg_replace('#^/wttc(?=/|$)#', '', $_SERVER['REQUEST_URI'] ?? '/');
+    header('Location: https://' . WTTC_HOST . ($uri === '' ? '/' : $uri), true, 301);
+    exit;
+}
 
 function wttc_db(): PDO {
     static $db = null;
@@ -44,8 +55,8 @@ function wttc_visit(string $page): void {
         $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
         if ($ua === '' || preg_match('/bot|crawl|spider|slurp|preview|monitor|uptime|headless|curl|wget|python|java\/|go-http|httpclient|okhttp|lighthouse/i', $ua)) return;
         if (($_SERVER['HTTP_SEC_PURPOSE'] ?? $_SERVER['HTTP_PURPOSE'] ?? '') !== '') return;   // precargas del navegador
-        $ref = parse_url($_SERVER['HTTP_REFERER'] ?? '', PHP_URL_HOST);
-        $entry = $ref !== ($_SERVER['HTTP_HOST'] ?? '') ? 1 : 0;
+        // Host no sirve: Caddy reenvía con «Host: tools.favala.es»; el dominio público es fijo
+        $entry = parse_url($_SERVER['HTTP_REFERER'] ?? '', PHP_URL_HOST) !== WTTC_HOST ? 1 : 0;
         wttc_db()->prepare('INSERT INTO visits (day, page, views, entries) VALUES (?, ?, 1, ?)
                             ON CONFLICT(day, page) DO UPDATE SET views = views + 1, entries = entries + excluded.entries')
                  ->execute([gmdate('Y-m-d'), $page, $entry]);
