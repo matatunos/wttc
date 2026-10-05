@@ -6,6 +6,21 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.1.5 — 2026-10-05
+
+Versión de prueba (sin probar con una Webasto real). **Actualizaciones sin cable.** Esta versión hay que grabarla una
+vez por USB (trae una tabla de particiones nueva); a partir de ella, las siguientes se instalan desde la app o la web.
+
+### Firmware
+- **Buscar actualizaciones**: con la placa unida a una red con internet, busca la versión nueva, enseña sus novedades y, si se acepta, la descarga, la instala y se reinicia sola.
+- También se puede subir el fichero `.ota` de una Release desde la web de la placa (Configuración → Actualizar firmware).
+- Las actualizaciones van **firmadas**: solo se instalan las oficiales, nunca una versión más antigua ni mientras calienta. Si la nueva no aguanta un minuto funcionando, la placa vuelve sola a la anterior.
+- Con Telegram configurado, avisa una vez al día como mucho cuando hay versión nueva, con sus novedades.
+- Tabla de particiones propia (`partitions.csv`, Arduino la usa sola). La configuración y el PIN no se pierden al cambiarla.
+
+### App Android
+- **Buscar actualizaciones** en Configuración: consulta la última versión, enseña las novedades y la placa hace el resto.
+
 ## 0.1.4 — 2026-10-05
 
 Versión de prueba (sin probar con una Webasto real). Mejoras de seguridad.
