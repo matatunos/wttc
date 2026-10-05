@@ -22,6 +22,7 @@ permissions:
 jobs:
   apk:
     runs-on: ubuntu-latest
+    timeout-minutes: 30      # si una máquina de GitHub se queda colgada, que falle en vez de esperar horas
     permissions:
       contents: write          # solo para publicar el APK en Releases
     env:

@@ -23,7 +23,7 @@ jobs:
   compilar:
     name: ${{ matrix.board.name }} · núcleo ${{ matrix.core }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30      # si una máquina de GitHub se queda colgada, que falle en vez de esperar horas
+    timeout-minutes: 60      # si una máquina de GitHub se queda colgada, que falle en vez de esperar horas
     permissions:
       contents: write          # solo para adjuntar el .ota a la Release (en main y con la clave de firma)
     env:
@@ -121,7 +121,8 @@ jobs:
         shell: bash
         run: |
           tag="v$WTTC_VER"
-          for i in $(seq 1 40); do gh release view "$tag" >/dev/null 2>&1 && break; sleep 30; done
+          # hasta 40 min: la Release la crea android.yml, que a veces tarda en coger máquina
+          for i in $(seq 1 80); do gh release view "$tag" >/dev/null 2>&1 && break; sleep 30; done
           gh release view "$tag" >/dev/null 2>&1 || { echo "::notice::Sin Release $tag: el .ota queda solo como artefacto"; exit 0; }
           git fetch -q --tags origin
           [ "$(git rev-list -n1 "$tag")" = "$GITHUB_SHA" ] || { echo "::notice::$tag es de otro commit: no se adjunta"; exit 0; }
