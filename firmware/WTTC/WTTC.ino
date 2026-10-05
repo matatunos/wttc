@@ -76,6 +76,10 @@
 #include <esp_gap_ble_api.h>    // funciones de bajo nivel para listar y borrar emparejamientos
 #include <time.h>               // hora local (programas, registro)
 #include <stdarg.h>             // trf(): textos traducidos con datos (printf)
+#include <Update.h>             // actualización sin cable (OTA): escribe el programa nuevo en el hueco libre
+#include <esp_ota_ops.h>        // confirmar el programa nuevo (o volver al anterior si no arranca)
+#include <mbedtls/pk.h>         // comprobar la firma de las actualizaciones (ECDSA P-256)
+#include <mbedtls/md.h>         // SHA-256 de la actualización
 #include <sys/time.h>           // settimeofday(): poner en hora desde el móvil
 #include "web.h"                // INDEX_HTML: la página web completa (va aparte para que el preprocesador no la toque)
 
@@ -187,6 +191,7 @@ enum Txt {
   T_E_ON, T_OFF_NOCONF_SHORT, T_E_TIME, T_E_FORMAT, T_E_TG_CFG, T_E_TG_NET, T_E_REBOOT_HEAT, T_E_UNKNOWN_CMD,
   T_W_OFF_NOCONF, T_W_SAVED, T_W_SAVED_LATER, T_W_SAVED_REBOOT, T_W_TG_SENDING, T_W_GASRESET, T_W_FORGOT,
   T_W_ORIGIN, T_W_SETUP, T_E_APPASS_DEF,
+  T_OTA_HEAT, T_OTA_FORMAT, T_OTA_NOSLOT, T_OTA_WRITE, T_OTA_SIG, T_OTA_OLD, T_OTA_OK, T_LOG_OTA, T_LOG_OTA_OK,
   T_COUNT
 };
 
@@ -270,6 +275,15 @@ const char* const TXT[T_COUNT][L_N] = {
   /* T_W_ORIGIN */         {"Petición rechazada: viene de otra web.", "Request rejected: it comes from another website.", "Anfrage abgelehnt: sie kommt von einer anderen Webseite."},
   /* T_W_SETUP */          {"Primer uso: antes de manejarla, cambia la clave de la Wi-Fi de la placa.", "First use: change the board's Wi-Fi password before using it.", "Erste Nutzung: zuerst das WLAN-Passwort der Platine ändern."},
   /* T_E_APPASS_DEF */     {"Elige una clave distinta de la de fábrica.", "Choose a password other than the factory one.", "Wähle ein anderes Passwort als das ab Werk."},
+  /* T_OTA_HEAT */         {"Está calentando: actualiza cuando esté apagada.", "It is heating: update when it is off.", "Sie heizt gerade: aktualisieren, wenn sie aus ist."},
+  /* T_OTA_FORMAT */       {"Ese fichero no es una actualización de WTTC (.ota).", "That file is not a WTTC update (.ota).", "Diese Datei ist kein WTTC-Update (.ota)."},
+  /* T_OTA_NOSLOT */       {"Esta placa no tiene hueco para actualizar sin cable: hay que grabarla una vez por USB con esta versión.", "This board has no room to update without a cable: flash it once over USB with this version.", "Diese Platine hat keinen Platz für Updates ohne Kabel: einmal per USB mit dieser Version flashen."},
+  /* T_OTA_WRITE */        {"Error al grabar la actualización.", "Error writing the update.", "Fehler beim Schreiben des Updates."},
+  /* T_OTA_SIG */          {"Firma no válida: la actualización no es oficial o está dañada. No se ha instalado.", "Invalid signature: the update is not official or is damaged. It was not installed.", "Ungültige Signatur: das Update ist nicht offiziell oder beschädigt. Nicht installiert."},
+  /* T_OTA_OLD */          {"Esa versión es más antigua que la instalada (%s). No se ha instalado.", "That version is older than the installed one (%s). It was not installed.", "Diese Version ist älter als die installierte (%s). Nicht installiert."},
+  /* T_OTA_OK */           {"Actualización %s instalada. Reiniciando; vuelve a conectarte en unos segundos.", "Update %s installed. Restarting; reconnect in a few seconds.", "Update %s installiert. Neustart; in ein paar Sekunden neu verbinden."},
+  /* T_LOG_OTA */          {"Actualización instalada: %s", "Update installed: %s", "Update installiert: %s"},
+  /* T_LOG_OTA_OK */       {"Firmware %s confirmado tras la actualización", "Firmware %s confirmed after the update", "Firmware %s nach dem Update bestätigt"},
 };
 
 // Texto en el idioma elegido
@@ -1103,13 +1117,145 @@ void handleState() {
 // donde está wttc.local) podría mandar formularios a /api/… y, por ejemplo, encender la calefacción. Los navegadores
 // ponen la cabecera Origin en esas peticiones: si viene y no es la propia placa, se rechaza. Sin Origin (curl,
 // navegadores antiguos) se admite. Origin solo se lee porque setup() lo pide con collectHeaders().
-bool sameOrigin() {
+bool originOk() {
   String o = server.header("Origin");
   if (!o.length()) return true;
   int p = o.indexOf("://");
-  if (p >= 0 && o.substring(p + 3) == server.hostHeader()) return true;
+  return p >= 0 && o.substring(p + 3) == server.hostHeader();
+}
+bool sameOrigin() {
+  if (originOk()) return true;
   server.send(403, "text/plain", tr(T_W_ORIGIN));
   return false;
+}
+
+// ============================================================================================================
+// Actualización sin cable (OTA) desde la web de la placa
+// El fichero .ota de las Releases es: «WTTCOTA1» (8 bytes) · versión (16 bytes, rellena con ceros) · longitud de la
+// firma (2 bytes) · firma ECDSA P-256 (DER) · programa (.bin). La firma cubre versión + programa y la hace el proyecto
+// con su clave privada (GitHub Actions); aquí solo está la pública. Sin firma válida no se instala nada, y no se
+// admiten versiones más antiguas que la instalada (se podrían usar para volver a meter fallos ya corregidos).
+// El programa nuevo va al hueco libre (ver partitions.csv); si al arrancar no aguanta un minuto, la placa vuelve
+// sola al anterior (vuelta atrás del cargador de arranque, activada en los núcleos ESP32 de Arduino).
+// ============================================================================================================
+static const char OTA_PUBKEY[] =
+"-----BEGIN PUBLIC KEY-----\n"
+"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAELD21sm+qZ9fG+Ram4uSyo9QFJhhq\n"
+"unPX8rxq+mIPsEoTbYT3JXlkqKI4MhCEUkpA+30W5Evjp/5R0cEzHpFktA==\n"
+"-----END PUBLIC KEY-----\n";
+
+struct Ota {
+  bool active = false, failed = false, done = false;
+  const char* err = nullptr;          // texto del error (de la tabla TXT)
+  uint8_t head[26]; size_t headN = 0; // cabecera: marca, versión y longitud de la firma
+  uint8_t sig[80]; size_t sigLen = 0, sigN = 0;
+  char ver[17] = "";
+  mbedtls_md_context_t md;
+  bool mdOn = false;
+} ota;
+
+// Compara versiones «a.b.c»: <0 si a es más antigua que b
+int verCmp(const char* a, const char* b) {
+  int x[3] = {0, 0, 0}, y[3] = {0, 0, 0};
+  sscanf(a, "%d.%d.%d", &x[0], &x[1], &x[2]);
+  sscanf(b, "%d.%d.%d", &y[0], &y[1], &y[2]);
+  for (int i = 0; i < 3; i++) if (x[i] != y[i]) return x[i] < y[i] ? -1 : 1;
+  return 0;
+}
+
+void otaFail(Txt t) {
+  if (!ota.failed) { ota.failed = true; ota.err = tr(t); }
+  if (Update.isRunning()) Update.abort();
+  if (ota.mdOn) { mbedtls_md_free(&ota.md); ota.mdOn = false; }
+}
+
+// Va recibiendo el fichero a trozos: cabecera, firma y programa (este se graba y se resume con SHA-256 a la vez)
+void otaFeed(const uint8_t* d, size_t n) {
+  while (n && !ota.failed) {
+    if (ota.headN < sizeof ota.head) {                       // 1) cabecera
+      size_t k = min(n, sizeof ota.head - ota.headN);
+      memcpy(ota.head + ota.headN, d, k); ota.headN += k; d += k; n -= k;
+      if (ota.headN < sizeof ota.head) return;
+      if (memcmp(ota.head, "WTTCOTA1", 8)) { otaFail(T_OTA_FORMAT); return; }
+      memcpy(ota.ver, ota.head + 8, 16); ota.ver[16] = 0;
+      ota.sigLen = (ota.head[24] << 8) | ota.head[25];
+      if (!ota.sigLen || ota.sigLen > sizeof ota.sig) { otaFail(T_OTA_FORMAT); return; }
+      if (verCmp(ota.ver, FW_VERSION) < 0) { otaFail(T_OTA_OLD); return; }
+      continue;
+    }
+    if (ota.sigN < ota.sigLen) {                              // 2) firma
+      size_t k = min(n, ota.sigLen - ota.sigN);
+      memcpy(ota.sig + ota.sigN, d, k); ota.sigN += k; d += k; n -= k;
+      if (ota.sigN < ota.sigLen) return;
+      // Placa grabada con la tabla antigua (un solo hueco): no hay dónde poner el programa nuevo
+      const esp_partition_t* nx = esp_ota_get_next_update_partition(nullptr);
+      if (!nx || nx == esp_ota_get_running_partition()) { otaFail(T_OTA_NOSLOT); return; }
+      if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { otaFail(T_OTA_WRITE); return; }
+      mbedtls_md_init(&ota.md); ota.mdOn = true;
+      if (mbedtls_md_setup(&ota.md, mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), 0) || mbedtls_md_starts(&ota.md)) { otaFail(T_OTA_WRITE); return; }
+      mbedtls_md_update(&ota.md, ota.head + 8, 16);          // la firma cubre también la versión
+      continue;
+    }
+    mbedtls_md_update(&ota.md, d, n);                         // 3) programa
+    if (Update.write((uint8_t*)d, n) != n) { otaFail(T_OTA_WRITE); return; }
+    return;
+  }
+}
+
+// Al terminar de recibir: comprobar la firma y, solo si vale, dar el programa nuevo por bueno para el próximo arranque
+void otaFinish() {
+  if (ota.failed) return;
+  if (!ota.mdOn) { otaFail(T_OTA_FORMAT); return; }
+  uint8_t hash[32];
+  mbedtls_md_finish(&ota.md, hash); mbedtls_md_free(&ota.md); ota.mdOn = false;
+  mbedtls_pk_context pk; mbedtls_pk_init(&pk);
+  bool ok = mbedtls_pk_parse_public_key(&pk, (const unsigned char*)OTA_PUBKEY, strlen(OTA_PUBKEY) + 1) == 0
+         && mbedtls_pk_verify(&pk, MBEDTLS_MD_SHA256, hash, sizeof hash, ota.sig, ota.sigLen) == 0;
+  mbedtls_pk_free(&pk);
+  if (!ok) { otaFail(T_OTA_SIG); return; }
+  if (!Update.end(true)) { otaFail(T_OTA_WRITE); return; }
+  ota.done = true;
+  addLog(trf(T_LOG_OTA, ota.ver));
+}
+
+// Manejador de la subida (POST /api/update, multipart): lo llama el servidor web con cada trozo del fichero
+void handleUpdateUpload() {
+  HTTPUpload& u = server.upload();
+  lastWeb = millis();                                         // que la Wi-Fi no se apague a mitad
+  if (u.status == UPLOAD_FILE_START) {
+    if (ota.mdOn) mbedtls_md_free(&ota.md);
+    ota = Ota();
+    ota.active = true;
+    if (heaterOn) otaFail(T_OTA_HEAT);                        // nunca mientras calienta
+  } else if (u.status == UPLOAD_FILE_WRITE) {
+    if (ota.active) otaFeed(u.buf, u.currentSize);
+  } else if (u.status == UPLOAD_FILE_END) {
+    if (ota.active) otaFinish();
+  } else if (u.status == UPLOAD_FILE_ABORTED) {
+    otaFail(T_OTA_WRITE);
+  }
+}
+
+// Fin de la petición: respuesta y, si se instaló, reinicio
+void handleUpdateDone() {
+  if (!ota.active) { server.send(400, "text/plain", tr(T_OTA_FORMAT)); return; }
+  ota.active = false;
+  if (!ota.done) { server.send(400, "text/plain", ota.err ? ota.err : tr(T_OTA_WRITE)); return; }
+  server.send(200, "text/plain", trf(T_OTA_OK, ota.ver));
+  rebootPending = true;
+}
+
+// Vuelta atrás: el núcleo confirmaría el programa nuevo nada más arrancar, pero rollback.cpp le dice «más tarde».
+// Lo confirmamos aquí tras un minuto funcionando; si antes se cuelga o se reinicia, arranca el anterior.
+bool otaChecked = false;
+void otaConfirm() {
+  if (otaChecked || millis() < 60000) return;
+  otaChecked = true;
+  esp_ota_img_states_t st;
+  if (esp_ota_get_state_partition(esp_ota_get_running_partition(), &st) == ESP_OK && st == ESP_OTA_IMG_PENDING_VERIFY) {
+    esp_ota_mark_app_valid_cancel_rollback();
+    addLog(trf(T_LOG_OTA_OK, FW_VERSION));
+  }
 }
 
 // Primer uso: con la clave de fábrica de la Wi-Fi, la web no admite órdenes (solo cambiar la clave y poner la hora)
@@ -1249,6 +1395,9 @@ void setup() {
   server.on("/api/tgtest", HTTP_POST, [] { if (sameOrigin() && setupDone()) handleTgTest(); });
   server.on("/api/gasreset", HTTP_POST, [] { if (!sameOrigin() || !setupDone()) return; runCmd("gasreset"); server.send(200, "text/plain", tr(T_W_GASRESET)); });
   server.on("/api/forget", HTTP_POST, [] { if (!sameOrigin() || !setupDone()) return; int n = bleForgetAll(); server.send(200, "text/plain", trf(T_W_FORGOT, n)); });
+  // Actualización sin cable: misma protección que las órdenes; el primer manejador responde, el segundo recibe el fichero
+  server.on("/api/update", HTTP_POST, [] { if (sameOrigin() && setupDone()) handleUpdateDone(); },
+            [] { if (originOk() && !apDefault()) handleUpdateUpload(); });
   static const char* HDRS[] = {"Origin"};          // cabeceras que el servidor guarda para leerlas en los manejadores
   server.collectHeaders(HDRS, 1);
   server.onNotFound([] { server.sendHeader("Location", "/"); server.send(302); });   // cualquier otra ruta: a la página
@@ -1319,4 +1468,5 @@ void loop() {
     if (readSensors() && heaterOn) { gasTick(); evalHeater(); }
   }
   checkSchedule();                                // ¿toca encender por programa?
+  otaConfirm();                                   // tras una actualización: confirmarla al minuto de funcionar
 }

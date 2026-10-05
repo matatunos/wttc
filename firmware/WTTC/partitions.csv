@@ -1,0 +1,11 @@
+# partitions.csv — Tabla de particiones de WTTC (flash de 4 MB). Generada con Claude (Anthropic).
+# Arduino la usa sola por estar en la carpeta del firmware, sea cual sea el esquema elegido en el menú.
+# Dos huecos para el programa (app0 y app1) para poder actualizar sin cable: el nuevo se graba en el hueco libre y,
+# si no llega a arrancar bien, la placa vuelve sola al anterior. Sin SPIFFS (WTTC no guarda ficheros).
+# nvs (configuración, PIN, programas) está donde en los esquemas de Arduino: cambiar de tabla no la borra.
+# Name,   Type, SubType, Offset,   Size,     Flags
+nvs,      data, nvs,     0x9000,   0x5000,
+otadata,  data, ota,     0xe000,   0x2000,
+app0,     app,  ota_0,   0x10000,  0x1F0000,
+app1,     app,  ota_1,   0x200000, 0x1F0000,
+coredump, data, coredump,0x3F0000, 0x10000,

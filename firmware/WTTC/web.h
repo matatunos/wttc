@@ -138,6 +138,11 @@ details h3{font-size:15px;margin:18px 0 0}
 <label class="f"><span data-t="fMinV">Batería mínima para arrancar un programa (V)</span><input id="c_mv" type="number" step="0.1" min="10.5" max="13"></label>
 <div class="acts" style="margin-top:14px"><button class="btn pri" id="csave" data-t="save">Guardar</button><button class="btn" id="tgtest" data-t="tgTest">Probar Telegram</button></div>
 <div class="acts" style="margin-top:10px"><button class="btn" id="forget" data-t="forget">Borrar emparejamientos</button><button class="btn" id="tsync" data-t="setClock">Poner en hora</button></div>
+<h3 data-t="updTitle">Actualizar firmware</h3>
+<p class="sub" data-t="updHelp">Descarga el fichero .ota de la última versión (github.com/matatunos/wttc/releases) y súbelo aquí. Solo se instalan actualizaciones oficiales (con firma) y nunca mientras calienta; si la nueva no arranca bien, la placa vuelve sola a la anterior.</p>
+<label class="f"><span data-t="updFile">Fichero .ota</span><input id="u_file" type="file" accept=".ota"></label>
+<div class="acts" style="margin-top:10px"><button class="btn" id="u_go" data-t="updBtn">Actualizar</button></div>
+<p class="sub" id="u_st" style="margin-top:8px"></p>
 <p class="sub" id="c_ver" style="margin-top:10px"></p></details>
 </main>
 <script>
@@ -146,7 +151,7 @@ details h3{font-size:15px;margin:18px 0 0}
 const $=id=>document.getElementById(id);
 // ---- Idioma: el de la placa (ajuste «lang»); hasta saberlo, el del navegador. Textos en es, en y de ----
 const I18N={
-es:{loc:'es-ES',setupTitle:'Primer uso: protege la Wi-Fi de la placa',setupText:'La clave de fábrica es pública: cualquiera cerca podría manejar la calefacción. Elige una nueva (mínimo 8 caracteres); la placa se reinicia y tendrás que volver a conectarte a su Wi-Fi con la clave nueva.',setupLabel:'Clave nueva de la Wi-Fi',setupShort:'La clave debe tener al menos 8 caracteres.',water:'agua del motor',connecting:'Conectando…',battery:'Batería',flame:'Llama',power:'Potencia',turnOn:'Encender',turnOff:'Apagar',
+es:{loc:'es-ES',updTitle:'Actualizar firmware',updHelp:'Descarga el fichero .ota de la última versión (github.com/matatunos/wttc/releases) y súbelo aquí. Solo se instalan actualizaciones oficiales (con firma) y nunca mientras calienta; si la nueva no arranca bien, la placa vuelve sola a la anterior.',updFile:'Fichero .ota',updBtn:'Actualizar',updNoFile:'Elige primero el fichero .ota.',updSending:'Subiendo… {0} %',updChecking:'Comprobando la firma e instalando…',updSim:'En el simulador no se puede actualizar: es la web de una placa de verdad.',updNet:'Se cortó la conexión con la placa.',setupTitle:'Primer uso: protege la Wi-Fi de la placa',setupText:'La clave de fábrica es pública: cualquiera cerca podría manejar la calefacción. Elige una nueva (mínimo 8 caracteres); la placa se reinicia y tendrás que volver a conectarte a su Wi-Fi con la clave nueva.',setupLabel:'Clave nueva de la Wi-Fi',setupShort:'La clave debe tener al menos 8 caracteres.',water:'agua del motor',connecting:'Conectando…',battery:'Batería',flame:'Llama',power:'Potencia',turnOn:'Encender',turnOff:'Apagar',
  turningOn:'Encendiendo…',turningOff:'Apagando…',schedules:'Programas',noSched:'Sin programas.',schedOn:'Programas activos',addSched:'Añadir programa',
  saveSched:'Guardar programas',saved:'Guardado',diag:'Diagnóstico',readFaults:'Leer averías',gasReset:'Gasoil a cero',settings:'Configuración',language:'Idioma',
  ownNet:'Bluetooth y Wi-Fi propios',fName:'Nombre (red Wi-Fi y Bluetooth)',fPin:'PIN de emparejamiento Bluetooth (6 cifras)',
@@ -169,7 +174,7 @@ es:{loc:'es-ES',setupTitle:'Primer uso: protege la Wi-Fi de la placa',setupText:
  ver:'Firmware WTTC {0} · código generado íntegramente con Claude (Anthropic) · github.com/matatunos/wttc',
  askGas:'¿Poner a cero el gasoil estimado (último encendido, mes y total)?',askForget:'¿Borrar todos los dispositivos emparejados? Habrá que volver a emparejar la app con el PIN.',
  days:['L','M','X','J','V','S','D'],daysL:['el lunes','el martes','el miércoles','el jueves','el viernes','el sábado','el domingo']},
-en:{loc:'en-GB',setupTitle:'First use: protect the board\'s Wi-Fi',setupText:'The factory password is public: anyone nearby could control the heater. Choose a new one (at least 8 characters); the board restarts and you will have to reconnect to its Wi-Fi with the new password.',setupLabel:'New Wi-Fi password',setupShort:'The password must be at least 8 characters long.',water:'engine coolant',connecting:'Connecting…',battery:'Battery',flame:'Flame',power:'Power',turnOn:'Switch on',turnOff:'Switch off',
+en:{loc:'en-GB',updTitle:'Update firmware',updHelp:'Download the .ota file of the latest version (github.com/matatunos/wttc/releases) and upload it here. Only official (signed) updates are installed, and never while heating; if the new one does not start properly, the board goes back to the previous one by itself.',updFile:'.ota file',updBtn:'Update',updNoFile:'Choose the .ota file first.',updSending:'Uploading… {0} %',updChecking:'Checking the signature and installing…',updSim:'Updating is not possible in the simulator: this is the web page of a real board.',updNet:'The connection to the board was lost.',setupTitle:'First use: protect the board\'s Wi-Fi',setupText:'The factory password is public: anyone nearby could control the heater. Choose a new one (at least 8 characters); the board restarts and you will have to reconnect to its Wi-Fi with the new password.',setupLabel:'New Wi-Fi password',setupShort:'The password must be at least 8 characters long.',water:'engine coolant',connecting:'Connecting…',battery:'Battery',flame:'Flame',power:'Power',turnOn:'Switch on',turnOff:'Switch off',
  turningOn:'Switching on…',turningOff:'Switching off…',schedules:'Schedules',noSched:'No schedules.',schedOn:'Schedules enabled',addSched:'Add schedule',
  saveSched:'Save schedules',saved:'Saved',diag:'Diagnostics',readFaults:'Read faults',gasReset:'Reset diesel',settings:'Settings',language:'Language',
  ownNet:'Own Bluetooth and Wi-Fi',fName:'Name (Wi-Fi network and Bluetooth)',fPin:'Bluetooth pairing PIN (6 digits)',
@@ -192,7 +197,7 @@ en:{loc:'en-GB',setupTitle:'First use: protect the board\'s Wi-Fi',setupText:'Th
  ver:'WTTC firmware {0} · code generated entirely with Claude (Anthropic) · github.com/matatunos/wttc',
  askGas:'Reset the diesel estimate (last run, month and total)?',askForget:'Delete all paired devices? The app will have to be paired again with the PIN.',
  days:['M','T','W','T','F','S','S'],daysL:['on Monday','on Tuesday','on Wednesday','on Thursday','on Friday','on Saturday','on Sunday']},
-de:{loc:'de-DE',setupTitle:'Erste Nutzung: WLAN der Platine schützen',setupText:'Das Passwort ab Werk ist öffentlich: jeder in der Nähe könnte die Heizung steuern. Wähle ein neues (mindestens 8 Zeichen); die Platine startet neu und du musst dich mit dem neuen Passwort wieder mit ihrem WLAN verbinden.',setupLabel:'Neues WLAN-Passwort',setupShort:'Das Passwort muss mindestens 8 Zeichen lang sein.',water:'Kühlwasser',connecting:'Verbinde…',battery:'Batterie',flame:'Flamme',power:'Leistung',turnOn:'Einschalten',turnOff:'Ausschalten',
+de:{loc:'de-DE',updTitle:'Firmware aktualisieren',updHelp:'Die .ota-Datei der neuesten Version herunterladen (github.com/matatunos/wttc/releases) und hier hochladen. Es werden nur offizielle (signierte) Updates installiert und nie während des Heizens; startet die neue nicht richtig, kehrt die Platine von selbst zur vorherigen zurück.',updFile:'.ota-Datei',updBtn:'Aktualisieren',updNoFile:'Zuerst die .ota-Datei wählen.',updSending:'Lade hoch… {0} %',updChecking:'Prüfe die Signatur und installiere…',updSim:'Im Simulator kann nicht aktualisiert werden: das ist die Webseite einer echten Platine.',updNet:'Die Verbindung zur Platine ist abgebrochen.',setupTitle:'Erste Nutzung: WLAN der Platine schützen',setupText:'Das Passwort ab Werk ist öffentlich: jeder in der Nähe könnte die Heizung steuern. Wähle ein neues (mindestens 8 Zeichen); die Platine startet neu und du musst dich mit dem neuen Passwort wieder mit ihrem WLAN verbinden.',setupLabel:'Neues WLAN-Passwort',setupShort:'Das Passwort muss mindestens 8 Zeichen lang sein.',water:'Kühlwasser',connecting:'Verbinde…',battery:'Batterie',flame:'Flamme',power:'Leistung',turnOn:'Einschalten',turnOff:'Ausschalten',
  turningOn:'Schalte ein…',turningOff:'Schalte aus…',schedules:'Zeitpläne',noSched:'Keine Zeitpläne.',schedOn:'Zeitpläne aktiv',addSched:'Zeitplan hinzufügen',
  saveSched:'Zeitpläne speichern',saved:'Gespeichert',diag:'Diagnose',readFaults:'Fehler auslesen',gasReset:'Diesel zurücksetzen',settings:'Einstellungen',language:'Sprache',
  ownNet:'Eigenes Bluetooth und WLAN',fName:'Name (WLAN und Bluetooth)',fPin:'Bluetooth-Kopplungs-PIN (6 Ziffern)',
@@ -327,6 +332,14 @@ $('csave').onclick=async()=>{const b={lang:$('c_lang').value,name:$('c_name').va
 // Primer uso: guardar la clave nueva de la Wi-Fi (la placa se reinicia para aplicarla)
 $('s_save').onclick=async()=>{const v=$('s_ap').value;if(v.length<8)return alert(T('setupShort'));
  try{alert(await api('/api/cfg',{appass:v}));$('s_ap').value='';poll()}catch(e){alert(e.message)}};
+// Actualizar firmware: sube el .ota (multipart) con XMLHttpRequest para ver el progreso. La placa comprueba la firma
+// y la versión, lo graba en el hueco libre y se reinicia. En el simulador (esta web dentro de un iframe) no se puede.
+$('u_go').onclick=()=>{if(window.parent!==window)return alert(T('updSim'));const f=$('u_file').files[0];if(!f)return alert(T('updNoFile'));
+ const x=new XMLHttpRequest(),fd=new FormData();fd.append('ota',f,f.name);$('u_go').disabled=true;
+ x.upload.onprogress=e=>{if(e.lengthComputable)$('u_st').textContent=e.loaded<e.total?T('updSending',Math.floor(e.loaded*100/e.total)):T('updChecking')};
+ x.onload=()=>{$('u_go').disabled=false;$('u_st').textContent=x.responseText;alert(x.responseText)};
+ x.onerror=()=>{$('u_go').disabled=false;$('u_st').textContent=T('updNet')};
+ x.open('POST','/api/update');x.send(fd)};
 // Poner a cero el gasoil estimado
 $('gasreset').onclick=async()=>{if(!confirm(T('askGas')))return;try{alert(await api('/api/gasreset',{}));poll()}catch(e){alert(e.message)}};
 // Borrar los móviles emparejados por Bluetooth

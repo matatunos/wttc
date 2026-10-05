@@ -3,6 +3,8 @@
 # Así se comprueba que el .ino compila sin tener que compilarlo en ningún servidor propio.
 # Los errores de compilación se publican como anotaciones del run (visibles sin iniciar sesión).
 # El binario resultante queda como artefacto del run (WTTC-firmware-core-…), y su tamaño como anotación.
+# Con el núcleo 3.3.12, si el repo tiene el secreto WTTC_FW_SIGN_KEY (clave privada ECDSA P-256), se monta y firma
+# la actualización sin cable WTTC-<versión>.ota y, en main, se adjunta a la Release de esa versión.
 name: Firmware
 
 on:
@@ -19,6 +21,10 @@ jobs:
   compilar:
     name: ESP32 core ${{ matrix.core }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write          # solo para adjuntar el .ota a la Release (en main y con la clave de firma)
+    env:
+      WTTC_FW_SIGN_KEY: ${{ secrets.WTTC_FW_SIGN_KEY }}
     strategy:
       fail-fast: false
       matrix:
@@ -45,23 +51,51 @@ jobs:
           mkdir -p build
           arduino-cli compile --fqbn esp32:esp32:esp32:PartitionScheme=huge_app --warnings default \
             --output-dir build firmware/WTTC 2>&1 | tee build.log
-      # Tamaño del programa, como anotación visible sin iniciar sesión. 1 966 080 bytes es el hueco de cada copia del
-      # programa en un esquema con actualización sin cable (OTA) para 4 MB de flash («Minimal SPIFFS»): si no cabe ahí,
-      # la OTA obligaría a adelgazar el firmware.
+      # Tamaño del programa, como anotación visible sin iniciar sesión. Tiene que caber en cada hueco de programa de
+      # firmware/WTTC/partitions.csv (0x1F0000 = 2 031 616 bytes): si no, falla. El menú del IDE («Huge APP») solo
+      # comprueba su propio límite de 3 MB, así que esta es la comprobación que vale.
       - name: Tamaño del firmware
         shell: bash
         run: |
           n=$(grep -oP 'Sketch uses \K[0-9]+' build.log | head -1)
-          ota=1966080
-          echo "::notice title=Tamaño (núcleo ${{ matrix.core }})::$n bytes · hueco OTA $ota · $((n * 100 / ota)) % del hueco"
-          [ "$n" -le "$ota" ] || echo "::warning title=No cabe con OTA (núcleo ${{ matrix.core }})::sobran $((n - ota)) bytes"
+          slot=$(( $(grep -oP '^app0,.*ota_0,\s*0x[0-9A-Fa-f]+,\s*\K0x[0-9A-Fa-f]+' firmware/WTTC/partitions.csv) ))
+          echo "::notice title=Tamaño (núcleo ${{ matrix.core }})::$n bytes de $slot por hueco ($((n * 100 / slot)) %)"
+          [ "$n" -le "$slot" ] || { echo "::error title=No cabe (núcleo ${{ matrix.core }})::sobran $((n - slot)) bytes"; exit 1; }
       - name: Errores como anotaciones
         if: failure()
         shell: bash
         run: |
           grep -E 'error|Error' build.log | head -40 | while IFS= read -r l; do echo "::error::${l//%/%25}"; done
+      # Actualización sin cable firmada (ver .github/scripts/firmar_ota.py y otaFeed() en WTTC.ino)
+      - name: Firmar la actualización OTA
+        if: success() && matrix.core == '3.3.12' && env.WTTC_FW_SIGN_KEY != ''
+        shell: bash
+        run: |
+          v=$(tr -d ' \r\n' < VERSION)
+          k="$RUNNER_TEMP/fw-sign.pem"; (umask 077; printf '%s\n' "$WTTC_FW_SIGN_KEY" > "$k")
+          python3 .github/scripts/firmar_ota.py build/WTTC.ino.bin "$v" "$k" "build/WTTC-$v.ota"
+          rm -f "$k"
+          echo "WTTC_OTA=build/WTTC-$v.ota" >> "$GITHUB_ENV"; echo "WTTC_VER=$v" >> "$GITHUB_ENV"
       - uses: actions/upload-artifact@v4
         if: success()
         with:
           name: WTTC-firmware-core-${{ matrix.core }}
-          path: build/WTTC.ino.*bin
+          path: |
+            build/WTTC.ino.*bin
+            build/*.ota
+      # Adjuntar el .ota a la Release solo si esa versión se publicó desde este mismo commit (la crea android.yml):
+      # así nunca se cuelga en una Release el programa de un commit posterior con la etiqueta de una versión anterior
+      - name: Adjuntar el .ota a la Release
+        if: success() && env.WTTC_OTA != '' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          tag="v$WTTC_VER"
+          for i in $(seq 1 40); do gh release view "$tag" >/dev/null 2>&1 && break; sleep 30; done
+          gh release view "$tag" >/dev/null 2>&1 || { echo "::notice::Sin Release $tag: el .ota queda solo como artefacto"; exit 0; }
+          git fetch -q --tags origin
+          [ "$(git rev-list -n1 "$tag")" = "$GITHUB_SHA" ] || { echo "::notice::$tag es de otro commit: no se adjunta"; exit 0; }
+          gh release view "$tag" --json assets -q '.assets[].name' | grep -qx "WTTC-$WTTC_VER.ota" && { echo "::notice::La Release ya tiene el .ota"; exit 0; }
+          gh release upload "$tag" "$WTTC_OTA"
+          echo "::notice title=OTA publicada::WTTC-$WTTC_VER.ota en $tag"
