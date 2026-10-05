@@ -54,6 +54,9 @@
     LL = número de bytes que siguen (comando + datos + checksum). XOR = o-exclusivo de todos los anteriores.
     Órdenes usadas: 0x21 encender (minutos) · 0x44 mantener (cada 5 s) · 0x10 apagar ·
                     0x50 05 leer sensores · 0x56 01 leer averías. Basado en la documentación de libwbus.
+    Se habla como el programa de taller ThermoTest (emisor F). En una T5 GP con Thermo Top C, enkor (t6forum, 2025)
+    comprobó con su propio ESP32 que «0x21 con la dirección de ThermoTest» la enciende y además pone en marcha el
+    Climatronic (ventilador del habitáculo); el Telestart T90 manda 0x20, que esa calefacción no obedece.
 
   Seguridad
   ---------
