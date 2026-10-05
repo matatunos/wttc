@@ -2,7 +2,7 @@
 # Código generado íntegramente con Claude (Anthropic).
 # Así se comprueba que el .ino compila sin tener que compilarlo en ningún servidor propio.
 # Los errores de compilación se publican como anotaciones del run (visibles sin iniciar sesión).
-# El binario resultante queda como artefacto del run (WTTC-firmware-core-…).
+# El binario resultante queda como artefacto del run (WTTC-firmware-core-…), y su tamaño como anotación.
 name: Firmware
 
 on:
@@ -45,6 +45,16 @@ jobs:
           mkdir -p build
           arduino-cli compile --fqbn esp32:esp32:esp32:PartitionScheme=huge_app --warnings default \
             --output-dir build firmware/WTTC 2>&1 | tee build.log
+      # Tamaño del programa, como anotación visible sin iniciar sesión. 1 966 080 bytes es el hueco de cada copia del
+      # programa en un esquema con actualización sin cable (OTA) para 4 MB de flash («Minimal SPIFFS»): si no cabe ahí,
+      # la OTA obligaría a adelgazar el firmware.
+      - name: Tamaño del firmware
+        shell: bash
+        run: |
+          n=$(grep -oP 'Sketch uses \K[0-9]+' build.log | head -1)
+          ota=1966080
+          echo "::notice title=Tamaño (núcleo ${{ matrix.core }})::$n bytes · hueco OTA $ota · $((n * 100 / ota)) % del hueco"
+          [ "$n" -le "$ota" ] || echo "::warning title=No cabe con OTA (núcleo ${{ matrix.core }})::sobran $((n - ota)) bytes"
       - name: Errores como anotaciones
         if: failure()
         shell: bash
