@@ -81,6 +81,10 @@ Conexiones: +12 V permanente y masa del conector a la placa TJA1020 y al LM2596;
 a IO16, RX a IO17, SLP a 3V3. El cable de contacto (borne 15) no se usa. **Mide los cables con el polímetro**: los
 colores cambian entre vehículos.
 
+**Antes de montar, comprueba que tu calefacción habla W-Bus.** La de las T5 con temporizador de fábrica lo hace, pero se
+dice que algunas Thermo Top C antiguas usan otro protocolo. La primera prueba por la consola serie (`status` y
+`errores`) solo lee datos y no enciende nada: si la Webasto contesta con su temperatura y tensión, adelante.
+
 ## Instalar el firmware
 1. Arduino IDE 2 (o arduino-cli) con el núcleo **esp32 de Espressif** (2.x o 3.x). Sin librerías externas.
 2. Placa **ESP32 Dev Module** y esquema de partición **Huge APP (3MB No OTA/1MB SPIFFS)**: con Bluetooth y Wi-Fi no

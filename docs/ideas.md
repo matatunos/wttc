@@ -142,7 +142,5 @@ luces, es la iluminación del mando (borne 58) y no vale.
   [este hilo de t6forum](https://www.t6forum.com/threads/retrofit-telestart-t90-on-t5gp-thermotopc-recognized-but-does-not-start.46420/page-3)
   alguien enciende una Thermo Top C de T5 GP con un ESP mandando `0x21` y manteniendo la orden, que es lo que hace
   WTTC. Podría ser el primer probador.
-- **Comprobar que la calefacción es de W-Bus antes de montar:** hay quien dice que algunas Thermo Top C antiguas no
-  hablan W-Bus. La fase de «solo leer» (`status`) sirve para salir de dudas; avisarlo en la web.
 - **Home Assistant:** publicar el estado y aceptar órdenes por MQTT cuando la placa tenga red, o un componente de
   ESPHome. Lo piden a menudo en sus foros y no hay nada hecho para la Thermo Top por W-Bus.
