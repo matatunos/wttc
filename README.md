@@ -90,7 +90,7 @@ Hechas automáticamente: la web con el simulador y la app en un emulador Android
 | Microcontrolador | **ESP32-S3 DevKitC-1 N16R8** (16 MB, mejor sobre base con bornas de tornillo; [ficha](docs/hardware/esp32-s3-n16r8/README.md)). Desde la 0.2.0, el único soportado | Bluetooth, Wi-Fi, programas y W-Bus por UART2 (IO16/IO17) |
 | Transceptor | Módulo UART ↔ LIN/K-Line con **TJA1020** (o TJA1021, MCP2003, L9637D) | Adapta los 3,3 V del ESP32 al bus de un hilo a 12 V |
 | Alimentación | Regulador **LM2596** ajustado a **5,0 V** | 5 V para el ESP32 desde el +12 V permanente |
-| *Opcional:* pantalla | OLED I2C 128×64: 1,3" (SH1106) o 0,96" (SSD1306) | Estado, temperatura de dentro, agua, batería y lo siguiente que va a pasar |
+| *Opcional:* pantalla | OLED I2C **SSD1327 de 1,5"** (128×128, 16 grises; recomendada) o de 128×64: 1,3" (SH1106) o 0,96" (SSD1306) | Estado, temperatura de dentro, agua, batería y lo siguiente que va a pasar |
 | *Opcional:* termómetro | Módulo I2C **SHT31** o **AHT20** | Temperatura y humedad de dentro; «calentar hasta X °C» |
 
 Conexiones: +12 V permanente y masa del conector a la placa TJA1020 y al LM2596; W-Bus a la borna LIN; TX de la placa

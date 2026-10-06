@@ -209,6 +209,7 @@
     <string-array name="oled_types">
         <item>OLED 1,3\" (SH1106)</item>
         <item>OLED 0,96\" (SSD1306)</item>
+        <item>OLED 1,5\" Graustufen (SSD1327)</item>
     </string-array>
     <string-array name="disp_modes">
         <item>Aus (nur mit der BOOT-Taste)</item>

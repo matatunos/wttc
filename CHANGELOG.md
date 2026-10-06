@@ -6,6 +6,13 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.2.3 — 2026-10-06
+
+Versión de prueba (sin probar con una Webasto real).
+
+- **Pantalla SSD1327 de 1,5" (128×128, 16 grises)**: por I2C con los mismos cuatro cables, con letras suavizadas (DejaVu Sans, generadas con `herramientas/generar_fuentes.py`, sin librerías), barra del tiempo que queda y franja de aviso. Solo se mandan las filas que cambian. Se elige en Configuración → Tipo de pantalla; las de 128×64 siguen valiendo.
+- Simulador: dibuja la SSD1327 en grises (la que lleva por defecto) igual que la placa.
+
 ## 0.2.2 — 2026-10-06
 
 Versión de prueba (sin probar con una Webasto real).
