@@ -6,7 +6,7 @@
 // placa (que va dentro de un iframe) y espera a que la Webasto virtual tenga llama. Después captura:
 //   simulador.png    — la web de la placa y la Webasto virtual, lado a lado
 //   web-placa.png    — solo la web de la placa, como se ve en el móvil
-//   esquema.png      — el esquema de conexiones para montar (con el ESP32-S3 DevKitC-1, la placa de referencia)
+//   esquema.png      — el esquema de conexiones para montar (ESP32-S3 DevKitC-1; ④ y ⑤ son empalmes del rojo y el marrón)
 //   estadisticas.png — la página pública de estadísticas
 import { chromium } from 'playwright';
 
