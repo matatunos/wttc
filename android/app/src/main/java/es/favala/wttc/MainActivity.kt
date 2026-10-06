@@ -990,7 +990,7 @@ class MainActivity : Activity(), BleLink.Listener {
         hwBox.visibility = if (fwTh) View.VISIBLE else View.GONE
         if (fwTh) {
             eWarm.setText(c.optInt("warm").toString())
-            spOled.setSelection(c.optInt("oled").coerceIn(0, 1))
+            spOled.setSelection(c.optInt("oled").coerceIn(0, 2))
             spDisp.setSelection(c.optInt("disp", 1).coerceIn(0, 2))
             spLed.setSelection(c.optInt("led", 1).coerceIn(0, 3))
             eToff.setText(c.optString("toff"))

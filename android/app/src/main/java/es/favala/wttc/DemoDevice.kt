@@ -57,7 +57,7 @@ class DemoDevice(private val ctx: Context, private val main: Handler, private va
         .put("name", "WTTC").put("pin", 482915).put("wifimode", 1).put("ssid", ctx.getString(R.string.demo_ssid))
         .put("tg", true).put("tgchat", "123456789").put("minvolt", "12.0").put("bonds", 1)
         .put("lang", ctx.getString(R.string.lang_code)).put("ver", ctx.getString(R.string.demo_ver))
-        .put("ota", 1).put("th", 1).put("oled", 0).put("disp", 1).put("led", 1).put("toff", "0.0").put("warm", 50)
+        .put("ota", 1).put("th", 1).put("oled", 2).put("disp", 1).put("led", 1).put("toff", "0.0").put("warm", 50)
         .put("sens", "SHT31").put("scr", true)
     // Números con la coma o el punto del idioma de la app
     private val numLocale = Locale(ctx.getString(R.string.lang_code))

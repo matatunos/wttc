@@ -19,7 +19,8 @@
     Transceptor:  TJA1020 (TTL de 3,3 V <-> bus K-Line/LIN de un hilo a 12 V), borna LIN al cable W-Bus
     Alimentación: regulador LM2596 a 5,0 V desde el +12 V permanente del conector del temporizador
     Conexiones:   TX del TJA1020 -> IO16 (RX2 del ESP32) · RX del TJA1020 <- IO17 (TX2) · SLP -> 3V3
-    Opcional:     pantalla OLED I2C de 128×64 (SH1106 de 1,3" o SSD1306 de 0,96") y termómetro I2C (SHT31 o AHT20),
+    Opcional:     pantalla OLED I2C: SSD1327 de 1,5" (128×128, 16 grises), SH1106 de 1,3" o SSD1306 de 0,96" (128×64),
+                  y termómetro I2C (SHT31 o AHT20),
                   los dos en el mismo bus: SDA -> IO4, SCL -> IO5, más 3V3 y GND. La placa los detecta al arrancar
                   (y cada medio minuto si faltan); sin ellos funciona igual. El LED RGB de la placa (IO48) da el
                   estado de un vistazo y el botón BOOT (IO0) enciende la pantalla.
@@ -105,6 +106,7 @@
 #error "WTTC necesita un ESP32-S3: en el IDE, placa ESP32S3 Dev Module (Flash Size 16MB). El ESP32 clásico no está soportado desde la 0.2.0."
 #endif
 #include "web.h"                // INDEX_HTML: la página web completa (va aparte para que el preprocesador no la toque)
+#include "fuentes.h"            // letras suavizadas de la pantalla SSD1327 (generadas con herramientas/generar_fuentes.py)
 
 // ================== CONFIGURACIÓN FIJA ==================
 // Valores que no cambian de una placa a otra. Lo demás se cambia desde la web o la app (Configuración).
@@ -136,7 +138,7 @@ const float    TH_STALL_C   = 0.5;    // °C (si hace demasiado frío fuera o el
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.2.2"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.2.3"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -156,7 +158,8 @@ uint8_t wifiMode   = WM_HEAT;         // por defecto: Wi-Fi solo mientras calien
 float minVolt      = 12.0;            // V: con la batería por debajo, los programas no arrancan
 char staSsid[33]   = "", staPass[64] = "";   // red con internet a la que unirse (opcional), y su contraseña
 // Pantalla, LED y termómetro (opcionales)
-enum { OLED_SH1106, OLED_SSD1306 };   // tipo de pantalla: 1,3" (SH1106) o 0,96" (SSD1306). No se distinguen por I2C
+// Tipo de pantalla: 1,3" (SH1106), 0,96" (SSD1306) o 1,5" en grises (SSD1327). No se distinguen por I2C: es un ajuste
+enum { OLED_SH1106, OLED_SSD1306, OLED_SSD1327 };
 enum { DISP_OFF, DISP_AUTO, DISP_ALWAYS };
 uint8_t oledType   = OLED_SH1106;
 uint8_t dispMode   = DISP_AUTO;       // apagada (solo con el botón) / automática (se enciende con algo que ver y se apaga al minuto) / siempre
@@ -258,7 +261,9 @@ uint8_t depOnceT = 0;
 bool oledOk = false, dispIsOn = false;
 uint32_t dispUntil = 0, lastDraw = 0;
 uint32_t btnUntil = 0;                // pulsado el botón BOOT: encendida hasta aquí aunque el modo sea «apagada»
-uint8_t fb[1024];                     // imagen de la pantalla: 128 columnas × 8 páginas de 8 píxeles
+uint8_t fb[1024];                     // imagen de la pantalla de 128×64: 128 columnas × 8 páginas de 8 píxeles
+uint8_t gb[8192], gbPrev[8192];       // imagen de la SSD1327 (dos píxeles por byte) y la última enviada
+uint8_t oledAddr = 0x3C;              // dirección I2C de la pantalla (0x3C o 0x3D, según el módulo)
 
 // Registro de los 20 últimos eventos (en RAM: se pierde al reiniciar)
 String logBuf[20];
@@ -423,7 +428,7 @@ const char* const TXT[T_COUNT][L_N] = {
   /* T_D_WAIT */           {"Esperando", "Waiting", "Wartet"},
   /* T_D_WATER */          {"Agua %d°", "Water %d°", "Wasser %d°"},
   /* T_D_IN */             {"dentro", "inside", "innen"},
-  /* T_D_NEXT */           {"Prox. %s", "Next %s", "Nächst %s"},
+  /* T_D_NEXT */           {"Próx. %s", "Next %s", "Nächst %s"},
   /* T_D_DEP */            {"Salida %s", "Leave %s", "Abfahrt %s"},
   /* T_D_UNTIL */          {"Hasta %s", "Up to %s", "Bis %s"},
   /* T_D_DAYS */           {"Lu,Ma,Mi,Ju,Vi,Sa,Do", "Mo,Tu,We,Th,Fr,Sa,Su", "Mo,Di,Mi,Do,Fr,Sa,So"},
@@ -923,7 +928,7 @@ static const uint8_t FONT[] PROGMEM = {
 };
 
 void oCmds(const uint8_t* c, int n) {
-  Wire.beginTransmission(0x3C); Wire.write((uint8_t)0x00);           // 0x00 = lo que sigue son órdenes
+  Wire.beginTransmission(oledAddr); Wire.write((uint8_t)0x00);       // 0x00 = lo que sigue son órdenes
   for (int i = 0; i < n; i++) Wire.write(c[i]);
   Wire.endTransmission();
 }
@@ -935,7 +940,7 @@ void oledFlush() {
     uint8_t c[3] = {(uint8_t)(0xB0 + pg), (uint8_t)(col & 0x0F), (uint8_t)(0x10 | (col >> 4))};
     oCmds(c, 3);
     for (int x = 0; x < 128; x += 16) {
-      Wire.beginTransmission(0x3C); Wire.write((uint8_t)0x40);       // 0x40 = lo que sigue es imagen
+      Wire.beginTransmission(oledAddr); Wire.write((uint8_t)0x40);   // 0x40 = lo que sigue es imagen
       Wire.write(fb + pg * 128 + x, 16);
       if (Wire.endTransmission() != 0) { oledOk = false; dispIsOn = false; return; }   // desconectada: se vuelve a buscar
     }
@@ -945,8 +950,20 @@ void oledFlush() {
 // Busca la pantalla y la prepara (apagada; dispTick() la enciende cuando toca)
 void oledInit() {
   dispIsOn = false;
-  oledOk = i2cPing(0x3C);
+  oledAddr = i2cPing(0x3C) ? 0x3C : 0x3D;
+  oledOk = i2cPing(oledAddr);
   if (!oledOk) return;
+  if (oledType == OLED_SSD1327) {
+    // Desbloquear, apagar, contraste, giro (columnas y filas), línea 0, sin desplazamiento, normal, 128 filas, fases,
+    // reloj, regulador interno, segunda precarga, VCOMH, precarga y selección de funciones (como el módulo de 1,5")
+    static const uint8_t C4[] = {0xFD, 0x12, 0xAE, 0x81, 0x60, 0xA0, 0x51, 0xA1, 0x00, 0xA2, 0x00, 0xA4, 0xA8, 0x7F,
+                                 0xB1, 0x11, 0xB3, 0x00, 0xAB, 0x01, 0xB6, 0x04, 0xBE, 0x0F, 0xBC, 0x08, 0xD5, 0x62};
+    oCmds(C4, sizeof C4);
+    memset(gb, 0, sizeof gb);
+    memset(gbPrev, 0xFF, sizeof gbPrev);          // la memoria de la pantalla no se conoce: se manda todo
+    gFlush();
+    return;
+  }
   // Apagar, reloj, 64 líneas, sin desplazamiento, línea 0, giro horizontal y vertical (conector arriba), pines COM,
   // contraste bajo (alarga la vida de la OLED y de noche sobra), sin invertir
   static const uint8_t C1[] = {0xAE, 0xD5, 0x80, 0xA8, 0x3F, 0xD3, 0x00, 0x40, 0xA1, 0xC8, 0xDA, 0x12, 0x81, 0x50, 0xA4, 0xA6};
@@ -972,7 +989,7 @@ void hwProbe() {
   if (!hadO) oledInit();
   String w;
   if (snType != SN_NONE && !hadS) w = snName();
-  if (oledOk && !hadO) { if (w.length()) w += ", "; w += oledType == OLED_SH1106 ? "OLED SH1106" : "OLED SSD1306"; }
+  if (oledOk && !hadO) { if (w.length()) w += ", "; w += oledType == OLED_SH1106 ? "OLED SH1106" : oledType == OLED_SSD1306 ? "OLED SSD1306" : "OLED SSD1327"; }
   if (w.length()) addLog(trf(T_LOG_HW, w.c_str()));
 }
 
@@ -1078,6 +1095,136 @@ void dispDraw() {
   dText(0, 56, plain(bot), 1);
 }
 
+// ---------- Pantalla SSD1327 de 128×128 en 16 grises ----------
+// Dos píxeles por byte (el de la izquierda en los 4 bits altos), fila a fila: 64 bytes por fila. Las letras son
+// suavizadas (fuentes.h): cada píxel se mezcla con el fondo según su opacidad. Por I2C una imagen entera tarda unos
+// 0,2 s, así que gFlush() solo manda las filas que han cambiado desde la última vez (de cada segundo, casi solo la hora).
+// El dibujo es el mismo que el del simulador de la web (gDraw() en su JavaScript).
+void gPix(int x, int y, uint8_t v) {
+  if ((unsigned)x > 127 || (unsigned)y > 127) return;
+  uint8_t& b = gb[(y << 6) | (x >> 1)];
+  b = (x & 1) ? (uint8_t)((b & 0xF0) | v) : (uint8_t)((b & 0x0F) | (v << 4));
+}
+uint8_t gGet(int x, int y) { uint8_t b = gb[(y << 6) | (x >> 1)]; return (x & 1) ? b & 0x0F : b >> 4; }
+void gRect(int x, int y, int w, int h, uint8_t v) { for (int j = y; j < y + h; j++) for (int i = x; i < x + w; i++) gPix(i, j, v); }
+
+// Letra de un código (búsqueda binaria: están ordenadas); si no está, la de «?»
+const Glyph* gFind(const Font& f, uint16_t cp) {
+  int lo = 0, hi = f.n - 1;
+  while (lo <= hi) {
+    int m = (lo + hi) >> 1;
+    if (f.g[m].cp == cp) return &f.g[m];
+    if (f.g[m].cp < cp) lo = m + 1; else hi = m - 1;
+  }
+  return cp == '?' ? nullptr : gFind(f, '?');
+}
+
+// Siguiente carácter de un texto UTF-8 (hasta U+FFFF, que es lo que hay en los textos)
+uint16_t utf8Next(const char*& p) {
+  uint8_t c = *p++;
+  if (c < 0x80) return c;
+  if ((c & 0xE0) == 0xC0 && *p) return (uint16_t)((c & 0x1F) << 6 | (*p++ & 0x3F));
+  if ((c & 0xF0) == 0xE0 && p[0] && p[1]) { uint16_t r = (c & 0x0F) << 12 | (p[0] & 0x3F) << 6 | (p[1] & 0x3F); p += 2; return r; }
+  return '?';
+}
+
+// Escribe un texto con la línea base en y, en el gris col (0–15). Devuelve dónde acaba
+int gText(int x, int y, const String& t, const Font& f, uint8_t col) {
+  const char* p = t.c_str();
+  while (*p) {
+    const Glyph* g = gFind(f, utf8Next(p));
+    if (!g) continue;
+    for (int j = 0; j < g->h; j++)
+      for (int i = 0; i < g->w; i++) {
+        int k = j * g->w + i;
+        uint8_t a = (f.bits[g->off + (k >> 1)] >> ((k & 1) ? 0 : 4)) & 15;   // opacidad de este píxel
+        if (!a) continue;
+        int px = x + g->xo + i, py = y + g->yo + j;
+        if ((unsigned)px > 127 || (unsigned)py > 127) continue;
+        int bg = gGet(px, py), d = (col - bg) * a;
+        gPix(px, py, bg + (d >= 0 ? (d + 7) / 15 : -((-d + 7) / 15)));
+      }
+    x += g->adv;
+  }
+  return x;
+}
+int gWidth(const String& t, const Font& f) {
+  int w = 0;
+  const char* p = t.c_str();
+  while (*p) { const Glyph* g = gFind(f, utf8Next(p)); if (g) w += g->adv; }
+  return w;
+}
+
+// Compone la pantalla: cabecera con nombre y hora; temperatura grande y debajo qué es (con la humedad); estado y, si
+// calienta, barra del tiempo que queda; agua y batería; lo siguiente (objetivo, salida o programa); y una franja de aviso
+void gDraw() {
+  memset(gb, 0, sizeof gb);
+  gText(0, 10, String(cfgName).substring(0, 14), F_SMALL, 9);
+  if (timeValid()) { String h = hhmm(); h.trim(); gText(128 - gWidth(h, F_SMALL), 10, h, F_SMALL, 9); }
+  gRect(0, 14, 128, 1, 3);
+  String big = "--", lab;
+  if (!isnan(cabT)) {
+    big = num(cabT, 1);
+    lab = tr(T_D_IN);
+    if (!isnan(cabH)) lab += " · " + String((int)lround(cabH)) + " %";
+  } else if (tempC > -100) {
+    big = String(tempC);
+    String w = tr(T_D_WATER); lab = w.substring(0, w.indexOf(' '));   // «Agua %d°» -> «Agua»
+  }
+  int x = gText(1, 50, big, F_BIG, 15);
+  if (big != "--") gText(x + 1, 50, "°", F_BIG, 15);
+  gText(1, 63, lab, F_SMALL, 8);
+  String st;
+  if (heaterOn) {
+    st = tr(phase == PH_FLAME ? T_D_HEAT : phase == PH_PAUSE ? T_D_PAUSE : phase == PH_LOST ? T_D_LOST : T_D_START);
+    int32_t rem = (int32_t)(onUntil - millis()) / 1000;
+    if (rem < 0) rem = 0;
+    String rt = String((rem + 59) / 60) + " min";
+    int w = 128 - gWidth(rt, F_SMALL) - 5;
+    gRect(0, 83, w, 4, 2);
+    gRect(0, 83, onTotal ? (int)((int64_t)w * rem / onTotal) : 0, 4, 12);
+    gText(128 - gWidth(rt, F_SMALL), 88, rt, F_SMALL, 10);
+  } else st = tr(thActive ? T_D_WAIT : T_D_OFF);
+  gText(0, 79, st, F_MED, heaterOn ? 15 : 11);
+  if (tempC > -100 && !isnan(cabT)) gText(0, 100, trf(T_D_WATER, tempC), F_SMALL, 9);
+  if (volt > 0) { String v = num(volt, 1) + " V"; gText(128 - gWidth(v, F_SMALL), 100, v, F_SMALL, 9); }
+  String nx;
+  bool dep;
+  if (thActive) nx = trf(T_D_UNTIL, (String(thTarget) + " °C").c_str());
+  else if (depOnce) {
+    time_t dt = (time_t)depOnce * 60; struct tm tm; localtime_r(&dt, &tm);
+    char h[6]; strftime(h, sizeof h, "%H:%M", &tm);
+    nx = trf(T_D_DEP, h);
+  } else {
+    String n = nextSched(dep);
+    if (n.length()) nx = trf(dep ? T_D_DEP : T_D_NEXT, n.c_str());
+  }
+  gText(0, 113, nx, F_SMALL, 12);
+  if (!heaterOn && stopNote.length()) {           // se apagó sola o por batería: franja clara con letra oscura
+    String t = tr(T_D_NOTE);
+    gRect(0, 117, 128, 11, 12);
+    gText((128 - gWidth(t, F_SMALL)) / 2, 126, t, F_SMALL, 0);
+  }
+}
+
+// Manda las filas que han cambiado (agrupadas en bloques seguidos) y se las apunta como enviadas
+void gFlush() {
+  for (int y = 0; y < 128;) {
+    if (!memcmp(gb + y * 64, gbPrev + y * 64, 64)) { y++; continue; }
+    int y1 = y;
+    while (y1 + 1 < 128 && memcmp(gb + (y1 + 1) * 64, gbPrev + (y1 + 1) * 64, 64)) y1++;
+    uint8_t c[6] = {0x15, 0x00, 0x3F, 0x75, (uint8_t)y, (uint8_t)y1};   // columnas 0–63 (de dos en dos) y filas y–y1
+    oCmds(c, 6);
+    for (int r = y; r <= y1; r++) {
+      Wire.beginTransmission(oledAddr); Wire.write((uint8_t)0x40);
+      Wire.write(gb + r * 64, 64);
+      if (Wire.endTransmission() != 0) { oledOk = false; dispIsOn = false; return; }   // desconectada: se vuelve a buscar
+    }
+    memcpy(gbPrev + y * 64, gb + y * 64, (y1 - y + 1) * 64);
+    y = y1 + 1;
+  }
+}
+
 // Enciende, refresca (cada segundo) y apaga la pantalla según el modo. El botón BOOT la enciende un minuto en
 // cualquier modo (también en «apagada»: quien lo pulsa quiere verla)
 void dispTick() {
@@ -1088,8 +1235,8 @@ void dispTick() {
   if (!want) { oledPower(false); return; }
   if (dispIsOn && now - lastDraw < 1000) return;
   lastDraw = now;
-  dispDraw();
-  oledFlush();
+  if (oledType == OLED_SSD1327) { gDraw(); gFlush(); }
+  else { dispDraw(); oledFlush(); }
   oledPower(true);
 }
 
@@ -1349,7 +1496,7 @@ void loadCfg() {
   depOnce  = prefs.getUInt("dep", 0);
   depOnceT = prefs.getUChar("dept", 0);
   prefs.end();
-  if (oledType > OLED_SSD1306) oledType = OLED_SH1106;
+  if (oledType > OLED_SSD1327) oledType = OLED_SH1106;
   if (dispMode > DISP_ALWAYS) dispMode = DISP_AUTO;
   if (ledLvl > 3) ledLvl = 1;
   if (isnan(tOff) || tOff < -5 || tOff > 5) tOff = 0;
@@ -1458,9 +1605,9 @@ int cfgSet(String k, String v, String& err) {
     for (int i = 0; i < L_N; i++) if (v == LANG_CODES[i]) l = i;
     if (l < 0) { err = tr(T_E_LANG); r = 0; }
     else if (l != lang) { lang = l; prefs.putUChar("lang", lang); }   // se aplica al momento; solo se escribe si cambia
-  } else if (k == "oled") {                       // 0 = SH1106 (1,3"), 1 = SSD1306 (0,96")
+  } else if (k == "oled") {                       // 0 = SH1106 (1,3"), 1 = SSD1306 (0,96"), 2 = SSD1327 (1,5", grises)
     int m = v.toInt();
-    if (!v.length() || m < OLED_SH1106 || m > OLED_SSD1306) { err = trf(T_E_VALUE, k.c_str()); r = 0; }
+    if (!v.length() || m < OLED_SH1106 || m > OLED_SSD1327) { err = trf(T_E_VALUE, k.c_str()); r = 0; }
     else if (m != oledType) { oledType = m; prefs.putUChar("oled", oledType); oledInit(); dispWake(); }
   } else if (k == "disp") {                       // pantalla: 0 apagada (solo con el botón), 1 automática, 2 siempre encendida
     int m = v.toInt();
