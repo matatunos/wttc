@@ -46,7 +46,8 @@
       solo mientras calienta o solo a petición, para ahorrar batería. Tras arrancar siempre está 10 min encendida.
     - Si se configura una red con internet (casa o punto de acceso del móvil): http://wttc.local
     - Consola serie (115200 baudios): on [min] | off | status | errores | cfg | set clave=valor | wifi | forget | reboot | gasreset
-    - Con el termómetro: «calienta hasta 20 °C» (termostato, con un mínimo de 15 min por encendido) y la hora de salida
+    - Con el termómetro: «calienta hasta 20 °C» (termostato; cada encendido, 15 min como mínimo con el agua fría y 5 con
+      el agua caliente) y la hora de salida
       («salgo a las 8:00»: la placa decide cuánto antes encender según el frío que haga), sueltos o en los programas.
     - Avisos por Telegram (opcional): token del bot y chat ID en Configuración. Solo salen si el ESP32 llega
       a una red con internet; para enviarlos enciende la Wi-Fi unos minutos.
@@ -131,14 +132,17 @@ const uint8_t  TGT_MIN      = 5;      // °C: objetivos admitidos para el termos
 const uint8_t  TGT_MAX      = 25;
 const uint16_t MAX_SESSION  = 240;    // min: ventana máxima de «calentar hasta X °C» (se enciende y apaga dentro de ella)
 const float    TH_HYST      = 1.5;    // °C: con el termostato, vuelve a encender al bajar esto por debajo del objetivo
-const uint32_t TH_MINRUN    = 900000; // ms: mínimo por encendido con termostato (las Webasto no llevan bien los arranques cortos)
+const uint32_t TH_MINRUN    = 900000; // ms: mínimo por encendido con termostato y el agua fría (las Webasto no llevan bien
+                                      // los arranques cortos: la cámara de combustión tiene que coger temperatura)
+const uint32_t TH_MINRUN_WARM = 300000; // ms: el mínimo si arrancó con el agua ya caliente (ciclos del termostato): así
+const int      TH_WARM_C    = 50;     // no se pasa tanto del objetivo. °C del agua a partir de los que cuenta como caliente
 const uint32_t TH_REST      = 180000; // ms: tras apagarse, espera antes de volver a encender (termina su postbarrido)
 const uint32_t TH_STALL     = 1500000;// ms: calentando sin que dentro suba TH_STALL_C, el termostato se da por vencido
 const float    TH_STALL_C   = 0.5;    // °C (si hace demasiado frío fuera o el termómetro está mal puesto, no gasta en balde)
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.2.4"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.2.5"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -235,6 +239,7 @@ uint32_t lastSensorOk = 0;            // última lectura de sensores de la Webas
 int lowBatt = 0;                      // lecturas seguidas con la batería baja calentando
 bool warmSent = false;                // ya se avisó de «agua caliente» en este encendido
 bool quietStart = false;              // encendidos del termostato: al registro, pero sin aviso por Telegram
+bool heatWarm = false;                // este encendido empezó con el agua caliente (mínimo de TH_MINRUN_WARM)
 
 // ---------- termómetro del habitáculo (opcional, I2C) ----------
 enum { SN_NONE, SN_SHT31, SN_AHT20 };
@@ -757,6 +762,7 @@ bool startHeater(uint16_t minutes, const char* src) {
       gasCur = 0; gasRate = 0; lastGasT = 0;      // gasoil de este encendido desde cero
       onSrc = src;
       heatStart = millis(); warmSent = false; lowBatt = 0;   // mínimo del termostato, aviso del agua y batería
+      heatWarm = tempC >= TH_WARM_C && lastSensorOk && millis() - lastSensorOk < 120000;
       thBest = cabT; thBestAt = millis();         // para ver si dentro sube (termostato)
       dispWake();
       addLog(trf(T_LOG_ON, srcName(src), minutes));
@@ -1363,7 +1369,7 @@ void thermoTick() {
       stopNote = hhmm() + m;
       return;
     }
-    if (cabT >= thTarget && now - heatStart >= TH_MINRUN) {
+    if (cabT >= thTarget && now - heatStart >= (heatWarm ? TH_MINRUN_WARM : TH_MINRUN)) {
       String t = degs(cabT, 1);
       if (!thReached) notify(trf(T_TG_TH_REACHED, t.c_str()));   // solo la primera vez: luego mantiene en silencio
       thReached = true;

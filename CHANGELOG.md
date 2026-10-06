@@ -6,6 +6,13 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.2.5 — 2026-10-06
+
+Versión de prueba (sin probar con una Webasto real).
+
+- **Termostato más fino**: el mínimo de 15 min por encendido queda solo para cuando arranca con el agua fría. Si el agua ya está caliente (50 °C o más, lo normal en los ciclos del termostato), el mínimo es de 5 min y apaga al llegar. Antes, con «hasta 25 °C», cada ciclo se pasaba hasta unos 27 °C; ahora se queda entre 23,5 y 25 °C y gasta menos.
+- Simulador: a velocidad ×10 o ×60 la pantalla ya no se apaga y enciende sola (la web del simulador consulta en tiempo real, no en tiempo simulado).
+
 ## 0.2.4 — 2026-10-06
 
 Versión de prueba (sin probar con una Webasto real).

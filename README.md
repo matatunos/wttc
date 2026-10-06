@@ -69,7 +69,8 @@ Hechas automáticamente: la web con el simulador y la app en un emulador Android
 - Encender y apagar (15–60 min) y hasta 8 programas semanales.
 - **Hora de salida**: «salgo a las 8:00» (suelta o como programa) y la placa decide cuánto antes encender según el frío.
 - Con el termómetro opcional, **calentar hasta una temperatura** (5–25 °C): apaga al llegar y vuelve a encender si se
-  enfría, con un mínimo de 15 min por encendido; si dentro no sube, se rinde y avisa en vez de gastar en balde.
+  enfría (cada encendido dura como mínimo 15 min con el motor frío y 5 con el agua ya caliente); si dentro no sube, se
+  rinde y avisa en vez de gastar en balde.
 - **Estado real**: arrancando, calentando, en pausa (agua caliente) o sin respuesta. Si la Webasto se apaga por su
   cuenta, lo detecta y muestra sus códigos de avería.
 - Temperatura del agua, tensión de batería, llama y potencia.
