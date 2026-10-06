@@ -144,6 +144,47 @@
     <string name="upd_no_net">Die neueste Version konnte nicht abgefragt werden: hat das Handy Internet?</string>
     <string name="upd_usb">Diese Platine hat eine Firmware von vor den kabellosen Updates: einmal per USB mit der neuesten Version flashen (Anleitung auf wttc.favala.es).</string>
     <string name="upd_demo">Im Demomodus gibt es nichts zu aktualisieren.</string>
+    <string name="cabin">Innen: %1$s</string>
+    <string name="cabin_hum"> · Feuchte %1$d %%</string>
+    <string name="tgt_label">Bis</string>
+    <string name="tgt_none">Ohne Temperaturgrenze</string>
+    <string name="waiting">Wartet</string>
+    <string name="tgt_status">Bis %1$s · Zeitfenster %2$s</string>
+    <string name="warm_ok"> · Wasser ist warm</string>
+    <string name="btn_turn_on_tgt">Heizen bis %1$s (max. %2$s)</string>
+    <string name="dep_label">Abfahrt um</string>
+    <string name="dep_set">Abfahrt einstellen</string>
+    <string name="dep_cancel">Abfahrt löschen</string>
+    <string name="dep_status">Abfahrt: %1$s um %2$s%3$s. Schaltet je nach Kälte früher ein.</string>
+    <string name="dep_tgt"> (bis %1$s)</string>
+    <string name="dep_help">Die Platine entscheidet je nach Temperatur, wie früh sie einschaltet (15 min bis 1 h).</string>
+    <string name="today">heute</string>
+    <string name="tomorrow">morgen</string>
+    <string name="prog_no_tgt">Ohne Thermostat</string>
+    <string name="prog_tgt">Bis %1$s</string>
+    <string name="cfg_hw">Display, LED und Thermometer (optional)</string>
+    <string name="f_oled">Displaytyp</string>
+    <string name="f_disp">Display</string>
+    <string name="f_led">LED der Platine</string>
+    <string name="f_toff">Thermometerkorrektur (°C)</string>
+    <string name="f_warm">Melden, wenn das Wasser erreicht (°C; 0 = keine Meldung)</string>
+    <string name="minv_help">Während des Heizens schaltet sie sich ab, wenn die Batterie ein halbes Volt darunter fällt.</string>
+    <string name="hw_detected">Erkannt: %1$s.</string>
+    <string name="hw_display">Display</string>
+    <string name="hw_none">Kein Display und kein Thermometer erkannt (I2C-Bus: SDA an IO4, SCL an IO5, dazu 3V3 und GND).</string>
+    <string name="notif_warm">Es ist warm</string>
+    <string name="notif_warm_body">Das Kühlwasser hat %1$d °C.</string>
+    <string name="quick_title">Schnellzugriff</string>
+    <string name="quick_help">„Webasto“-Schalter in den Schnelleinstellungen von Android (herunterziehen und bearbeiten, um ihn hinzuzufügen) und ein Widget für den Startbildschirm. Ein Tippen verbindet mit der Platine und schaltet für diese Dauer ein, oder aus, wenn sie schon läuft.</string>
+    <string name="quick_dur">Dauer des Schnellzugriffs</string>
+    <string name="tile_label">Webasto</string>
+    <string name="widget_label">WTTC: ein- oder ausschalten</string>
+    <string name="widget_text">Webasto</string>
+    <string name="q_connecting">Verbinde mit der Platine…</string>
+    <string name="q_on">Für %1$s eingeschaltet</string>
+    <string name="q_off">Ausgeschaltet</string>
+    <string name="q_err">Platine nicht gefunden. Näher ans Fahrzeug gehen oder die App öffnen.</string>
+    <string name="q_not_paired">Zuerst die Platine in der App koppeln.</string>
     <string-array name="phases">
         <item>Aus</item>
         <item>Startet…</item>
@@ -164,5 +205,24 @@
         <item>F</item>
         <item>S</item>
         <item>S</item>
+    </string-array>
+    <string-array name="oled_types">
+        <item>OLED 1,3\" (SH1106)</item>
+        <item>OLED 0,96\" (SSD1306)</item>
+    </string-array>
+    <string-array name="disp_modes">
+        <item>Aus</item>
+        <item>Automatisch (nach einer Minute aus)</item>
+        <item>Immer an</item>
+    </string-array>
+    <string-array name="led_levels">
+        <item>Aus</item>
+        <item>Niedrig</item>
+        <item>Mittel</item>
+        <item>Hoch</item>
+    </string-array>
+    <string-array name="prog_modes">
+        <item>Zu dieser Zeit einschalten</item>
+        <item>Abfahrt zu dieser Zeit</item>
     </string-array>
 </resources>

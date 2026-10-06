@@ -146,14 +146,16 @@ details h3{font-size:15px;margin:18px 0 0}
 <p class="sub" id="tgst" style="white-space:pre-line"></p>
 <h3 data-t="safety">Seguridad</h3>
 <label class="f"><span data-t="fMinV">Batería mínima para arrancar un programa (V)</span><input id="c_mv" type="number" step="0.1" min="10.5" max="13"></label>
+<div id="hwBox" hidden>
 <p class="sub" data-t="minvHelp">Calentando, se apaga sola si la batería baja medio voltio por debajo de esta.</p>
 <label class="f"><span data-t="fWarm">Avisar cuando el agua llegue a (°C; 0 = no avisar)</span><input id="c_warm" type="number" step="1" min="0" max="80"></label>
 <h3 data-t="hwT">Pantalla, LED y termómetro (opcionales)</h3>
 <p class="sub" id="hw"></p>
-<label class="f"><span data-t="fOled">Tipo de pantalla</span><select id="c_oled"><option value="0" data-t="oled0">OLED 1,3" (SH1106)</option><option value="1" data-t="oled1">OLED 0,96" (SSD1306)</option></select></label>
-<label class="f"><span data-t="fDisp">Pantalla</span><select id="c_disp"><option value="0" data-t="disp0">Apagada</option><option value="1" data-t="disp1">Automática</option><option value="2" data-t="disp2">Siempre encendida</option></select></label>
+<!-- Cada ajuste solo aparece si su pieza está conectada (la placa la detecta) -->
+<label class="f" id="lb_oled"><span data-t="fOled">Tipo de pantalla</span><select id="c_oled"><option value="0" data-t="oled0">OLED 1,3" (SH1106)</option><option value="1" data-t="oled1">OLED 0,96" (SSD1306)</option></select></label>
+<label class="f" id="lb_disp"><span data-t="fDisp">Pantalla</span><select id="c_disp"><option value="0" data-t="disp0">Apagada</option><option value="1" data-t="disp1">Automática</option><option value="2" data-t="disp2">Siempre encendida</option></select></label>
 <label class="f"><span data-t="fLed">LED de la placa</span><select id="c_led"><option value="0" data-t="led0">Apagado</option><option value="1" data-t="led1">Bajo</option><option value="2" data-t="led2">Medio</option><option value="3" data-t="led3">Alto</option></select></label>
-<label class="f"><span data-t="fToff">Corrección del termómetro (°C)</span><input id="c_toff" type="number" step="0.1" min="-5" max="5"></label>
+<label class="f" id="lb_toff"><span data-t="fToff">Corrección del termómetro (°C)</span><input id="c_toff" type="number" step="0.1" min="-5" max="5"></label></div>
 <div class="acts" style="margin-top:14px"><button class="btn pri" id="csave" data-t="save">Guardar</button><button class="btn" id="tgtest" data-t="tgTest">Probar Telegram</button></div>
 <div class="acts" style="margin-top:10px"><button class="btn" id="forget" data-t="forget">Borrar emparejamientos</button><button class="btn" id="tsync" data-t="setClock">Poner en hora</button></div>
 <h3 data-t="updTitle">Actualizar firmware</h3>
@@ -268,11 +270,13 @@ function setLang(l){if(!I18N[l])return;lang=l;document.documentElement.lang=l;
  document.querySelectorAll('[data-t]').forEach(e=>e.textContent=T(e.dataset.t));
  document.querySelectorAll('[data-ta]').forEach(e=>e.setAttribute('aria-label',T(e.dataset.ta)));seg()}
 // Duraciones del botón principal y de los programas (el firmware limita a 60 min). Con objetivo de temperatura
-// (termostato) la duración es la ventana máxima, hasta 4 h. Objetivos que se ofrecen (el firmware admite 5–30 °C)
+// (termostato) la duración es la ventana máxima, hasta 4 h. Objetivos que se ofrecen (el firmware admite 5–25 °C)
 const DURS=[15,30,45,60],SDURS=[15,30,45,60],TDURS=[60,120,180,240],TGTS=[10,12,14,16,17,18,19,20,21,22,23,24,25];
 // Estado: st = último /api/state; sched = programas en edición; dirty = cambios sin guardar;
 // dur = duración elegida; synced = ya se puso en hora; busy = esperando la respuesta de encender/apagar
 let st=null,sched=[],dirty=false,dur=30,synced=false,busy=false,tgt=0;
+// ¿Tiene la placa termómetro? (sin él, «Hasta X °C» no se ofrece)
+const hasSens=()=>!!st&&st.ct!==null&&st.ct!==undefined;
 // Temperatura con su unidad: 19,5 °C
 const deg=(v,d)=>num(v,d)+' °C';
 // Escapa texto para meterlo en HTML sin riesgo
@@ -315,7 +319,7 @@ function render(){if(!st)return;
  $('st').textContent=st.on?(T('PH')[st.ph]||T('heating')):th?T('waiting'):T('off');
  $('rem').textContent=th?T('tgtOn',deg(st.tgt,0),fmtRem(st.tun))+(st.wa?T('warmOk'):''):
   st.on?(st.ph==3?T('hotWater'):'')+T('left',fmtRem(st.remain))+(st.src=='programa'?T('bySched'):'')+(st.wa?T('warmOk'):''):'';
- const hasT=st.ct!==null&&st.ct!==undefined;
+ const hasT=hasSens();
  $('cab').hidden=!hasT;if(hasT)$('cab').innerHTML=T('cabin','<b>'+deg(st.ct,1)+'</b>')+(st.ch!==null?T('hum',st.ch):'');
  $('tgtRow').hidden=!hasT;if(!hasT&&tgt){tgt=0;seg()}
  if(st.dep){const d=new Date(st.dep*1000),k=Math.round((new Date(d).setHours(0,0,0,0)-new Date(st.time*1000).setHours(0,0,0,0))/864e5);
@@ -349,7 +353,7 @@ function list(){$('list').innerHTML=sched.map((s,i)=>`<div class="row"><div clas
 <button class="x" data-i="${i}" data-k="del" aria-label="${T('aDel')}">×</button></div>
 <div class="days">${T('days').map((d,j)=>`<button class="${s.days>>j&1?'sel':''}" data-i="${i}" data-k="day" data-j="${j}">${d}</button>`).join('')}</div>
 <div class="opts"><select data-i="${i}" data-k="mode"><option value="0">${T('mStart')}</option><option value="128"${s.x&128?' selected':''}>${T('mDep')}</option></select>
-<select data-i="${i}" data-k="tg"><option value="0">${T('sTgt')}</option>${TGTS.map(t=>`<option value="${t}"${(s.x&63)==t?' selected':''}>${T('tgtL')} ${t} °C</option>`).join('')}</select></div></div>`).join('')
+${hasSens()||s.x&63?`<select data-i="${i}" data-k="tg"><option value="0">${T('sTgt')}</option>${TGTS.map(t=>`<option value="${t}"${(s.x&63)==t?' selected':''}>${T('tgtL')} ${t} °C</option>`).join('')}</select>`:''}</div></div>`).join('')
  ||'<p class="sub">'+T('addHelp')+'</p>';
  $('save').disabled=!dirty}
 // Marca que hay cambios sin guardar en los programas
@@ -385,6 +389,7 @@ $('errs').onclick=async()=>{$('errout').textContent=T('reading');try{const r=awa
 // Configuración: lee los ajustes de la placa (las claves no se devuelven nunca: los campos quedan vacíos)
 async function loadCfg(){try{const c=await api('/api/cfg');
  $('c_name').value=c.name;$('c_pin').value=c.pin||'';$('c_wm').value=c.wifimode;$('c_ssid').value=c.ssid;$('c_chat').value=c.tgchat;$('c_mv').value=c.minvolt;$('c_lang').value=c.lang||lang;
+ $('hwBox').hidden=!c.th;$('lb_oled').hidden=$('lb_disp').hidden=!c.scr;$('lb_toff').hidden=!c.sens;
  if(c.th){$('c_oled').value=c.oled;$('c_disp').value=c.disp;$('c_led').value=c.led;$('c_toff').value=c.toff;$('c_warm').value=c.warm;
   const h=[c.sens,c.scr?T('scr'):''].filter(x=>x).join(', ');$('hw').textContent=h?T('hwDet',h):T('hwNone')}
  $('c_tok').value='';$('c_ap').value='';$('c_pass').value='';$('c_tok').placeholder=T(c.tg?'stored':'notSet');

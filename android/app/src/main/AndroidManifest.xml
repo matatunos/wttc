@@ -3,7 +3,9 @@
   Manifest de la app WTTC (código generado íntegramente con Claude, Anthropic).
   Permisos: Bluetooth (buscar y conectar con la placa), notificaciones (avisos si la calefacción se apaga sola)
   e internet (solo para las estadísticas anónimas, y solo si el usuario las acepta).
-  Una sola actividad (MainActivity), en modo singleTask para que no se abran varias copias.
+  Actividad principal (MainActivity), en modo singleTask para que no se abran varias copias. Acceso rápido: botón de
+  los ajustes rápidos (QuickTile) y widget (QuickWidget), que abren una ventana pequeña (QuickActivity) que enciende o
+  apaga y se cierra sola.
   Idiomas: inglés (por defecto), español y alemán; en Android 13+ se pueden elegir por app (localeConfig).
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -40,5 +42,33 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".QuickActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity="es.favala.wttc.quick"
+            android:theme="@android:style/Theme.DeviceDefault.Dialog.NoActionBar" />
+        <service
+            android:name=".QuickTile"
+            android:exported="true"
+            android:icon="@drawable/ic_tile"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+        <receiver
+            android:name=".QuickWidget"
+            android:exported="true"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info" />
+        </receiver>
     </application>
 </manifest>

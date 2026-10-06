@@ -45,8 +45,9 @@ import kotlin.math.ceil
  * La interfaz se construye por código (sin XML ni AndroidX) para que la app sea pequeña y no dependa de
  * librerías: una columna con desplazamiento que, en pantallas anchas (radios de coche, tablets), no pasa de
  * 640 dp y queda centrada. De arriba abajo: cabecera con el estado del enlace, caja para emparejar (solo si
- * no hay placa emparejada), estado de la calefacción, duración y botón grande, programas, diagnóstico,
- * configuración de la placa y ajustes de la app.
+ * no hay placa emparejada), estado de la calefacción (con la temperatura de dentro si la placa tiene termómetro),
+ * duración, objetivo de temperatura y botón grande, hora de salida, programas, diagnóstico, configuración de la placa
+ * y ajustes de la app (estadísticas y acceso rápido, ver QuickActivity).
  *
  * Toda la comunicación con la placa va por [BleLink]; esta clase solo pinta y reacciona:
  *  - onLink(): cambia el estado del enlace (buscando, emparejando, conectado, fuera de alcance…)
@@ -70,8 +71,13 @@ class MainActivity : Activity(), BleLink.Listener {
     private val cOk = Color.parseColor("#3ECF8E")
     private val cBad = Color.parseColor("#FF6B6B")
 
-    // Duraciones que se ofrecen (el firmware no admite más de 60 min) y letras de los días (lunes primero)
+    // Duraciones que se ofrecen (el firmware no admite más de 60 min) y letras de los días (lunes primero). Con objetivo
+    // de temperatura (termostato) la duración es la ventana máxima, hasta 4 h. Objetivos (el firmware admite 5–25 °C)
     private val durations = intArrayOf(15, 30, 45, 60)
+    private val tDurations = intArrayOf(60, 120, 180, 240)
+    private val targets = intArrayOf(10, 12, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25)
+    private var tgt = 0                // objetivo elegido (0 = encendido normal)
+    private var depMin = 8 * 60        // hora de salida elegida (minutos del día)
     private val dayLetters by lazy { resources.getStringArray(R.array.day_letters) }
     // Nombres del estado real que manda el firmware en "ph" (0 apagada … 4 sin respuesta)
     private val phases by lazy { resources.getStringArray(R.array.phases) }
@@ -88,14 +94,16 @@ class MainActivity : Activity(), BleLink.Listener {
     private var lastOn = false
     private var lastNote = ""
     private var haveState = false      // hasta el primer estado no se cuentan transiciones
+    private var lastWa = false         // aviso de «ya está caliente» ya mostrado en este encendido
     // Modo demostración: placa simulada. Se activa con «Probar sin placa» o al abrir la app con el extra
     // "demo" (lo usan las capturas: adb shell am start … --ez demo true --ez demo_on true --ez capturas true)
     private var demoMode = false
     private var demoHeating = false     // empezar ya encendida (para las capturas)
     private var capturas = false        // sin ventana de estadísticas ni permisos (capturas automáticas)
 
-    // Programas: [activo, días (bit0 = lunes), inicio en minutos, duración]
-    private data class Prog(var en: Boolean, var days: Int, var start: Int, var dur: Int)
+    // Programas: [activo, días (bit0 = lunes), inicio en minutos, duración, opciones]. Opciones (firmware 0.2.0+):
+    // objetivo en °C en los bits 0–5 (0 = sin termostato) y bit 7 = la hora es la de salida
+    private data class Prog(var en: Boolean, var days: Int, var start: Int, var dur: Int, var x: Int = 0)
     // Programas en edición, interruptor general y si hay cambios sin guardar en la placa
     private val progs = mutableListOf<Prog>()
     private var progsAuto = true
@@ -118,6 +126,12 @@ class MainActivity : Activity(), BleLink.Listener {
     private lateinit var tStats: TextView
     private lateinit var tGas: TextView
     private lateinit var tNote: TextView
+    private lateinit var tCabin: TextView              // temperatura y humedad de dentro (con termómetro)
+    private lateinit var tgtRow: LinearLayout          // «Hasta X °C» (con termómetro)
+    private lateinit var spTgt: Spinner
+    private lateinit var bDepTime: Button              // hora de salida y botón de programarla o cancelarla
+    private lateinit var bDep: Button
+    private lateinit var tDep: TextView
     // Botones de duración y botón grande de encender/apagar
     private lateinit var segRow: LinearLayout
     private lateinit var bigBtn: Button
@@ -137,10 +151,19 @@ class MainActivity : Activity(), BleLink.Listener {
     private lateinit var eTok: EditText
     private lateinit var eChat: EditText
     private lateinit var eMinV: EditText
+    private lateinit var eWarm: EditText
+    private lateinit var hwBox: LinearLayout           // pantalla, LED y termómetro (firmware 0.2.0+)
+    private lateinit var tHw: TextView
+    private lateinit var spOled: Spinner
+    private lateinit var spDisp: Spinner
+    private lateinit var spLed: Spinner
+    private lateinit var eToff: EditText
     private lateinit var tCfg: TextView
     private lateinit var tUpd: TextView                // estado de «Buscar actualizaciones»
     private var fwVer = ""                             // versión del firmware de la placa (de «cfg»)
     private var fwOta = false                          // ¿sabe actualizarse sola por internet? (firmware 0.1.5+)
+    private var fwTh = false                           // ¿sabe termostato, hora de salida y pantalla? (firmware 0.2.0+)
+    private var hasSensor = false                      // ¿tiene la placa termómetro? (sin él no se ofrece «Hasta X °C»)
     // Interruptor de las estadísticas anónimas (en «Ajustes de la app»)
     private lateinit var swStats: Switch
 
@@ -272,6 +295,7 @@ class MainActivity : Activity(), BleLink.Listener {
                 data.startsWith("restart") -> needRestart = true
             }
             "wifi" -> toast(getString(R.string.wifi_on))
+            "dep" -> { if (err) toast(msg); link.refresh() }
             "tgtest" -> toast(if (err) msg else getString(R.string.tg_sent))
             "gasreset" -> { toast(getString(R.string.gas_zeroed)); link.refresh() }
             "forget" -> toast(getString(R.string.forgot_bonds))
@@ -296,11 +320,29 @@ class MainActivity : Activity(), BleLink.Listener {
         val ph = j.optInt("ph")
         val t = j.optInt("t", -999)
         tTemp.text = if (t > -100) "$t°" else "--°"
-        tPhase.text = if (on) phases.getOrElse(ph) { phases[2] } else phases[0]
+        val tg = j.optInt("tg")                        // termostato en marcha (objetivo; 0 = no)
+        val wa = j.optInt("wa") == 1                   // el agua ya llegó a la temperatura del aviso
+        tPhase.text = if (on) phases.getOrElse(ph) { phases[2] } else if (tg > 0) getString(R.string.waiting) else phases[0]
         tPhase.setTextColor(if (on) cFl else cInk)
         val rem = j.optInt("rem")
-        tRem.text = if (on) (if (ph == 3) getString(R.string.hot_water) + " " else "") + getString(R.string.remaining, fmtRem(rem)) +
-            (if (j.optString("src") == "programa") " " + getString(R.string.by_schedule) else "") else ""
+        val warm = if (wa) getString(R.string.warm_ok) else ""
+        tRem.text = if (tg > 0) getString(R.string.tgt_status, "$tg °C", fmtRem(j.optInt("tu"))) + warm
+            else if (on) (if (ph == 3) getString(R.string.hot_water) + " " else "") + getString(R.string.remaining, fmtRem(rem)) +
+            (if (j.optString("src") == "programa") " " + getString(R.string.by_schedule) else "") + warm else ""
+        // Temperatura de dentro (solo con termómetro: "ct" en décimas de grado, -999 = sin él)
+        val ct = j.optInt("ct", -999)
+        val hasT = ct > -900
+        if (hasT != hasSensor) { hasSensor = hasT; drawProgs() }
+        tCabin.visibility = if (hasT) View.VISIBLE else View.GONE
+        tgtRow.visibility = if (hasT) View.VISIBLE else View.GONE
+        if (hasT) {
+            val ch = j.optInt("ch", -1)
+            tCabin.text = getString(R.string.cabin, String.format(numLocale, "%.1f °C", ct / 10.0)) + (if (ch >= 0) getString(R.string.cabin_hum, ch) else "")
+        } else if (tgt != 0) { tgt = 0; spTgt.setSelection(0); drawSeg() }
+        // Salida suelta programada
+        val dp = j.optLong("dp")
+        tDep.text = if (dp > 0) depText(dp, j.optInt("dt"), j.optLong("time")) else getString(R.string.dep_help)
+        bDep.text = getString(if (dp > 0) R.string.dep_cancel else R.string.dep_set)
         val v = j.optDouble("v", -1.0)
         val fl = j.optInt("fl", -1)
         val pw = j.optInt("pw", -1)
@@ -320,9 +362,11 @@ class MainActivity : Activity(), BleLink.Listener {
         if (j.optInt("tv") == 0) warn += getString(R.string.warn_clock)
         tNote.text = warn.joinToString("\n\n")
         tNote.visibility = if (warn.isEmpty()) View.GONE else View.VISIBLE
-        bigBtn.text = if (on) getString(R.string.btn_turn_off) else getString(R.string.btn_turn_on, fmtDur(dur))
-        bigBtn.background = rounded(if (on) cSf2 else cFl, 16)
-        bigBtn.setTextColor(if (on) cInk else Color.parseColor("#1A1000"))
+        val busy = on || tg > 0                       // con termostato en espera, el botón también lo termina
+        bigBtn.text = if (busy) getString(R.string.btn_turn_off)
+            else if (tgt > 0) getString(R.string.btn_turn_on_tgt, "$tgt °C", fmtDur(dur)) else getString(R.string.btn_turn_on, fmtDur(dur))
+        bigBtn.background = rounded(if (busy) cSf2 else cFl, 16)
+        bigBtn.setTextColor(if (busy) cInk else Color.parseColor("#1A1000"))
 
         // Avisos del sistema (con la app abierta o en segundo plano reciente) y contadores de las estadísticas
         if (haveState && !link.demo) {                 // en modo demostración no hay avisos ni estadísticas
@@ -333,7 +377,9 @@ class MainActivity : Activity(), BleLink.Listener {
             }
             if (!lastOn && on && j.optString("src") == "programa") Stats.count(this, "starts_prog")
             if (on && ph == 4 && lastOn) notifyUser(getString(R.string.notif_no_answer), getString(R.string.notif_no_answer_body))
+            if (wa && !lastWa) notifyUser(getString(R.string.notif_warm), getString(R.string.notif_warm_body, j.optInt("t")))
         }
+        lastWa = wa
         haveState = true
         lastOn = on
         lastNote = note
@@ -463,6 +509,8 @@ class MainActivity : Activity(), BleLink.Listener {
         st.addView(tStats, lp(top = 12))
         tGas = text("", 13f, cMut).apply { gravity = Gravity.CENTER }
         st.addView(tGas, lp(top = 6))
+        tCabin = text("", 17f, cInk).apply { gravity = Gravity.CENTER; visibility = View.GONE }
+        st.addView(tCabin, lp(top = 10))
         controls.addView(st, lp(top = 14))
 
         tNote = text("", 14f, cInk).apply {
@@ -472,9 +520,38 @@ class MainActivity : Activity(), BleLink.Listener {
 
         segRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; background = rounded(cSf, 12); setPadding(dp(4), dp(4), dp(4), dp(4)) }
         controls.addView(segRow, lp(top = 12))
+        // Objetivo de temperatura (solo con termómetro en la placa)
+        spTgt = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item,
+                listOf(getString(R.string.tgt_none)) + targets.map { "$it °C" })
+            background = rounded(cSf2, 8)
+            onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                    val t = if (pos == 0) 0 else targets[pos - 1]
+                    if (t != tgt) { tgt = t; drawSeg(); render() }
+                }
+                override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+            }
+        }
+        tgtRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; background = rounded(cSf, 12)
+            setPadding(dp(12), dp(8), dp(12), dp(8)); visibility = View.GONE
+            addView(text(getString(R.string.tgt_label), 15f, cInk), LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(spTgt, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(12) })
+        }
+        controls.addView(tgtRow, lp(top = 12))
         drawSeg()
         bigBtn = button(getString(R.string.btn_no_link)) { toggleHeater() }.apply { textSize = 18f; setPadding(dp(16), dp(18), dp(16), dp(18)) }
         controls.addView(bigBtn, lp(top = 12))
+        // Hora de salida suelta: la placa decide cuánto antes encender según la temperatura
+        bDepTime = button(getString(R.string.dep_label) + " " + hm(depMin)) {
+            TimePickerDialog(this, { _, h, m -> depMin = h * 60 + m; bDepTime.text = getString(R.string.dep_label) + " " + hm(depMin) }, depMin / 60, depMin % 60, true).show()
+        }
+        bDep = button(getString(R.string.dep_set)) {
+            if ((dev?.optLong("dp") ?: 0L) > 0) link.send("dep off") else link.send("dep ${hm(depMin)}" + (if (tgt > 0) " $tgt" else ""))
+        }
+        tDep = text("", 13f, cMut)
+        controls.addView(card().apply { addView(row(bDepTime, bDep)); addView(tDep, lp(top = 8)) }, lp(top = 12))
 
         // Programas
         section(controls, getString(R.string.sec_programs), getString(R.string.sec_programs_sub))
@@ -517,6 +594,30 @@ class MainActivity : Activity(), BleLink.Listener {
         field(getString(R.string.f_chat), InputType.TYPE_CLASS_TEXT).let { cfg.addView(it.first); eChat = it.second }
         cfg.addView(text(getString(R.string.cfg_safety), 15f, cInk, true), lp(top = 18))
         field(getString(R.string.f_minv), InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL).let { cfg.addView(it.first); eMinV = it.second }
+        hwBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+        hwBox.addView(text(getString(R.string.minv_help), 13f, cMut), lp(top = 4))
+        field(getString(R.string.f_warm), InputType.TYPE_CLASS_NUMBER).let { hwBox.addView(it.first); eWarm = it.second }
+        hwBox.addView(text(getString(R.string.cfg_hw), 15f, cInk, true), lp(top = 18))
+        tHw = text("", 13f, cMut)
+        hwBox.addView(tHw, lp(top = 4))
+        // Cada ajuste va en su caja (en tag) para ocultarlo si su pieza no está conectada
+        fun spinner(label: Int, items: Int): Spinner {
+            val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            box.addView(text(getString(label), 13f, cMut), lp(top = 10))
+            val sp = Spinner(this).apply {
+                adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, resources.getStringArray(items).toList())
+                background = rounded(cSf2, 10)
+                tag = box
+            }
+            box.addView(sp, lp(top = 4))
+            hwBox.addView(box)
+            return sp
+        }
+        spOled = spinner(R.string.f_oled, R.array.oled_types)
+        spDisp = spinner(R.string.f_disp, R.array.disp_modes)
+        spLed = spinner(R.string.f_led, R.array.led_levels)
+        field(getString(R.string.f_toff), InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL or InputType.TYPE_NUMBER_FLAG_SIGNED).let { hwBox.addView(it.first); eToff = it.second; eToff.tag = it.first }
+        cfg.addView(hwBox)
         cfg.addView(row(button(getString(R.string.btn_save), true) { saveCfg() }, button(getString(R.string.btn_tg_test)) { link.send("tgtest") }), lp(top = 14))
         cfg.addView(row(button(getString(R.string.btn_wifi15)) { link.send("wifi") }, button(getString(R.string.btn_reboot)) { confirmReboot() }), lp(top = 10))
         // Actualizaciones del firmware: la app consulta la última versión y, si hay una nueva, la placa la descarga e instala
@@ -542,6 +643,25 @@ class MainActivity : Activity(), BleLink.Listener {
             addView(text(getString(R.string.stats_help), 13f, cMut), lp(top = 6))
             addView(button(getString(R.string.btn_public_stats)) { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Stats.URL_PUBLIC))) }, lp(top = 10))
         }, lp(top = 10))
+        // Acceso rápido (ajustes rápidos de Android y widget): duración con la que enciende
+        val qPrefs = getSharedPreferences("wttc", MODE_PRIVATE)
+        val spQuick = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, durations.map { fmtDur(it) })
+            background = rounded(cSf2, 10)
+            setSelection(durations.indexOf(qPrefs.getInt("qdur", 30)).coerceAtLeast(0))
+            onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                    qPrefs.edit().putInt("qdur", durations[pos]).apply()
+                }
+                override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+            }
+        }
+        root.addView(card().apply {
+            addView(text(getString(R.string.quick_title), 15f, cInk, true))
+            addView(text(getString(R.string.quick_help), 13f, cMut), lp(top = 6))
+            addView(text(getString(R.string.quick_dur), 13f, cMut), lp(top = 10))
+            addView(spQuick, lp(top = 4))
+        }, lp(top = 10))
         val ver = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "?"
         root.addView(text(getString(R.string.footer, ver), 13f, cMut).apply {
             setOnClickListener { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wttc.favala.es"))) }
@@ -553,7 +673,9 @@ class MainActivity : Activity(), BleLink.Listener {
     // Pinta los botones de duración, con la elegida resaltada
     private fun drawSeg() {
         segRow.removeAllViews()
-        for (d in durations) {
+        val list = if (tgt > 0) tDurations else durations
+        if (dur !in list) dur = if (tgt > 0) 120 else 30
+        for (d in list) {
             val b = Button(this).apply {
                 text = fmtDur(d); isAllCaps = false; textSize = 15f
                 setTextColor(if (d == dur) cInk else cMut)
@@ -575,9 +697,21 @@ class MainActivity : Activity(), BleLink.Listener {
     }
 
     private fun toggleHeater() {
-        val on = dev?.optInt("on") == 1
+        val on = dev?.optInt("on") == 1 || (dev?.optInt("tg") ?: 0) > 0
         bigBtn.text = getString(if (on) R.string.btn_turning_off else R.string.btn_turning_on)
-        link.send(if (on) "off" else "on $dur")
+        link.send(if (on) "off" else if (tgt > 0) "on $dur $tgt" else "on $dur")
+    }
+
+    // «Salida: mañana a las 08:00 (hasta 20 °C)…». dp y now en segundos desde 1970
+    private fun depText(dp: Long, dt: Int, now: Long): String {
+        val c = java.util.Calendar.getInstance().apply { timeInMillis = dp * 1000 }
+        val n = java.util.Calendar.getInstance().apply { timeInMillis = (if (now > 0) now else System.currentTimeMillis() / 1000) * 1000 }
+        val day = when (c.get(java.util.Calendar.DAY_OF_YEAR) - n.get(java.util.Calendar.DAY_OF_YEAR)) {
+            0 -> getString(R.string.today); 1, -364, -365 -> getString(R.string.tomorrow)
+            else -> java.text.SimpleDateFormat("EEEE", numLocale).format(c.time)
+        }
+        return getString(R.string.dep_status, day, hm(c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE)),
+            if (dt > 0) getString(R.string.dep_tgt, "$dt °C") else "")
     }
 
     // Pide a Android que active el Bluetooth (si ya está activo, conecta)
@@ -720,7 +854,7 @@ class MainActivity : Activity(), BleLink.Listener {
         progs.clear()
         parts.getOrNull(1)?.split(";")?.forEach { it ->
             val p = it.split(",").mapNotNull { x -> x.trim().toIntOrNull() }
-            if (p.size == 4) progs += Prog(p[0] == 1, p[1], p[2], p[3])
+            if (p.size == 4 || p.size == 5) progs += Prog(p[0] == 1, p[1], p[2], p[3], p.getOrElse(4) { 0 })
         }
         swAuto.isChecked = progsAuto
         drawProgs()
@@ -745,7 +879,7 @@ class MainActivity : Activity(), BleLink.Listener {
 
     // Manda los programas a la placa en el formato de texto del firmware
     private fun saveProgs() {
-        val list = progs.joinToString(";") { "${if (it.en) 1 else 0},${it.days},${it.start},${it.dur}" }
+        val list = progs.joinToString(";") { "${if (it.en) 1 else 0},${it.days},${it.start},${it.dur}" + (if (it.x != 0) ",${it.x}" else "") }
         link.send("setsched ${if (progsAuto) 1 else 0}|$list")
     }
 
@@ -762,14 +896,17 @@ class MainActivity : Activity(), BleLink.Listener {
                 TimePickerDialog(this, { _, h, m -> p.start = h * 60 + m; touchProgs(); drawProgs() }, p.start / 60, p.start % 60, true).show()
             }.apply { textSize = 22f; setTypeface(typeface, Typeface.BOLD); minWidth = 0; minimumWidth = 0 }
             // Cerrado, el desplegable usa la plantilla compacta; abierto, la de lista (si no, «30 min» no cabe y sale «30..»)
+            // Con objetivo de temperatura la duración es la ventana (hasta 4 h); con hora de salida no se usa
+            val durs = if (p.x and 63 > 0) tDurations else durations
             val durSp = Spinner(this).apply {
-                adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_item, durations.map { fmtDur(it) })
+                adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_item, durs.map { fmtDur(it) })
                     .apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-                setSelection(durations.indexOfFirst { it >= p.dur }.coerceAtLeast(0))
+                setSelection(durs.indexOfFirst { it >= p.dur }.coerceAtLeast(0))
                 background = rounded(cSf2, 8)
+                visibility = if (p.x and 128 != 0) View.INVISIBLE else View.VISIBLE
                 onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
                     override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, pos: Int, id: Long) {
-                        if (durations[pos] != p.dur) { p.dur = durations[pos]; touchProgs() }
+                        if (durs[pos] != p.dur) { p.dur = durs[pos]; touchProgs() }
                     }
                     override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
                 }
@@ -799,6 +936,34 @@ class MainActivity : Activity(), BleLink.Listener {
                 days.addView(b, LinearLayout.LayoutParams(0, dp(40), 1f).apply { if (d > 0) leftMargin = dp(5) })
             }
             c.addView(days, lp(top = 10))
+            // Modo (encender a la hora / hora de salida) y objetivo de temperatura: solo con firmware 0.2.0+
+            if (fwTh) {
+                fun optSpinner(items: List<String>, sel: Int, onSel: (Int) -> Unit) = Spinner(this).apply {
+                    adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_item, items)
+                        .apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+                    setSelection(sel)
+                    background = rounded(cSf2, 8)
+                    onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+                        override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, pos: Int, id: Long) { onSel(pos) }
+                        override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+                    }
+                }
+                val mode = optSpinner(resources.getStringArray(R.array.prog_modes).toList(), if (p.x and 128 != 0) 1 else 0) { pos ->
+                    val x = (p.x and 63) or (if (pos == 1) 128 else 0)
+                    if (x != p.x) { p.x = x; touchProgs(); drawProgs() }
+                }
+                val tgs = listOf(getString(R.string.prog_no_tgt)) + targets.map { getString(R.string.prog_tgt, "$it °C") }
+                val tsp = optSpinner(tgs, targets.indexOf(p.x and 63) + 1) { pos ->
+                    val x = (p.x and 128) or (if (pos == 0) 0 else targets[pos - 1])
+                    if (x != p.x) {
+                        p.x = x
+                        val l = if (x and 63 > 0) tDurations else durations
+                        if (p.dur !in l) p.dur = if (x and 63 > 0) 120 else 30
+                        touchProgs(); drawProgs()
+                    }
+                }
+                if (hasSensor || p.x and 63 > 0) c.addView(row(mode, tsp), lp(top = 10)) else c.addView(mode, lp(top = 10))
+            }
             progList.addView(c, lp(top = 10))
         }
         refreshSaveBtn()
@@ -820,6 +985,23 @@ class MainActivity : Activity(), BleLink.Listener {
         eTok.hint = getString(if (c.optBoolean("tg")) R.string.hint_token_saved else R.string.hint_not_set)
         eAp.setText(""); ePass.setText(""); eTok.setText("")
         fwVer = c.optString("ver"); fwOta = c.optInt("ota") == 1
+        val th = c.optInt("th") == 1
+        if (th != fwTh) { fwTh = th; drawProgs() }
+        hwBox.visibility = if (fwTh) View.VISIBLE else View.GONE
+        if (fwTh) {
+            eWarm.setText(c.optInt("warm").toString())
+            spOled.setSelection(c.optInt("oled").coerceIn(0, 1))
+            spDisp.setSelection(c.optInt("disp", 1).coerceIn(0, 2))
+            spLed.setSelection(c.optInt("led", 1).coerceIn(0, 3))
+            eToff.setText(c.optString("toff"))
+            // Solo los ajustes de lo que está conectado
+            val scr = c.optBoolean("scr"); val sens = c.optString("sens").isNotEmpty()
+            (spOled.tag as View).visibility = if (scr) View.VISIBLE else View.GONE
+            (spDisp.tag as View).visibility = if (scr) View.VISIBLE else View.GONE
+            (eToff.tag as View).visibility = if (sens) View.VISIBLE else View.GONE
+            val found = listOfNotNull(c.optString("sens").ifEmpty { null }, if (c.optBoolean("scr")) getString(R.string.hw_display) else null)
+            tHw.text = if (found.isEmpty()) getString(R.string.hw_none) else getString(R.string.hw_detected, found.joinToString(", "))
+        }
         val bonds = c.optInt("bonds")
         tCfg.text = getString(R.string.cfg_info, c.optString("ver"), bonds)
     }
@@ -834,6 +1016,13 @@ class MainActivity : Activity(), BleLink.Listener {
             "tgchat" to eChat.text.toString().trim(),
             "minvolt" to eMinV.text.toString().trim().replace(',', '.'),
         )
+        if (fwTh) {
+            sets += "warm" to eWarm.text.toString().trim().ifEmpty { "0" }
+            sets += "oled" to spOled.selectedItemPosition.toString()
+            sets += "disp" to spDisp.selectedItemPosition.toString()
+            sets += "led" to spLed.selectedItemPosition.toString()
+            sets += "toff" to eToff.text.toString().trim().replace(',', '.').ifEmpty { "0" }
+        }
         if (eAp.text.isNotEmpty()) sets += "appass" to eAp.text.toString()
         if (ePass.text.isNotEmpty()) sets += "pass" to ePass.text.toString()
         if (eTok.text.isNotBlank()) sets += "tgtok" to eTok.text.toString().trim()

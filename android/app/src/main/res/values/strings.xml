@@ -145,6 +145,47 @@
     <string name="upd_no_net">Could not check the latest version: does the phone have internet?</string>
     <string name="upd_usb">This board has firmware older than wireless updates: flash it once over USB with the latest version (instructions at wttc.favala.es).</string>
     <string name="upd_demo">There is nothing to update in demo mode.</string>
+    <string name="cabin">Inside: %1$s</string>
+    <string name="cabin_hum"> · humidity %1$d %%</string>
+    <string name="tgt_label">Up to</string>
+    <string name="tgt_none">No temperature limit</string>
+    <string name="waiting">Waiting</string>
+    <string name="tgt_status">Up to %1$s · window %2$s</string>
+    <string name="warm_ok"> · water is warm</string>
+    <string name="btn_turn_on_tgt">Heat up to %1$s (max %2$s)</string>
+    <string name="dep_label">I leave at</string>
+    <string name="dep_set">Set departure</string>
+    <string name="dep_cancel">Cancel departure</string>
+    <string name="dep_status">Departure: %1$s at %2$s%3$s. It switches on earlier, depending on how cold it is.</string>
+    <string name="dep_tgt"> (up to %1$s)</string>
+    <string name="dep_help">The board decides how early to switch on (15 min to 1 h) depending on the temperature.</string>
+    <string name="today">today</string>
+    <string name="tomorrow">tomorrow</string>
+    <string name="prog_no_tgt">No thermostat</string>
+    <string name="prog_tgt">Up to %1$s</string>
+    <string name="cfg_hw">Display, LED and thermometer (optional)</string>
+    <string name="f_oled">Display type</string>
+    <string name="f_disp">Display</string>
+    <string name="f_led">Board LED</string>
+    <string name="f_toff">Thermometer correction (°C)</string>
+    <string name="f_warm">Notify when the water reaches (°C; 0 = no notice)</string>
+    <string name="minv_help">While heating, it switches itself off if the battery drops half a volt below this.</string>
+    <string name="hw_detected">Detected: %1$s.</string>
+    <string name="hw_display">display</string>
+    <string name="hw_none">No display or thermometer detected (I2C bus: SDA to IO4, SCL to IO5, plus 3V3 and GND).</string>
+    <string name="notif_warm">It is warm</string>
+    <string name="notif_warm_body">The engine coolant is at %1$d °C.</string>
+    <string name="quick_title">Quick access</string>
+    <string name="quick_help">“Webasto” button in Android\'s quick settings (pull them down and edit them to add it) and a home screen widget. Tapping it connects to the board and switches on for this long, or off if it is already on.</string>
+    <string name="quick_dur">Quick access duration</string>
+    <string name="tile_label">Webasto</string>
+    <string name="widget_label">WTTC: switch on or off</string>
+    <string name="widget_text">Webasto</string>
+    <string name="q_connecting">Connecting to the board…</string>
+    <string name="q_on">Switched on for %1$s</string>
+    <string name="q_off">Switched off</string>
+    <string name="q_err">The board cannot be found. Get closer to the van or open the app.</string>
+    <string name="q_not_paired">Pair the board in the app first.</string>
     <string-array name="phases">
         <item>Off</item>
         <item>Starting…</item>
@@ -165,5 +206,24 @@
         <item>F</item>
         <item>S</item>
         <item>S</item>
+    </string-array>
+    <string-array name="oled_types">
+        <item>OLED 1.3\" (SH1106)</item>
+        <item>OLED 0.96\" (SSD1306)</item>
+    </string-array>
+    <string-array name="disp_modes">
+        <item>Off</item>
+        <item>Automatic (off after a minute)</item>
+        <item>Always on</item>
+    </string-array>
+    <string-array name="led_levels">
+        <item>Off</item>
+        <item>Low</item>
+        <item>Medium</item>
+        <item>High</item>
+    </string-array>
+    <string-array name="prog_modes">
+        <item>Switch on at this time</item>
+        <item>I leave at this time</item>
     </string-array>
 </resources>

@@ -144,6 +144,47 @@
     <string name="upd_no_net">No se pudo consultar la última versión: ¿tiene internet el móvil?</string>
     <string name="upd_usb">Esta placa tiene un firmware anterior a las actualizaciones sin cable: grábala una vez por USB con la última versión (instrucciones en wttc.favala.es).</string>
     <string name="upd_demo">En el modo demostración no hay nada que actualizar.</string>
+    <string name="cabin">Dentro: %1$s</string>
+    <string name="cabin_hum"> · humedad %1$d %%</string>
+    <string name="tgt_label">Hasta</string>
+    <string name="tgt_none">Sin límite de temperatura</string>
+    <string name="waiting">En espera</string>
+    <string name="tgt_status">Hasta %1$s · margen %2$s</string>
+    <string name="warm_ok"> · agua caliente</string>
+    <string name="btn_turn_on_tgt">Encender hasta %1$s (máx. %2$s)</string>
+    <string name="dep_label">Salgo a las</string>
+    <string name="dep_set">Programar salida</string>
+    <string name="dep_cancel">Cancelar salida</string>
+    <string name="dep_status">Salida: %1$s a las %2$s%3$s. Enciende antes, según el frío que haga.</string>
+    <string name="dep_tgt"> (hasta %1$s)</string>
+    <string name="dep_help">La placa decide cuánto antes encender (de 15 min a 1 h) según la temperatura.</string>
+    <string name="today">hoy</string>
+    <string name="tomorrow">mañana</string>
+    <string name="prog_no_tgt">Sin termostato</string>
+    <string name="prog_tgt">Hasta %1$s</string>
+    <string name="cfg_hw">Pantalla, LED y termómetro (opcionales)</string>
+    <string name="f_oled">Tipo de pantalla</string>
+    <string name="f_disp">Pantalla</string>
+    <string name="f_led">LED de la placa</string>
+    <string name="f_toff">Corrección del termómetro (°C)</string>
+    <string name="f_warm">Avisar cuando el agua llegue a (°C; 0 = no avisar)</string>
+    <string name="minv_help">Calentando, se apaga sola si la batería baja medio voltio por debajo de esta.</string>
+    <string name="hw_detected">Detectado: %1$s.</string>
+    <string name="hw_display">pantalla</string>
+    <string name="hw_none">No se detecta pantalla ni termómetro (bus I2C: SDA a IO4, SCL a IO5, más 3V3 y GND).</string>
+    <string name="notif_warm">Ya está caliente</string>
+    <string name="notif_warm_body">El agua del motor está a %1$d °C.</string>
+    <string name="quick_title">Acceso rápido</string>
+    <string name="quick_help">Botón «Webasto» en los ajustes rápidos de Android (despliégalos y edítalos para añadirlo) y widget para la pantalla de inicio. Al pulsarlo se conecta a la placa y enciende con esta duración, o apaga si ya está encendida.</string>
+    <string name="quick_dur">Duración del acceso rápido</string>
+    <string name="tile_label">Webasto</string>
+    <string name="widget_label">WTTC: encender o apagar</string>
+    <string name="widget_text">Webasto</string>
+    <string name="q_connecting">Conectando con la placa…</string>
+    <string name="q_on">Encendida %1$s</string>
+    <string name="q_off">Apagada</string>
+    <string name="q_err">No se encuentra la placa. Acércate a la furgo o abre la app.</string>
+    <string name="q_not_paired">Primero empareja la placa en la app.</string>
     <string-array name="phases">
         <item>Apagada</item>
         <item>Arrancando…</item>
@@ -164,5 +205,24 @@
         <item>V</item>
         <item>S</item>
         <item>D</item>
+    </string-array>
+    <string-array name="oled_types">
+        <item>OLED 1,3\" (SH1106)</item>
+        <item>OLED 0,96\" (SSD1306)</item>
+    </string-array>
+    <string-array name="disp_modes">
+        <item>Apagada</item>
+        <item>Automática (se apaga al minuto)</item>
+        <item>Siempre encendida</item>
+    </string-array>
+    <string-array name="led_levels">
+        <item>Apagado</item>
+        <item>Bajo</item>
+        <item>Medio</item>
+        <item>Alto</item>
+    </string-array>
+    <string-array name="prog_modes">
+        <item>Encender a esta hora</item>
+        <item>Salgo a esta hora</item>
     </string-array>
 </resources>

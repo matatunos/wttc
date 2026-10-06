@@ -125,10 +125,14 @@ const float    FUEL_L_KWH   = 0.124;  // gasoil por kWh de calor: Thermo Top C �
 const uint32_t WIFI_BOOT_MS = 600000; // ms que la Wi-Fi está encendida tras arrancar, en cualquier modo (rescate)
 const uint32_t WIFI_ASK_MS  = 900000; // ms que la Wi-Fi está encendida al pedirla desde la app
 const uint32_t WIFI_TAIL_MS = 600000; // modo «mientras calienta»: ms que sigue encendida tras apagarse la calefacción
+const uint8_t  TGT_MIN      = 5;      // °C: objetivos admitidos para el termostato (más de 25 °C dentro no tiene sentido)
+const uint8_t  TGT_MAX      = 25;
 const uint16_t MAX_SESSION  = 240;    // min: ventana máxima de «calentar hasta X °C» (se enciende y apaga dentro de ella)
 const float    TH_HYST      = 1.5;    // °C: con el termostato, vuelve a encender al bajar esto por debajo del objetivo
 const uint32_t TH_MINRUN    = 900000; // ms: mínimo por encendido con termostato (las Webasto no llevan bien los arranques cortos)
 const uint32_t TH_REST      = 180000; // ms: tras apagarse, espera antes de volver a encender (termina su postbarrido)
+const uint32_t TH_STALL     = 1500000;// ms: calentando sin que dentro suba TH_STALL_C, el termostato se da por vencido
+const float    TH_STALL_C   = 0.5;    // °C (si hace demasiado frío fuera o el termómetro está mal puesto, no gasta en balde)
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
@@ -244,6 +248,8 @@ bool thActive = false, thReached = false;
 uint8_t thTarget = 0;
 uint32_t thUntil = 0;
 String thSrc;
+float thBest = NAN;                   // la temperatura más alta de dentro en este encendido, y cuándo subió por última vez
+uint32_t thBestAt = 0;
 // Salida suelta («salgo a las 8:00»): minuto absoluto (time()/60) de la salida y su objetivo; 0 = ninguna
 uint32_t depOnce = 0, depOnceDone = 0;
 uint8_t depOnceT = 0;
@@ -282,7 +288,7 @@ enum Txt {
   T_OTA_NONET, T_OTA_LATEST, T_OTA_NEW, T_OTA_NOTYET, T_OTA_BUSY, T_OTA_DL, T_TG_OTA_NEW,
   T_LOG_HW, T_LOG_TH_ON, T_LOG_TH_WAIT, T_LOG_TH_END, T_LOG_TH_NOSENS, T_TG_TH_REACHED, T_WHY_TARGET,
   T_E_NOSENS, T_E_TARGET, T_WHY_BATT, T_NOTE_BATT, T_TG_WARM, T_LOG_DEP, T_LOG_DEP_SET, T_LOG_DEP_OFF, T_E_DEP,
-  T_E_WARM, T_E_TOFF, T_E_VALUE,
+  T_E_WARM, T_E_TOFF, T_E_VALUE, T_TG_TH_STALL,
   T_D_OFF, T_D_START, T_D_HEAT, T_D_PAUSE, T_D_LOST, T_D_WAIT, T_D_WATER, T_D_IN, T_D_NEXT, T_D_DEP, T_D_UNTIL,
   T_D_DAYS, T_D_NOTE,
   T_COUNT
@@ -394,7 +400,7 @@ const char* const TXT[T_COUNT][L_N] = {
   /* T_TG_TH_REACHED */    {"Ya hay %s dentro. Se mantiene hasta que acabe el tiempo.", "It is already %s inside. It will be kept until the time is up.", "Innen sind schon %s. Wird bis zum Ende der Zeit gehalten."},
   /* T_WHY_TARGET */       {"%s alcanzados", "%s reached", "%s erreicht"},
   /* T_E_NOSENS */         {"No hay termómetro: conecta uno (SHT31 o AHT20) para calentar hasta una temperatura.", "No thermometer: connect one (SHT31 or AHT20) to heat up to a temperature.", "Kein Thermometer: eines anschließen (SHT31 oder AHT20), um bis zu einer Temperatur zu heizen."},
-  /* T_E_TARGET */         {"La temperatura objetivo debe estar entre 5 y 30 °C.", "The target temperature must be between 5 and 30 °C.", "Die Zieltemperatur muss zwischen 5 und 30 °C liegen."},
+  /* T_E_TARGET */         {"La temperatura objetivo debe estar entre 5 y 25 °C.", "The target temperature must be between 5 and 25 °C.", "Die Zieltemperatur muss zwischen 5 und 25 °C liegen."},
   /* T_WHY_BATT */         {"batería baja (%s V)", "low battery (%s V)", "Batterie schwach (%s V)"},
   /* T_NOTE_BATT */        {"Se apagó para proteger la batería: %s V con la calefacción en marcha.", "It was switched off to protect the battery: %s V while heating.", "Zum Schutz der Batterie ausgeschaltet: %s V während des Heizens."},
   /* T_TG_WARM */          {"Ya está caliente: el agua del motor está a %d °C.", "It is warm: the engine coolant is at %d °C.", "Es ist warm: das Kühlwasser hat %d °C."},
@@ -405,6 +411,9 @@ const char* const TXT[T_COUNT][L_N] = {
   /* T_E_WARM */           {"El aviso de agua caliente debe estar entre 30 y 80 °C (0 = sin aviso).", "The warm-water notice must be between 30 and 80 °C (0 = none).", "Die Warmwasser-Meldung muss zwischen 30 und 80 °C liegen (0 = keine)."},
   /* T_E_TOFF */           {"La corrección del termómetro debe estar entre -5 y 5 °C.", "The thermometer correction must be between -5 and 5 °C.", "Die Thermometerkorrektur muss zwischen -5 und 5 °C liegen."},
   /* T_E_VALUE */          {"Valor no válido: %s", "Invalid value: %s", "Ungültiger Wert: %s"},
+  /* T_TG_TH_STALL */      {"Termostato parado: dentro no pasa de %s en %d min y no llegará a %s. Se ha apagado para no gastar en balde.",
+                            "Thermostat stopped: inside it stays at %s after %d min and will not reach %s. Switched off so as not to waste fuel.",
+                            "Thermostat gestoppt: innen bleibt es bei %s (nach %d min) und erreicht %s nicht. Ausgeschaltet, um nichts zu verschwenden."},
   /* T_D_OFF */            {"Apagada", "Off", "Aus"},
   /* T_D_START */          {"Arrancando", "Starting", "Startet"},
   /* T_D_HEAT */           {"Calentando", "Heating", "Heizt"},
@@ -742,6 +751,7 @@ bool startHeater(uint16_t minutes, const char* src) {
       gasCur = 0; gasRate = 0; lastGasT = 0;      // gasoil de este encendido desde cero
       onSrc = src;
       heatStart = millis(); warmSent = false; lowBatt = 0;   // mínimo del termostato, aviso del agua y batería
+      thBest = cabT; thBestAt = millis();         // para ver si dentro sube (termostato)
       dispWake();
       addLog(trf(T_LOG_ON, srcName(src), minutes));
       if (!quietStart) notify(trf(T_LOG_ON, srcName(src), minutes));   // los del termostato van solo al registro
@@ -1151,13 +1161,14 @@ void battRunCheck() {
   lowBatt = 0;
 }
 
-// Aviso de «ya está caliente»: una vez por encendido, al llegar el agua a warmC
+// Aviso de «ya está caliente»: una vez por encendido, al llegar el agua a warmC. Con el termostato, solo el del
+// primer encendido va a Telegram (los siguientes, al registro)
 void warmCheck() {
   if (!heaterOn || !warmC || warmSent || tempC < warmC) return;
   warmSent = true;
   dispWake();
   addLog(trf(T_TG_WARM, tempC));
-  notify(trf(T_TG_WARM, tempC));
+  if (!(thActive && thReached)) notify(trf(T_TG_WARM, tempC));
 }
 
 void endSession(bool log) {
@@ -1192,6 +1203,17 @@ void thermoTick() {
   }
   if (isnan(cabT)) { addLog(tr(T_LOG_TH_NOSENS)); thActive = false; return; }   // el encendido en marcha sigue hasta su fin
   if (heaterOn) {
+    // ¿Sube la temperatura de dentro? Si en TH_STALL no ha subido TH_STALL_C y aún no llega, no se insiste
+    if (isnan(thBest) || cabT >= thBest + TH_STALL_C) { thBest = cabT; thBestAt = now; }
+    else if (cabT < thTarget && now - thBestAt >= TH_STALL) {
+      String m = trf(T_TG_TH_STALL, degs(cabT, 1).c_str(), (int)((now - heatStart) / 60000), degs(thTarget, 0).c_str());
+      endSession(false);
+      stopHeater(tr(T_LOG_TH_END), false);
+      addLog(m);
+      notify(m);
+      stopNote = hhmm() + m;
+      return;
+    }
     if (cabT >= thTarget && now - heatStart >= TH_MINRUN) {
       String t = degs(cabT, 1);
       if (!thReached) notify(trf(T_TG_TH_REACHED, t.c_str()));   // solo la primera vez: luego mantiene en silencio
@@ -1200,9 +1222,11 @@ void thermoTick() {
     }
     return;
   }
-  // Apagada dentro de la ventana: vuelve a encender si se ha enfriado, queda margen y ya terminó el postbarrido
+  // Apagada dentro de la ventana: vuelve a encender si se ha enfriado (o si aún no había llegado: un encendido dura
+  // como mucho MAX_MIN), queda margen y ya terminó el postbarrido
   uint32_t left = thUntil - now;
-  if (cabT <= thTarget - TH_HYST && left >= TH_MINRUN && (!lastHeatOff || now - lastHeatOff >= TH_REST)) {
+  bool cold = cabT <= thTarget - TH_HYST || (!thReached && cabT < thTarget);
+  if (cold && left >= TH_MINRUN && (!lastHeatOff || now - lastHeatOff >= TH_REST)) {
     if (!battOk()) { endSession(true); return; }
     quietStart = true;
     bool ok = startHeater(min((uint16_t)(left / 60000), MAX_MIN), thSrc.c_str());
@@ -1272,7 +1296,7 @@ void depSet(uint32_t m, uint8_t tgt) {
 // Encender desde la app, la web o la consola; con objetivo, termostato. Devuelve "" si va bien, o el error
 String heatOn(int m, int tg, const char* src) {
   if (tg) {
-    if (tg < 5 || tg > 30) return tr(T_E_TARGET);
+    if (tg < TGT_MIN || tg > TGT_MAX) return tr(T_E_TARGET);
     if (isnan(cabT)) return tr(T_E_NOSENS);
     endSession(false);
     return startSession(m > 0 ? m : 60, tg, src) ? "" : tr(T_E_ON);
@@ -1294,7 +1318,8 @@ void loadCfg() {
   memset(schX, 0, sizeof schX);
   if (nSch && prefs.isKey("schx")) prefs.getBytes("schx", schX, nSch);
   for (int i = 0; i < nSch; i++) {
-    if ((schX[i] & SX_TGT) > 30) schX[i] &= SX_DEP;                // objetivo imposible: sin termostato
+    int tg = schX[i] & SX_TGT;
+    if (tg && (tg < TGT_MIN || tg > TGT_MAX)) schX[i] &= SX_DEP;  // objetivo fuera de rango: sin termostato
     uint16_t lim = (schX[i] & SX_TGT) ? MAX_SESSION : MAX_MIN;     // con termostato, la ventana puede ser más larga
     if (sch[i].dur > lim) sch[i].dur = lim;       // programas de versiones anteriores (antes se permitían 4 h)
   }
@@ -1362,7 +1387,7 @@ void applySched(const String& a, const String& L) {
     if (sscanf(it.c_str(), "%d,%d,%d,%d,%d", &e, &d, &st, &du, &x) >= 4 && st >= 0 && st < 1440 && du > 0) {
       x &= SX_DEP | SX_TGT;
       int tg = x & SX_TGT;
-      if (tg && (tg < 5 || tg > 30)) x &= SX_DEP;     // objetivo fuera de rango: sin termostato
+      if (tg && (tg < TGT_MIN || tg > TGT_MAX)) x &= SX_DEP;   // objetivo fuera de rango: sin termostato
       sch[nSch].en = e ? 1 : 0;
       sch[nSch].days = d & 0x7F;                  // solo los 7 bits de los días
       sch[nSch].start = st;                       // minutos desde las 00:00
@@ -1728,7 +1753,7 @@ String runCmd(String c) {
     if (a == "off" || a == "0") { if (depOnce) addLog(tr(T_LOG_DEP_OFF)); depSet(0, 0); return "dep:ok"; }
     int h = -1, mi = -1, tg = 0;
     int nf = sscanf(a.c_str(), "%d:%d %d", &h, &mi, &tg);
-    if (!timeValid() || nf < 2 || h < 0 || h > 23 || mi < 0 || mi > 59 || (tg && (tg < 5 || tg > 30)))
+    if (!timeValid() || nf < 2 || h < 0 || h > 23 || mi < 0 || mi > 59 || (tg && (tg < TGT_MIN || tg > TGT_MAX)))
       return String("dep:err ") + tr(T_E_DEP);
     depSet(depNext(h, mi), tg);
     return "dep:ok";

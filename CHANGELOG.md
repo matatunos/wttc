@@ -6,6 +6,30 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.2.0 — 2026-10-06
+
+Versión de prueba (sin probar con una Webasto real). **Pantalla, termómetro y termostato.** Solo ESP32-S3.
+
+### Placas
+- **Solo ESP32-S3** (DevKitC-1 N16R8). El ESP32 clásico deja de estar soportado: el firmware ya no compila para él y no hay actualización para esa placa. La 0.1.6 sigue disponible para quien lo tenga.
+
+### Opcional: pantalla, termómetro y LED
+- **Pantalla OLED I2C** de 128×64 (1,3" SH1106 o 0,96" SSD1306): temperatura de dentro, estado, agua, batería y lo siguiente que va a pasar. Se enciende con la calefacción, con el móvil conectado o con el botón BOOT, y se apaga al minuto (o siempre encendida, o nunca).
+- **Termómetro de dentro** (SHT31 o AHT20, en el mismo bus que la pantalla): temperatura y humedad en la app, la web y la pantalla. Con corrección por si mide de más.
+- **LED RGB de la placa** con el estado: naranja calentando, verde ya caliente, rojo si la Webasto no responde o se apagó sola, azul con la app conectada. Brillo ajustable o apagado.
+- Todo se detecta solo; sin ello, la placa funciona igual que antes.
+
+### Calefacción
+- **Calentar hasta una temperatura** (solo con el termómetro; de 5 a 25 °C): se enciende, se apaga al llegar y vuelve a encender si se enfría, dentro de un tiempo máximo de hasta 4 h. Cada encendido dura como mínimo 15 min (las Webasto no llevan bien los arranques cortos). Si dentro no sube medio grado en 25 min y aún no llega (mucho frío fuera, termómetro mal puesto), se apaga y avisa en vez de gastar en balde.
+- **Hora de salida**: «salgo a las 8:00» y la placa decide cuánto antes encender según el frío que haga (de 15 min a 1 h). Suelta o como tipo de programa, con o sin temperatura objetivo.
+- **Batería vigilada mientras calienta**: si baja medio voltio por debajo de la mínima, se apaga para que luego arranque el motor.
+- **Aviso de «ya está caliente»** por Telegram cuando el agua llega a la temperatura elegida.
+
+### App
+- Temperatura y humedad de dentro, «Hasta X °C», «Salgo a las…» y las opciones nuevas de los programas (hora de salida, temperatura objetivo). Lo que depende de una pieza opcional solo aparece si la placa la tiene.
+- **Acceso rápido**: botón «Webasto» en los ajustes rápidos de Android y widget para la pantalla de inicio. Se conectan a la placa y encienden (con la duración elegida en la app) o apagan si ya está encendida.
+- Notificación de «ya está caliente» con la app abierta.
+
 ## 0.1.6 — 2026-10-05
 
 Versión de prueba (sin probar con una Webasto real). Primera que se puede instalar sin cable desde la 0.1.5.
