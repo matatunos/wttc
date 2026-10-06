@@ -135,14 +135,14 @@ const float    TH_HYST      = 1.5;    // °C: con el termostato, vuelve a encend
 const uint32_t TH_MINRUN    = 900000; // ms: mínimo por encendido con termostato y el agua fría (las Webasto no llevan bien
                                       // los arranques cortos: la cámara de combustión tiene que coger temperatura)
 const uint32_t TH_MINRUN_WARM = 300000; // ms: el mínimo si arrancó con el agua ya caliente (ciclos del termostato): así
-const int      TH_WARM_C    = 50;     // no se pasa tanto del objetivo. °C del agua a partir de los que cuenta como caliente
+const int      TH_WARM_C    = 30;     // no se pasa tanto del objetivo. °C del agua a partir de los que cuenta como caliente
 const uint32_t TH_REST      = 180000; // ms: tras apagarse, espera antes de volver a encender (termina su postbarrido)
 const uint32_t TH_STALL     = 1500000;// ms: calentando sin que dentro suba TH_STALL_C, el termostato se da por vencido
 const float    TH_STALL_C   = 0.5;    // °C (si hace demasiado frío fuera o el termómetro está mal puesto, no gasta en balde)
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.2.5"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.2.6"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)

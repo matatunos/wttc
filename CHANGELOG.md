@@ -6,6 +6,12 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.2.6 — 2026-10-06
+
+Versión de prueba (sin probar con una Webasto real).
+
+- Termostato: el agua cuenta como caliente (mínimo de 5 min por encendido) desde 30 °C, no desde 50 °C. Con pausas largas (fuera templado) el agua bajaba de 50 °C entre ciclos, volvía el mínimo de 15 min y se pasaba del objetivo. En el simulador, «hasta 20 °C» durante 4 h queda entre 18 y 20 °C con cualquier temperatura de fuera (de −10 a 15 °C).
+
 ## 0.2.5 — 2026-10-06
 
 Versión de prueba (sin probar con una Webasto real).
