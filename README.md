@@ -23,7 +23,7 @@ Extracto; el texto completo está en https://wttc.favala.es/#responsabilidad (ta
 
 - **Qué es.** WTTC es un proyecto personal, sin ánimo de lucro y gratuito de su autor (matatunos). No es un producto
   comercial: no se vende, no tiene servicio técnico y no ha superado ninguna homologación ni certificación.
-- **Sin garantía.** Se ofrece *tal cual*, bajo la licencia MIT, sin garantía de ningún tipo. Mientras la versión empiece
+- **Sin garantía.** Se ofrece *tal cual*, bajo la licencia GPL v3 (o posterior), sin garantía de ningún tipo. Mientras la versión empiece
   por 0 es **de prueba**: compila y se ha comprobado en el simulador, pero no se ha probado instalada con una Webasto real.
   La documentación técnica (cables, conexiones, consumos, códigos de avería) puede contener errores: compruébala antes de
   conectar nada.
@@ -40,7 +40,7 @@ Extracto; el texto completo está en https://wttc.favala.es/#responsabilidad (ta
   contener errores no detectados. Webasto, Thermo Top, Volkswagen y el resto de marcas citadas son de sus titulares; el
   proyecto no tiene relación con ellos.
 
-Descargar, instalar o usar el proyecto implica aceptar la descarga de responsabilidad completa y la licencia MIT.
+Descargar, instalar o usar el proyecto implica aceptar la descarga de responsabilidad completa y la licencia GPL v3.
 
 ## Capturas
 Hechas automáticamente: la web con el simulador y la app en un emulador Android con la placa simulada (sin hardware).
@@ -144,4 +144,13 @@ Firmware y app llevan el mismo número, el del fichero [`VERSION`](VERSION). Cad
 [`CHANGELOG.md`](CHANGELOG.md) y, al subirla, GitHub Actions publica la Release con el APK y el firmware.
 
 ## Licencia
-MIT. Código generado con Claude (Anthropic).
+WTTC es **software libre** — Copyright (C) 2026 matatunos — bajo la **GNU General Public License v3 o posterior**
+(`GPL-3.0-or-later`, texto completo en [LICENSE](LICENSE)). Se puede usar, estudiar, modificar y distribuir, también
+vendido; pero quien distribuya una versión, modificada o no (firmware, APK, código), tiene que hacerlo con esta misma
+licencia y dar su código fuente. Así el proyecto y sus derivados siguen siendo libres.
+
+Hasta la versión 0.2.6 el proyecto se publicó con licencia MIT: esas versiones siguen teniéndola. Desde la 0.2.7, GPL v3.
+Lo que usa por dentro es compatible: núcleo Arduino del ESP32 (LGPL 2.1), ESP-IDF y ESP Web Tools (Apache 2.0), jsPDF
+(MIT, en la web) y las letras DejaVu (licencia Bitstream Vera, ver `firmware/WTTC/fuentes.h`).
+
+Código generado con Claude (Anthropic).

@@ -85,7 +85,7 @@
     <string name="stats_switch">Anonyme Statistiken senden</string>
     <string name="stats_help">Höchstens einmal am Tag: Versionen, Gerätetyp, Land, Anzahl der Starts und Fehler. Kein Standort, keine Namen, Netzwerke oder PIN, und deine IP wird nicht gespeichert.</string>
     <string name="btn_public_stats">Öffentliche Statistiken ansehen</string>
-    <string name="footer">WTTC-App %1$s · wttc.favala.es\nCode vollständig mit Claude (Anthropic) erzeugt · github.com/matatunos/wttc</string>
+    <string name="footer">WTTC-App %1$s · wttc.favala.es\nFreie Software, Lizenz GPL v3 oder später · github.com/matatunos/wttc\nCode vollständig mit Claude (Anthropic) erzeugt</string>
     <string name="scan_title">Suche WTTC-Platinen…</string>
     <string name="cancel">Abbrechen</string>
     <string name="stats_title">Hilfst du uns mit anonymen Statistiken?</string>

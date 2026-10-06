@@ -6,6 +6,12 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.2.7 — 2026-10-06
+
+Versión de prueba (sin probar con una Webasto real). **Cambio de licencia.**
+
+- **WTTC pasa a ser software libre con licencia GPL v3 o posterior** (antes, MIT). Se puede usar, modificar y distribuir, pero quien distribuya una versión, modificada o no, tiene que hacerlo con la misma licencia y dar su código fuente: así el proyecto y sus derivados siguen siendo libres. Las versiones hasta la 0.2.6 siguen teniendo la licencia MIT con la que se publicaron.
+
 ## 0.2.6 — 2026-10-06
 
 Versión de prueba (sin probar con una Webasto real).

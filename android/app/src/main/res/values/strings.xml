@@ -86,7 +86,7 @@
     <string name="stats_switch">Send anonymous statistics</string>
     <string name="stats_help">At most once a day: versions, device type, country, number of starts and faults. No location, names, networks or PIN, and your IP is not stored.</string>
     <string name="btn_public_stats">View public statistics</string>
-    <string name="footer">WTTC app %1$s · wttc.favala.es\nCode generated entirely with Claude (Anthropic) · github.com/matatunos/wttc</string>
+    <string name="footer">WTTC app %1$s · wttc.favala.es\nFree software, GPL v3 or later licence · github.com/matatunos/wttc\nCode generated entirely with Claude (Anthropic)</string>
     <string name="scan_title">Searching for WTTC boards…</string>
     <string name="cancel">Cancel</string>
     <string name="stats_title">Help us with anonymous statistics?</string>

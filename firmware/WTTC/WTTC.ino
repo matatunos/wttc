@@ -6,6 +6,10 @@
   >>> Código generado íntegramente con Claude (Anthropic), a partir de las indicaciones del autor del proyecto.
   >>> Todo el contenido de este repositorio (firmware, app, servidor, web y documentación) está generado con Claude.
 
+  Copyright (C) 2026 matatunos. Software libre: se puede redistribuir y modificar bajo la GNU General Public License
+  versión 3 o posterior (GPL-3.0-or-later), publicada por la Free Software Foundation; texto completo en LICENSE.
+  Se distribuye SIN NINGUNA GARANTÍA, ni siquiera la implícita de comerciabilidad o idoneidad para un fin concreto.
+
   Qué es
   ------
   Sustituye al temporizador original de la calefacción auxiliar de agua Webasto Thermo Top C (la que montan
@@ -142,7 +146,7 @@ const float    TH_STALL_C   = 0.5;    // °C (si hace demasiado frío fuera o el
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.2.6"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.2.7"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
