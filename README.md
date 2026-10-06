@@ -14,26 +14,33 @@ Sustituye al temporizador original de la calefacción auxiliar **Webasto Thermo 
 fábrica, por ejemplo, las VW T5) por un **ESP32** que habla su protocolo **W-Bus**. Se maneja desde una **app Android**
 por Bluetooth o desde el navegador por Wi-Fi.
 
-> Proyecto personal, sin relación con Webasto ni con Volkswagen. Úsalo bajo tu responsabilidad (ver el aviso más abajo).
-> La Webasto conserva todas sus protecciones (sobrecalentamiento, llama, tensión, bloqueo por fallos).
+> Proyecto personal, sin relación con Webasto ni con Volkswagen. Úsalo bajo tu responsabilidad (ver la descarga de responsabilidad más abajo).
+> WTTC no modifica la calefacción: le manda las mismas órdenes que su mando y sus protecciones internas (sobrecalentamiento,
+> llama, tensión, bloqueo por fallos) siguen funcionando igual.
 
-## ⚠️ Aviso de responsabilidad
-WTTC es un proyecto personal, hecho por afición y compartido por si a alguien le sirve: **no es un producto**, no tiene
-servicio técnico ni homologación, y se ofrece *tal cual*, sin garantía de ningún tipo (licencia MIT). Mientras la versión
-empiece por 0 es **de prueba**: aún no se ha probado montado con una Webasto real.
+## ⚠️ Descarga de responsabilidad
+Extracto; el texto completo está en https://wttc.favala.es/#responsabilidad (también en inglés y alemán).
 
-Una calefacción de gasoil quema combustible, genera humos y tira de la batería. Un montaje mal hecho o un fallo del
-programa pueden acabar en una batería descargada, en averías de la calefacción o del vehículo, en la pérdida de su
-garantía o incluso en un incendio.
+- **Qué es.** WTTC es un proyecto personal, sin ánimo de lucro y gratuito de su autor (matatunos). No es un producto
+  comercial: no se vende, no tiene servicio técnico y no ha superado ninguna homologación ni certificación.
+- **Sin garantía.** Se ofrece *tal cual*, bajo la licencia MIT, sin garantía de ningún tipo. Mientras la versión empiece
+  por 0 es **de prueba**: compila y se ha comprobado en el simulador, pero no se ha probado instalada con una Webasto real.
+  La documentación técnica (cables, conexiones, consumos, códigos de avería) puede contener errores: compruébala antes de
+  conectar nada.
+- **Exclusión de responsabilidad.** En la máxima medida permitida por la ley, el autor no responde de ningún daño o
+  perjuicio, directo o indirecto, derivado de descargar, instalar, usar o modificar el proyecto (entre otros: lesiones,
+  intoxicación por monóxido de carbono, incendio, daños en la calefacción, el vehículo o su batería, pérdida de garantía o
+  de seguro), ni del fallo de servicios de terceros de los que depende (GitHub, Telegram). No excluye la responsabilidad
+  que la ley no permite excluir, como la derivada de dolo o culpa grave.
+- **Responsabilidad del usuario.** Quien lo instala o lo usa lo hace bajo su exclusiva responsabilidad. **Nunca programes
+  ni enciendas la calefacción con el vehículo en un garaje o recinto cerrado:** el monóxido de carbono no huele y puede ser
+  mortal. Instálalo solo si sabes trabajar con seguridad en 12 V, pon fusible y conserva siempre una forma de apagarla
+  sin el proyecto.
+- **Inteligencia artificial y marcas.** Todo el código y el contenido se han generado con Claude (Anthropic) y pueden
+  contener errores no detectados. Webasto, Thermo Top, Volkswagen y el resto de marcas citadas son de sus titulares; el
+  proyecto no tiene relación con ellos.
 
-- **Nunca la programes ni la enciendas a distancia con el vehículo en un garaje o lugar cerrado**: el monóxido de carbono
-  no huele y mata.
-- Si no te manejas con seguridad en instalaciones de 12 V, no lo montes tú. Mide cada cable antes de conectar, pon fusible
-  y conserva siempre una forma de apagarla sin la app.
-
-**Si lo montas, el responsable eres tú.** El autor no se hace cargo de ningún daño, avería o perjuicio, directo o indirecto,
-que pueda derivarse de usar, montar o modificar WTTC. Webasto, Thermo Top y Volkswagen son marcas de sus propietarios; WTTC
-no tiene relación con ellos. El texto completo está en https://wttc.favala.es/#responsabilidad
+Descargar, instalar o usar el proyecto implica aceptar la descarga de responsabilidad completa y la licencia MIT.
 
 ## Capturas
 Hechas automáticamente: la web con el simulador y la app en un emulador Android con la placa simulada (sin hardware).
