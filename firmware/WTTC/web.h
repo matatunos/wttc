@@ -48,6 +48,9 @@ header b{color:var(--ink);font-size:17px}
 .stats{display:flex;justify-content:center;gap:22px;color:var(--mut);font-size:14px;font-variant-numeric:tabular-nums;margin-bottom:18px}
 .stats b{color:var(--ink);font-weight:600}
 .gas{text-align:center;color:var(--mut);font-size:13px;margin:-10px 0 18px}
+.cab{text-align:center;font-size:17px;margin:-8px 0 16px}.cab b{font-weight:600}
+.line select,.line input[type=time]{font:inherit;font-size:15px;background:var(--sf2);color:var(--ink);border:0;border-radius:8px;padding:6px 8px}
+.opts{display:flex;gap:8px;margin-top:10px}.opts select{flex:1;min-width:0;font:inherit;font-size:14px;background:var(--sf2);color:var(--ink);border:0;border-radius:8px;padding:6px 8px}
 .seg{display:flex;background:var(--sf);border-radius:12px;padding:4px;gap:4px}
 .seg button{flex:1;border:0;background:none;color:var(--mut);padding:9px 0;border-radius:9px;font:inherit;font-size:15px}
 .seg button.sel{background:var(--sf2);color:var(--ink);font-weight:600}
@@ -100,11 +103,18 @@ details h3{font-size:15px;margin:18px 0 0}
 <!-- Datos que da la Webasto (batería, llama, potencia) y debajo el gasoil estimado -->
 <div class="stats"><span><span data-t="battery">Batería</span> <b id="volt">--</b></span><span><span data-t="flame">Llama</span> <b id="flame">--</b></span><span><span data-t="power">Potencia</span> <b id="pw">--</b></span></div>
 <div class="gas" id="gas"></div>
+<!-- Temperatura y humedad de dentro: solo con el termómetro opcional (SHT31 o AHT20) -->
+<div class="cab" id="cab" hidden></div>
 <!-- Avisos: se apagó sola (con sus averías), el W-Bus no responde, la placa no está en hora -->
 <div id="warn"></div>
 <!-- Duración elegida (15–60 min) y botón grande de encender / apagar -->
 <div class="seg" id="seg"></div>
+<!-- Con termómetro: «calentar hasta X °C» (termostato). La duración pasa a ser el tiempo máximo -->
+<div class="line" id="tgtRow" style="margin-top:12px" hidden><span data-t="tgtL">Hasta</span><select id="tgt" aria-label="Hasta" data-ta="tgtL"></select></div>
 <button class="big" id="big" disabled data-t="turnOn">Encender</button>
+<!-- Salida suelta: «salgo a las 8:00»; la placa decide cuánto antes encender según el frío que haga -->
+<div class="line" style="margin-top:12px"><span data-t="depL">Salgo a las</span><span><input type="time" id="depT" value="08:00" aria-label="Salgo a las" data-ta="depL"> <button class="btn" id="depGo" data-t="depGo">Programar</button></span></div>
+<p class="sub" id="depSt"></p>
 
 <!-- Programas semanales: hora, duración, días y activo; se guardan en la placa con «Guardar programas» -->
 <h2 data-t="schedules">Programas</h2><p class="sub" id="next" data-t="noSched">Sin programas.</p>
@@ -136,6 +146,14 @@ details h3{font-size:15px;margin:18px 0 0}
 <p class="sub" id="tgst" style="white-space:pre-line"></p>
 <h3 data-t="safety">Seguridad</h3>
 <label class="f"><span data-t="fMinV">Batería mínima para arrancar un programa (V)</span><input id="c_mv" type="number" step="0.1" min="10.5" max="13"></label>
+<p class="sub" data-t="minvHelp">Calentando, se apaga sola si la batería baja medio voltio por debajo de esta.</p>
+<label class="f"><span data-t="fWarm">Avisar cuando el agua llegue a (°C; 0 = no avisar)</span><input id="c_warm" type="number" step="1" min="0" max="80"></label>
+<h3 data-t="hwT">Pantalla, LED y termómetro (opcionales)</h3>
+<p class="sub" id="hw"></p>
+<label class="f"><span data-t="fOled">Tipo de pantalla</span><select id="c_oled"><option value="0" data-t="oled0">OLED 1,3" (SH1106)</option><option value="1" data-t="oled1">OLED 0,96" (SSD1306)</option></select></label>
+<label class="f"><span data-t="fDisp">Pantalla</span><select id="c_disp"><option value="0" data-t="disp0">Apagada</option><option value="1" data-t="disp1">Automática</option><option value="2" data-t="disp2">Siempre encendida</option></select></label>
+<label class="f"><span data-t="fLed">LED de la placa</span><select id="c_led"><option value="0" data-t="led0">Apagado</option><option value="1" data-t="led1">Bajo</option><option value="2" data-t="led2">Medio</option><option value="3" data-t="led3">Alto</option></select></label>
+<label class="f"><span data-t="fToff">Corrección del termómetro (°C)</span><input id="c_toff" type="number" step="0.1" min="-5" max="5"></label>
 <div class="acts" style="margin-top:14px"><button class="btn pri" id="csave" data-t="save">Guardar</button><button class="btn" id="tgtest" data-t="tgTest">Probar Telegram</button></div>
 <div class="acts" style="margin-top:10px"><button class="btn" id="forget" data-t="forget">Borrar emparejamientos</button><button class="btn" id="tsync" data-t="setClock">Poner en hora</button></div>
 <h3 data-t="updTitle">Actualizar firmware</h3>
@@ -152,7 +170,14 @@ details h3{font-size:15px;margin:18px 0 0}
 const $=id=>document.getElementById(id);
 // ---- Idioma: el de la placa (ajuste «lang»); hasta saberlo, el del navegador. Textos en es, en y de ----
 const I18N={
-es:{loc:'es-ES',updCheck:'Buscar actualizaciones',updHelp2:'Con la placa unida a una red con internet, «Buscar actualizaciones» lo hace todo: busca, te pregunta y la descarga e instala sola.',updSearching:'Buscando…',updAsk:'¿Actualizar ahora? La placa la descarga, la instala y se reinicia sola.',updDownloading:'Descargando e instalando… {0} %',updTimeout:'La placa no ha contestado a tiempo.',updTitle:'Actualizar firmware',updHelp:'Descarga el fichero .ota de la última versión (github.com/matatunos/wttc/releases) y súbelo aquí. Solo se instalan actualizaciones oficiales (con firma) y nunca mientras calienta; si la nueva no arranca bien, la placa vuelve sola a la anterior.',updFile:'Fichero .ota',updBtn:'Actualizar',updNoFile:'Elige primero el fichero .ota.',updSending:'Subiendo… {0} %',updChecking:'Comprobando la firma e instalando…',updSim:'En el simulador no se puede actualizar: es la web de una placa de verdad.',updNet:'Se cortó la conexión con la placa.',setupTitle:'Primer uso: protege la Wi-Fi de la placa',setupText:'La clave de fábrica es pública: cualquiera cerca podría manejar la calefacción. Elige una nueva (mínimo 8 caracteres); la placa se reinicia y tendrás que volver a conectarte a su Wi-Fi con la clave nueva.',setupLabel:'Clave nueva de la Wi-Fi',setupShort:'La clave debe tener al menos 8 caracteres.',water:'agua del motor',connecting:'Conectando…',battery:'Batería',flame:'Llama',power:'Potencia',turnOn:'Encender',turnOff:'Apagar',
+es:{loc:'es-ES',cabin:'Dentro: {0}',hum:' · humedad {0} %',tgtL:'Hasta',tgtNone:'Sin límite de temperatura',waiting:'En espera',tgtOn:'Hasta {0} · margen {1}',
+ warmOk:' · agua caliente',turnOnTgt:'Encender hasta {0} (máx. {1})',depL:'Salgo a las',depGo:'Programar',depCancel:'Cancelar',
+ depSet:'Salida: {0} a las {1}{2}. Enciende antes, según el frío que haga.',depTgt:' (hasta {0})',mStart:'Encender a esta hora',mDep:'Salgo a esta hora',
+ sTgt:'Sin termostato',nextDep:'Próxima salida: {0} a las {1}.',minvHelp:'Calentando, se apaga sola si la batería baja medio voltio por debajo de esta.',
+ fWarm:'Avisar cuando el agua llegue a (°C; 0 = no avisar)',hwT:'Pantalla, LED y termómetro (opcionales)',fOled:'Tipo de pantalla',oled0:'OLED 1,3" (SH1106)',
+ oled1:'OLED 0,96" (SSD1306)',fDisp:'Pantalla',disp0:'Apagada',disp1:'Automática (se apaga al minuto)',disp2:'Siempre encendida',fLed:'LED de la placa',
+ led0:'Apagado',led1:'Bajo',led2:'Medio',led3:'Alto',fToff:'Corrección del termómetro (°C)',hwDet:'Detectado: {0}.',scr:'pantalla',
+ hwNone:'No se detecta pantalla ni termómetro (bus I2C: SDA a IO4, SCL a IO5, más 3V3 y GND).',updCheck:'Buscar actualizaciones',updHelp2:'Con la placa unida a una red con internet, «Buscar actualizaciones» lo hace todo: busca, te pregunta y la descarga e instala sola.',updSearching:'Buscando…',updAsk:'¿Actualizar ahora? La placa la descarga, la instala y se reinicia sola.',updDownloading:'Descargando e instalando… {0} %',updTimeout:'La placa no ha contestado a tiempo.',updTitle:'Actualizar firmware',updHelp:'Descarga el fichero .ota de la última versión (github.com/matatunos/wttc/releases) y súbelo aquí. Solo se instalan actualizaciones oficiales (con firma) y nunca mientras calienta; si la nueva no arranca bien, la placa vuelve sola a la anterior.',updFile:'Fichero .ota',updBtn:'Actualizar',updNoFile:'Elige primero el fichero .ota.',updSending:'Subiendo… {0} %',updChecking:'Comprobando la firma e instalando…',updSim:'En el simulador no se puede actualizar: es la web de una placa de verdad.',updNet:'Se cortó la conexión con la placa.',setupTitle:'Primer uso: protege la Wi-Fi de la placa',setupText:'La clave de fábrica es pública: cualquiera cerca podría manejar la calefacción. Elige una nueva (mínimo 8 caracteres); la placa se reinicia y tendrás que volver a conectarte a su Wi-Fi con la clave nueva.',setupLabel:'Clave nueva de la Wi-Fi',setupShort:'La clave debe tener al menos 8 caracteres.',water:'agua del motor',connecting:'Conectando…',battery:'Batería',flame:'Llama',power:'Potencia',turnOn:'Encender',turnOff:'Apagar',
  turningOn:'Encendiendo…',turningOff:'Apagando…',schedules:'Programas',noSched:'Sin programas.',schedOn:'Programas activos',addSched:'Añadir programa',
  saveSched:'Guardar programas',saved:'Guardado',diag:'Diagnóstico',readFaults:'Leer averías',gasReset:'Gasoil a cero',settings:'Configuración',language:'Idioma',
  ownNet:'Bluetooth y Wi-Fi propios',fName:'Nombre (red Wi-Fi y Bluetooth)',fPin:'PIN de emparejamiento Bluetooth (6 cifras)',
@@ -175,7 +200,14 @@ es:{loc:'es-ES',updCheck:'Buscar actualizaciones',updHelp2:'Con la placa unida a
  ver:'Firmware WTTC {0} · código generado íntegramente con Claude (Anthropic) · github.com/matatunos/wttc',
  askGas:'¿Poner a cero el gasoil estimado (último encendido, mes y total)?',askForget:'¿Borrar todos los dispositivos emparejados? Habrá que volver a emparejar la app con el PIN.',
  days:['L','M','X','J','V','S','D'],daysL:['el lunes','el martes','el miércoles','el jueves','el viernes','el sábado','el domingo']},
-en:{loc:'en-GB',updCheck:'Check for updates',updHelp2:'With the board joined to a network with internet, “Check for updates” does it all: it checks, asks you, and downloads and installs it by itself.',updSearching:'Checking…',updAsk:'Update now? The board downloads it, installs it and restarts by itself.',updDownloading:'Downloading and installing… {0} %',updTimeout:'The board did not answer in time.',updTitle:'Update firmware',updHelp:'Download the .ota file of the latest version (github.com/matatunos/wttc/releases) and upload it here. Only official (signed) updates are installed, and never while heating; if the new one does not start properly, the board goes back to the previous one by itself.',updFile:'.ota file',updBtn:'Update',updNoFile:'Choose the .ota file first.',updSending:'Uploading… {0} %',updChecking:'Checking the signature and installing…',updSim:'Updating is not possible in the simulator: this is the web page of a real board.',updNet:'The connection to the board was lost.',setupTitle:'First use: protect the board\'s Wi-Fi',setupText:'The factory password is public: anyone nearby could control the heater. Choose a new one (at least 8 characters); the board restarts and you will have to reconnect to its Wi-Fi with the new password.',setupLabel:'New Wi-Fi password',setupShort:'The password must be at least 8 characters long.',water:'engine coolant',connecting:'Connecting…',battery:'Battery',flame:'Flame',power:'Power',turnOn:'Switch on',turnOff:'Switch off',
+en:{loc:'en-GB',cabin:'Inside: {0}',hum:' · humidity {0} %',tgtL:'Up to',tgtNone:'No temperature limit',waiting:'Waiting',tgtOn:'Up to {0} · window {1}',
+ warmOk:' · water is warm',turnOnTgt:'Heat up to {0} (max {1})',depL:'I leave at',depGo:'Set',depCancel:'Cancel',
+ depSet:'Departure: {0} at {1}{2}. It switches on earlier, depending on how cold it is.',depTgt:' (up to {0})',mStart:'Switch on at this time',mDep:'I leave at this time',
+ sTgt:'No thermostat',nextDep:'Next departure: {0} at {1}.',minvHelp:'While heating, it switches itself off if the battery drops half a volt below this.',
+ fWarm:'Notify when the water reaches (°C; 0 = no notice)',hwT:'Display, LED and thermometer (optional)',fOled:'Display type',oled0:'OLED 1.3" (SH1106)',
+ oled1:'OLED 0.96" (SSD1306)',fDisp:'Display',disp0:'Off',disp1:'Automatic (off after a minute)',disp2:'Always on',fLed:'Board LED',
+ led0:'Off',led1:'Low',led2:'Medium',led3:'High',fToff:'Thermometer correction (°C)',hwDet:'Detected: {0}.',scr:'display',
+ hwNone:'No display or thermometer detected (I2C bus: SDA to IO4, SCL to IO5, plus 3V3 and GND).',updCheck:'Check for updates',updHelp2:'With the board joined to a network with internet, “Check for updates” does it all: it checks, asks you, and downloads and installs it by itself.',updSearching:'Checking…',updAsk:'Update now? The board downloads it, installs it and restarts by itself.',updDownloading:'Downloading and installing… {0} %',updTimeout:'The board did not answer in time.',updTitle:'Update firmware',updHelp:'Download the .ota file of the latest version (github.com/matatunos/wttc/releases) and upload it here. Only official (signed) updates are installed, and never while heating; if the new one does not start properly, the board goes back to the previous one by itself.',updFile:'.ota file',updBtn:'Update',updNoFile:'Choose the .ota file first.',updSending:'Uploading… {0} %',updChecking:'Checking the signature and installing…',updSim:'Updating is not possible in the simulator: this is the web page of a real board.',updNet:'The connection to the board was lost.',setupTitle:'First use: protect the board\'s Wi-Fi',setupText:'The factory password is public: anyone nearby could control the heater. Choose a new one (at least 8 characters); the board restarts and you will have to reconnect to its Wi-Fi with the new password.',setupLabel:'New Wi-Fi password',setupShort:'The password must be at least 8 characters long.',water:'engine coolant',connecting:'Connecting…',battery:'Battery',flame:'Flame',power:'Power',turnOn:'Switch on',turnOff:'Switch off',
  turningOn:'Switching on…',turningOff:'Switching off…',schedules:'Schedules',noSched:'No schedules.',schedOn:'Schedules enabled',addSched:'Add schedule',
  saveSched:'Save schedules',saved:'Saved',diag:'Diagnostics',readFaults:'Read faults',gasReset:'Reset diesel',settings:'Settings',language:'Language',
  ownNet:'Own Bluetooth and Wi-Fi',fName:'Name (Wi-Fi network and Bluetooth)',fPin:'Bluetooth pairing PIN (6 digits)',
@@ -198,7 +230,14 @@ en:{loc:'en-GB',updCheck:'Check for updates',updHelp2:'With the board joined to 
  ver:'WTTC firmware {0} · code generated entirely with Claude (Anthropic) · github.com/matatunos/wttc',
  askGas:'Reset the diesel estimate (last run, month and total)?',askForget:'Delete all paired devices? The app will have to be paired again with the PIN.',
  days:['M','T','W','T','F','S','S'],daysL:['on Monday','on Tuesday','on Wednesday','on Thursday','on Friday','on Saturday','on Sunday']},
-de:{loc:'de-DE',updCheck:'Nach Updates suchen',updHelp2:'Ist die Platine mit einem Netz mit Internet verbunden, erledigt „Nach Updates suchen“ alles: sucht, fragt dich und lädt und installiert es selbst.',updSearching:'Suche…',updAsk:'Jetzt aktualisieren? Die Platine lädt es herunter, installiert es und startet selbst neu.',updDownloading:'Lade herunter und installiere… {0} %',updTimeout:'Die Platine hat nicht rechtzeitig geantwortet.',updTitle:'Firmware aktualisieren',updHelp:'Die .ota-Datei der neuesten Version herunterladen (github.com/matatunos/wttc/releases) und hier hochladen. Es werden nur offizielle (signierte) Updates installiert und nie während des Heizens; startet die neue nicht richtig, kehrt die Platine von selbst zur vorherigen zurück.',updFile:'.ota-Datei',updBtn:'Aktualisieren',updNoFile:'Zuerst die .ota-Datei wählen.',updSending:'Lade hoch… {0} %',updChecking:'Prüfe die Signatur und installiere…',updSim:'Im Simulator kann nicht aktualisiert werden: das ist die Webseite einer echten Platine.',updNet:'Die Verbindung zur Platine ist abgebrochen.',setupTitle:'Erste Nutzung: WLAN der Platine schützen',setupText:'Das Passwort ab Werk ist öffentlich: jeder in der Nähe könnte die Heizung steuern. Wähle ein neues (mindestens 8 Zeichen); die Platine startet neu und du musst dich mit dem neuen Passwort wieder mit ihrem WLAN verbinden.',setupLabel:'Neues WLAN-Passwort',setupShort:'Das Passwort muss mindestens 8 Zeichen lang sein.',water:'Kühlwasser',connecting:'Verbinde…',battery:'Batterie',flame:'Flamme',power:'Leistung',turnOn:'Einschalten',turnOff:'Ausschalten',
+de:{loc:'de-DE',cabin:'Innen: {0}',hum:' · Feuchte {0} %',tgtL:'Bis',tgtNone:'Ohne Temperaturgrenze',waiting:'Wartet',tgtOn:'Bis {0} · Zeitfenster {1}',
+ warmOk:' · Wasser ist warm',turnOnTgt:'Heizen bis {0} (max. {1})',depL:'Abfahrt um',depGo:'Einstellen',depCancel:'Löschen',
+ depSet:'Abfahrt: {0} um {1}{2}. Schaltet je nach Kälte früher ein.',depTgt:' (bis {0})',mStart:'Zu dieser Zeit einschalten',mDep:'Abfahrt zu dieser Zeit',
+ sTgt:'Ohne Thermostat',nextDep:'Nächste Abfahrt: {0} um {1}.',minvHelp:'Während des Heizens schaltet sie sich ab, wenn die Batterie ein halbes Volt darunter fällt.',
+ fWarm:'Melden, wenn das Wasser erreicht (°C; 0 = keine Meldung)',hwT:'Display, LED und Thermometer (optional)',fOled:'Displaytyp',oled0:'OLED 1,3" (SH1106)',
+ oled1:'OLED 0,96" (SSD1306)',fDisp:'Display',disp0:'Aus',disp1:'Automatisch (nach einer Minute aus)',disp2:'Immer an',fLed:'LED der Platine',
+ led0:'Aus',led1:'Niedrig',led2:'Mittel',led3:'Hoch',fToff:'Thermometerkorrektur (°C)',hwDet:'Erkannt: {0}.',scr:'Display',
+ hwNone:'Kein Display und kein Thermometer erkannt (I2C-Bus: SDA an IO4, SCL an IO5, dazu 3V3 und GND).',updCheck:'Nach Updates suchen',updHelp2:'Ist die Platine mit einem Netz mit Internet verbunden, erledigt „Nach Updates suchen“ alles: sucht, fragt dich und lädt und installiert es selbst.',updSearching:'Suche…',updAsk:'Jetzt aktualisieren? Die Platine lädt es herunter, installiert es und startet selbst neu.',updDownloading:'Lade herunter und installiere… {0} %',updTimeout:'Die Platine hat nicht rechtzeitig geantwortet.',updTitle:'Firmware aktualisieren',updHelp:'Die .ota-Datei der neuesten Version herunterladen (github.com/matatunos/wttc/releases) und hier hochladen. Es werden nur offizielle (signierte) Updates installiert und nie während des Heizens; startet die neue nicht richtig, kehrt die Platine von selbst zur vorherigen zurück.',updFile:'.ota-Datei',updBtn:'Aktualisieren',updNoFile:'Zuerst die .ota-Datei wählen.',updSending:'Lade hoch… {0} %',updChecking:'Prüfe die Signatur und installiere…',updSim:'Im Simulator kann nicht aktualisiert werden: das ist die Webseite einer echten Platine.',updNet:'Die Verbindung zur Platine ist abgebrochen.',setupTitle:'Erste Nutzung: WLAN der Platine schützen',setupText:'Das Passwort ab Werk ist öffentlich: jeder in der Nähe könnte die Heizung steuern. Wähle ein neues (mindestens 8 Zeichen); die Platine startet neu und du musst dich mit dem neuen Passwort wieder mit ihrem WLAN verbinden.',setupLabel:'Neues WLAN-Passwort',setupShort:'Das Passwort muss mindestens 8 Zeichen lang sein.',water:'Kühlwasser',connecting:'Verbinde…',battery:'Batterie',flame:'Flamme',power:'Leistung',turnOn:'Einschalten',turnOff:'Ausschalten',
  turningOn:'Schalte ein…',turningOff:'Schalte aus…',schedules:'Zeitpläne',noSched:'Keine Zeitpläne.',schedOn:'Zeitpläne aktiv',addSched:'Zeitplan hinzufügen',
  saveSched:'Zeitpläne speichern',saved:'Gespeichert',diag:'Diagnose',readFaults:'Fehler auslesen',gasReset:'Diesel zurücksetzen',settings:'Einstellungen',language:'Sprache',
  ownNet:'Eigenes Bluetooth und WLAN',fName:'Name (WLAN und Bluetooth)',fPin:'Bluetooth-Kopplungs-PIN (6 Ziffern)',
@@ -228,11 +267,14 @@ const T=(k,...a)=>{const v=I18N[lang][k];return String(v!==undefined?v:I18N.es[k
 function setLang(l){if(!I18N[l])return;lang=l;document.documentElement.lang=l;
  document.querySelectorAll('[data-t]').forEach(e=>e.textContent=T(e.dataset.t));
  document.querySelectorAll('[data-ta]').forEach(e=>e.setAttribute('aria-label',T(e.dataset.ta)));seg()}
-// Duraciones del botón principal y de los programas (el firmware limita a 60 min)
-const DURS=[15,30,45,60],SDURS=[15,30,45,60];
+// Duraciones del botón principal y de los programas (el firmware limita a 60 min). Con objetivo de temperatura
+// (termostato) la duración es la ventana máxima, hasta 4 h. Objetivos que se ofrecen (el firmware admite 5–30 °C)
+const DURS=[15,30,45,60],SDURS=[15,30,45,60],TDURS=[60,120,180,240],TGTS=[10,12,14,16,17,18,19,20,21,22,23,24,25];
 // Estado: st = último /api/state; sched = programas en edición; dirty = cambios sin guardar;
 // dur = duración elegida; synced = ya se puso en hora; busy = esperando la respuesta de encender/apagar
-let st=null,sched=[],dirty=false,dur=30,synced=false,busy=false;
+let st=null,sched=[],dirty=false,dur=30,synced=false,busy=false,tgt=0;
+// Temperatura con su unidad: 19,5 °C
+const deg=(v,d)=>num(v,d)+' °C';
 // Escapa texto para meterlo en HTML sin riesgo
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 // Dos cifras: 7 -> "07"
@@ -251,19 +293,35 @@ const num=(v,d)=>(+v).toLocaleString(T('loc'),{minimumFractionDigits:d,maximumFr
 // Si la respuesta no es 2xx lanza un error con el texto que da el firmware (se muestra con alert).
 async function api(p,b){const r=await fetch(p,b?{method:'POST',body:new URLSearchParams(b)}:undefined);const t=await r.text();if(!r.ok)throw new Error(t||r.status);try{return JSON.parse(t)}catch(e){return t}}
 // Pinta los botones de duración
-function seg(){$('seg').innerHTML=DURS.map(d=>`<button class="${d==dur?'sel':''}" data-d="${d}">${fmtDur(d)}</button>`).join('')}
+function seg(){const L=tgt?TDURS:DURS;if(!L.includes(dur))dur=tgt?120:30;
+ $('seg').innerHTML=L.map(d=>`<button class="${d==dur?'sel':''}" data-d="${d}">${fmtDur(d)}</button>`).join('');
+ $('tgt').innerHTML='<option value="0">'+T('tgtNone')+'</option>'+TGTS.map(t=>`<option value="${t}"${t==tgt?' selected':''}>${t} °C</option>`).join('')}
+// Elegir objetivo de temperatura (0 = encendido normal)
+$('tgt').onchange=()=>{tgt=+$('tgt').value;seg();render()};
 // Elegir duración
 $('seg').onclick=e=>{const d=e.target.dataset.d;if(d){dur=+d;seg();render()}};
 // Botón grande: enciende con la duración elegida o apaga
-$('big').onclick=async()=>{if(!st)return;busy=true;$('big').disabled=true;$('big').textContent=T(st.on?'turningOff':'turningOn');
- try{await api(st.on?'/api/off':'/api/on',st.on?{}:{min:dur})}catch(e){alert(e.message)}busy=false;poll()};
+// Con termostato en marcha (aunque esté en espera) el botón lo termina
+$('big').onclick=async()=>{if(!st)return;const off=st.on||st.tgt>0;busy=true;$('big').disabled=true;$('big').textContent=T(off?'turningOff':'turningOn');
+ try{await api(off?'/api/off':'/api/on',off?{}:{min:dur,tgt:tgt})}catch(e){alert(e.message)}busy=false;poll()};
+// Salida suelta: programar o cancelar
+$('depGo').onclick=async()=>{try{await api('/api/dep',st&&st.dep?{t:'off'}:{t:$('depT').value,tgt:tgt});poll()}catch(e){alert(e.message)}};
 // Repinta toda la página con el último estado
 function render(){if(!st)return;
  if(st.lang&&st.lang!=lang)setLang(st.lang);
  document.body.classList.toggle('on',st.on);$('hname').textContent=st.name;
  $('tmp').textContent=st.temp>-100?st.temp+'°':'--°';
- $('st').textContent=st.on?(T('PH')[st.ph]||T('heating')):T('off');
- $('rem').textContent=st.on?(st.ph==3?T('hotWater'):'')+T('left',fmtRem(st.remain))+(st.src=='programa'?T('bySched'):''):'';
+ const th=st.tgt>0;
+ $('st').textContent=st.on?(T('PH')[st.ph]||T('heating')):th?T('waiting'):T('off');
+ $('rem').textContent=th?T('tgtOn',deg(st.tgt,0),fmtRem(st.tun))+(st.wa?T('warmOk'):''):
+  st.on?(st.ph==3?T('hotWater'):'')+T('left',fmtRem(st.remain))+(st.src=='programa'?T('bySched'):'')+(st.wa?T('warmOk'):''):'';
+ const hasT=st.ct!==null&&st.ct!==undefined;
+ $('cab').hidden=!hasT;if(hasT)$('cab').innerHTML=T('cabin','<b>'+deg(st.ct,1)+'</b>')+(st.ch!==null?T('hum',st.ch):'');
+ $('tgtRow').hidden=!hasT;if(!hasT&&tgt){tgt=0;seg()}
+ if(st.dep){const d=new Date(st.dep*1000),k=Math.round((new Date(d).setHours(0,0,0,0)-new Date(st.time*1000).setHours(0,0,0,0))/864e5);
+  $('depSt').textContent=T('depSet',k<=0?T('today'):k==1?T('tomorrow'):T('daysL')[(d.getDay()+6)%7],pad(d.getHours())+':'+pad(d.getMinutes()),st.dept?T('depTgt',deg(st.dept,0)):'')}
+ else $('depSt').textContent='';
+ if(!busy)$('depGo').textContent=T(st.dep?'depCancel':'depGo');
  $('arc').style.strokeDashoffset=553*(1-(st.on&&st.total?st.remain/st.total:0));
  $('volt').textContent=st.volt>0?num(st.volt,1)+' V':'--';
  $('flame').textContent=st.flame<0?'--':T(st.flame?'yes':'no');
@@ -277,8 +335,8 @@ function render(){if(!st)return;
  if(!st.tv)w+='<div class="warn">'+T('clockWarn')+'</div>';
  $('warn').innerHTML=w;
  $('setup').hidden=st.apdef!==true;
- if(!busy){$('big').disabled=st.apdef===true;$('big').textContent=st.on?T('turnOff'):T('turnOn')+' '+fmtDur(dur)}
- if(!dirty){sched=st.sch.map(a=>({en:!!a[0],days:a[1],start:a[2],dur:a[3]}));$('auto').checked=st.auto;list()}
+ if(!busy){$('big').disabled=st.apdef===true;$('big').textContent=st.on||th?T('turnOff'):tgt?T('turnOnTgt',deg(tgt,0),fmtDur(dur)):T('turnOn')+' '+fmtDur(dur)}
+ if(!dirty){sched=st.sch.map(a=>({en:!!a[0],days:a[1],start:a[2],dur:a[3],x:a[4]||0}));$('auto').checked=st.auto;list()}
  $('diag').textContent=T('lastTx')+(st.tx||'-')+'\n'+T('lastRx')+(st.rx||'-')+'\n\n'+st.log.join('\n');
  $('wifi').textContent=(st.ble?T('bleOn'):'')+(st.sta?T('staOn',st.ssid,st.ip,st.rssi):T('staOff'))+T('ownAp',st.name);
  $('tgst').textContent=T(st.tg?'tgOn':'tgOff')+T('tgNet')+(st.tgl?T('tgLast')+st.tgl:'');
@@ -286,10 +344,12 @@ function render(){if(!st)return;
 // Pinta la lista de programas (hora, duración, interruptor, borrar y días)
 function list(){$('list').innerHTML=sched.map((s,i)=>`<div class="row"><div class="rtop">
 <input type="time" value="${hm(s.start)}" data-i="${i}" data-k="start" aria-label="${T('aTime')}">
-<select data-i="${i}" data-k="dur" aria-label="${T('aDur')}">${SDURS.map(d=>`<option value="${d}"${d==s.dur?' selected':''}>${fmtDur(d)}</option>`).join('')}</select>
+<select data-i="${i}" data-k="dur" aria-label="${T('aDur')}"${s.x&128?' hidden':''}>${(s.x&63?TDURS:SDURS).map(d=>`<option value="${d}"${d==s.dur?' selected':''}>${fmtDur(d)}</option>`).join('')}</select>
 <label class="sw"><input type="checkbox"${s.en?' checked':''} data-i="${i}" data-k="en" aria-label="${T('aEn')}"><i></i></label>
 <button class="x" data-i="${i}" data-k="del" aria-label="${T('aDel')}">×</button></div>
-<div class="days">${T('days').map((d,j)=>`<button class="${s.days>>j&1?'sel':''}" data-i="${i}" data-k="day" data-j="${j}">${d}</button>`).join('')}</div></div>`).join('')
+<div class="days">${T('days').map((d,j)=>`<button class="${s.days>>j&1?'sel':''}" data-i="${i}" data-k="day" data-j="${j}">${d}</button>`).join('')}</div>
+<div class="opts"><select data-i="${i}" data-k="mode"><option value="0">${T('mStart')}</option><option value="128"${s.x&128?' selected':''}>${T('mDep')}</option></select>
+<select data-i="${i}" data-k="tg"><option value="0">${T('sTgt')}</option>${TGTS.map(t=>`<option value="${t}"${(s.x&63)==t?' selected':''}>${T('tgtL')} ${t} °C</option>`).join('')}</select></div></div>`).join('')
  ||'<p class="sub">'+T('addHelp')+'</p>';
  $('save').disabled=!dirty}
 // Marca que hay cambios sin guardar en los programas
@@ -299,13 +359,17 @@ $('list').addEventListener('click',e=>{const t=e.target.closest('button[data-k]'
  if(t.dataset.k=='del'){sched.splice(i,1);touch()}else if(t.dataset.k=='day'){sched[i].days^=1<<+t.dataset.j;touch()}});
 // Cambios en la lista: hora, duración o activo
 $('list').addEventListener('change',e=>{const t=e.target,i=+t.dataset.i,k=t.dataset.k;
- if(k=='start'&&t.value){const p=t.value.split(':');sched[i].start=+p[0]*60+ +p[1]}else if(k=='dur')sched[i].dur=+t.value;else if(k=='en')sched[i].en=t.checked;touch(false)});
+ if(k=='start'&&t.value){const p=t.value.split(':');sched[i].start=+p[0]*60+ +p[1]}else if(k=='dur')sched[i].dur=+t.value;else if(k=='en')sched[i].en=t.checked;
+ // Modo (encender a la hora / hora de salida) y objetivo: x = 128 si es salida + °C del objetivo. Cambian la lista de duraciones
+ else if(k=='mode'||k=='tg'){const s=sched[i];s.x=k=='mode'?(+t.value|(s.x&63)):((s.x&128)|+t.value);
+  const L=s.x&63?TDURS:SDURS;if(!L.includes(s.dur))s.dur=s.x&63?120:30;touch();return}
+ touch(false)});
 // Añadir un programa (por defecto: 07:00, 30 min, de lunes a viernes)
-$('add').onclick=()=>{if(sched.length>=8)return alert(T('max8'));sched.push({en:true,days:31,start:420,dur:30});touch()};
+$('add').onclick=()=>{if(sched.length>=8)return alert(T('max8'));sched.push({en:true,days:31,start:420,dur:30,x:0});touch()};
 // Interruptor general de los programas
 $('auto').onchange=()=>touch(false);
 // Guardar programas en la placa (formato "activo,días,inicio,duración;…")
-$('save').onclick=async()=>{try{await api('/api/sched',{auto:$('auto').checked?1:0,list:sched.map(s=>[s.en?1:0,s.days,s.start,s.dur].join(',')).join(';')});
+$('save').onclick=async()=>{try{await api('/api/sched',{auto:$('auto').checked?1:0,list:sched.map(s=>[s.en?1:0,s.days,s.start,s.dur,s.x||0].join(',')).join(';')});
  dirty=false;$('save').disabled=true;$('save').textContent=T('saved');setTimeout(()=>$('save').textContent=T('saveSched'),1500);poll()}catch(e){alert(T('saveFail')+e.message)}};
 // Calcula y muestra el próximo encendido programado
 function next(){if(!st)return;const act=sched.filter(s=>s.en&&s.days);
@@ -313,13 +377,16 @@ function next(){if(!st)return;const act=sched.filter(s=>s.en&&s.days);
  if(!$('auto').checked){$('next').textContent=T('schedOff');return}
  const now=new Date(st.tv?st.time*1000:Date.now()),wd=(now.getDay()+6)%7,m=now.getHours()*60+now.getMinutes();let b=null;
  for(const s of act)for(let k=0;k<8;k++){const d=(wd+k)%7;if(!(s.days>>d&1)||(k==0&&s.start<=m))continue;const t=k*1440+s.start-m;if(!b||t<b.t)b={t,k,d,s};break}
- $('next').textContent=b?T('next',b.k==0?T('today'):b.k==1?T('tomorrow'):T('daysL')[b.d],hm(b.s.start),fmtDur(b.s.dur)):T('noSched')}
+ const dn=b&&(b.k==0?T('today'):b.k==1?T('tomorrow'):T('daysL')[b.d]);
+ $('next').textContent=!b?T('noSched'):b.s.x&128?T('nextDep',dn,hm(b.s.start)):T('next',dn,hm(b.s.start),fmtDur(b.s.dur))}
 // Leer las averías guardadas en la Webasto
 $('errs').onclick=async()=>{$('errout').textContent=T('reading');try{const r=await api('/api/errors');
  $('errout').textContent=(!r.ok?T('noAnswer'):r.codes.length?r.codes.map(c=>T('code',c.c,c.n)).join('\n'):T('noFaults'))+T('raw')+r.raw}catch(e){$('errout').textContent=T('error')+e.message}};
 // Configuración: lee los ajustes de la placa (las claves no se devuelven nunca: los campos quedan vacíos)
 async function loadCfg(){try{const c=await api('/api/cfg');
  $('c_name').value=c.name;$('c_pin').value=c.pin||'';$('c_wm').value=c.wifimode;$('c_ssid').value=c.ssid;$('c_chat').value=c.tgchat;$('c_mv').value=c.minvolt;$('c_lang').value=c.lang||lang;
+ if(c.th){$('c_oled').value=c.oled;$('c_disp').value=c.disp;$('c_led').value=c.led;$('c_toff').value=c.toff;$('c_warm').value=c.warm;
+  const h=[c.sens,c.scr?T('scr'):''].filter(x=>x).join(', ');$('hw').textContent=h?T('hwDet',h):T('hwNone')}
  $('c_tok').value='';$('c_ap').value='';$('c_pass').value='';$('c_tok').placeholder=T(c.tg?'stored':'notSet');
  $('c_bonds').textContent=c.bonds?T('bonds',c.bonds):T('noBonds');
  $('c_ver').textContent=T('ver',c.ver)}catch(e){alert(T('cfgFail')+e.message)}}
@@ -327,7 +394,8 @@ async function loadCfg(){try{const c=await api('/api/cfg');
 $('cfgd').ontoggle=()=>{if($('cfgd').open)loadCfg()};
 // Guardar configuración: las claves vacías no se envían (la placa conserva las que tenía).
 // El idioma va primero: así la respuesta de la placa ya sale en el nuevo
-$('csave').onclick=async()=>{const b={lang:$('c_lang').value,name:$('c_name').value.trim(),wifimode:$('c_wm').value,ssid:$('c_ssid').value.trim(),tgchat:$('c_chat').value.trim(),minvolt:$('c_mv').value};
+$('csave').onclick=async()=>{const b={lang:$('c_lang').value,name:$('c_name').value.trim(),wifimode:$('c_wm').value,ssid:$('c_ssid').value.trim(),tgchat:$('c_chat').value.trim(),minvolt:$('c_mv').value,
+  oled:$('c_oled').value,disp:$('c_disp').value,led:$('c_led').value,toff:$('c_toff').value||0,warm:$('c_warm').value||0};
  if($('c_pin').value.trim())b.pin=$('c_pin').value.trim();if($('c_ap').value)b.appass=$('c_ap').value;if($('c_pass').value)b.pass=$('c_pass').value;if($('c_tok').value.trim())b.tgtok=$('c_tok').value.trim();
  try{setLang(b.lang);alert(await api('/api/cfg',b));loadCfg();poll()}catch(e){alert(e.message)}};
 // Primer uso: guardar la clave nueva de la Wi-Fi (la placa se reinicia para aplicarla)

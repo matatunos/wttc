@@ -1,11 +1,11 @@
-# firmware.yml — Compila el firmware en GitHub para ESP32-S3 (placa de referencia) y ESP32 DevKitC, con los núcleos
-# ESP32 2.0.17 y 3.3.12, en cada cambio.
+# firmware.yml — Compila el firmware en GitHub para ESP32-S3 (la única placa soportada desde la 0.2.0), con los
+# núcleos ESP32 2.0.17 y 3.3.12, en cada cambio.
 # Código generado íntegramente con Claude (Anthropic).
 # Así se comprueba que el .ino compila sin tener que compilarlo en ningún servidor propio.
 # Los errores de compilación se publican como anotaciones del run (visibles sin iniciar sesión).
 # El binario resultante queda como artefacto del run (WTTC-firmware-core-…), y su tamaño como anotación.
 # Con el núcleo 3.3.12, si el repo tiene el secreto WTTC_FW_SIGN_KEY (clave privada ECDSA P-256), se monta y firma
-# la actualización sin cable de cada placa (WTTC-<versión>.ota para ESP32 y WTTC-<versión>-s3.ota para ESP32-S3)
+# la actualización sin cable (WTTC-<versión>-s3.ota; hasta la 0.1.6 también había WTTC-<versión>.ota para el ESP32)
 # y, en main, se adjunta a la Release de esa versión.
 name: Firmware
 
@@ -32,12 +32,11 @@ jobs:
       fail-fast: false
       matrix:
         core: ['2.0.17', '3.3.12']
-        # suffix: lo que va tras la versión en el nombre del .ota (el de ESP32 sin nada, como hasta la 0.1.5)
+        # suffix: lo que va tras la versión en el nombre del .ota
         board:
         # chip/family/boot: para instalar desde el navegador (nombre del paquete, chipFamily de ESP Web Tools y
-        # dirección del cargador de arranque: 0x0 en el S3, 0x1000 en el ESP32)
+        # dirección del cargador de arranque: 0x0 en el S3)
           - { name: 'ESP32-S3', fqbn: 'esp32:esp32:esp32s3:FlashSize=16M,PartitionScheme=huge_app', suffix: '-s3', chip: 'esp32s3', family: 'ESP32-S3', boot: 0 }
-          - { name: 'ESP32', fqbn: 'esp32:esp32:esp32:PartitionScheme=huge_app', suffix: '', chip: 'esp32', family: 'ESP32', boot: 4096 }
     steps:
       - uses: actions/checkout@v5
       - name: Versión del firmware igual a VERSION

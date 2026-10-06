@@ -14,11 +14,15 @@
 
   Hardware
   --------
-    Placa:        ESP32-S3 DevKitC-1 N16R8 (16 MB de flash; la de referencia) o ESP32 DevKitC (ESP-WROOM-32, 4 MB).
-                  El mismo código vale para las dos; cada una necesita su propio programa compilado.
+    Placa:        ESP32-S3 DevKitC-1 N16R8 (16 MB de flash). Solo ESP32-S3: el ESP32 clásico dejó de estar
+                  soportado en la versión 0.2.0 (no compila: ver el #error de abajo).
     Transceptor:  TJA1020 (TTL de 3,3 V <-> bus K-Line/LIN de un hilo a 12 V), borna LIN al cable W-Bus
     Alimentación: regulador LM2596 a 5,0 V desde el +12 V permanente del conector del temporizador
     Conexiones:   TX del TJA1020 -> IO16 (RX2 del ESP32) · RX del TJA1020 <- IO17 (TX2) · SLP -> 3V3
+    Opcional:     pantalla OLED I2C de 128×64 (SH1106 de 1,3" o SSD1306 de 0,96") y termómetro I2C (SHT31 o AHT20),
+                  los dos en el mismo bus: SDA -> IO4, SCL -> IO5, más 3V3 y GND. La placa los detecta al arrancar
+                  (y cada medio minuto si faltan); sin ellos funciona igual. El LED RGB de la placa (IO48) da el
+                  estado de un vistazo y el botón BOOT (IO0) enciende la pantalla.
 
   Código y documentación
   ----------------------
@@ -27,11 +31,10 @@
 
   Compilar
   --------
-    Arduino IDE:  placa "ESP32S3 Dev Module" (Flash Size 16MB) o "ESP32 Dev Module", núcleo ESP32 2.x o 3.x.
+    Arduino IDE:  placa "ESP32S3 Dev Module" (Flash Size 16MB), núcleo ESP32 2.x o 3.x.
                   Sin librerías externas. Esquema de partición: "Huge APP" (solo para el límite de tamaño del IDE:
                   la tabla que se graba es partitions.csv, con dos huecos para las actualizaciones sin cable).
     arduino-cli:  --fqbn esp32:esp32:esp32s3:FlashSize=16M,PartitionScheme=huge_app
-                  --fqbn esp32:esp32:esp32:PartitionScheme=huge_app             (ESP32 DevKitC)
     La carpeta debe llamarse WTTC y contener WTTC.ino y web.h (la página web que sirve la placa).
 
   Cómo se maneja
@@ -42,6 +45,8 @@
       solo mientras calienta o solo a petición, para ahorrar batería. Tras arrancar siempre está 10 min encendida.
     - Si se configura una red con internet (casa o punto de acceso del móvil): http://wttc.local
     - Consola serie (115200 baudios): on [min] | off | status | errores | cfg | set clave=valor | wifi | forget | reboot | gasreset
+    - Con el termómetro: «calienta hasta 20 °C» (termostato, con un mínimo de 15 min por encendido) y la hora de salida
+      («salgo a las 8:00»: la placa decide cuánto antes encender según el frío que haga), sueltos o en los programas.
     - Avisos por Telegram (opcional): token del bot y chat ID en Configuración. Solo salen si el ESP32 llega
       a una red con internet; para enviarlos enciende la Wi-Fi unos minutos.
     - Todo lo configurable (idioma, nombre, claves, PIN, modo de la Wi-Fi, Telegram, batería mínima) se cambia
@@ -65,6 +70,7 @@
   ---------
     La propia Webasto necesita el mensaje de mantenimiento (0x44) cada pocos segundos: si la placa se cuelga
     o se desconecta, se apaga sola con su postbarrido. Cada encendido lleva su duración (máximo MAX_MIN).
+    Calentando, si la batería baja de la mínima (menos BATT_RUN_DROP) se apaga para poder arrancar el motor.
   ============================================================================================================
 */
 
@@ -93,12 +99,21 @@
 #include <mbedtls/pk.h>         // comprobar la firma de las actualizaciones (ECDSA P-256)
 #include <mbedtls/md.h>         // SHA-256 de la actualización
 #include <sys/time.h>           // settimeofday(): poner en hora desde el móvil
+#include <Wire.h>               // bus I2C: pantalla y termómetro opcionales
+#include <math.h>               // NAN / isnan(): «sin dato» del termómetro
+#if !defined(CONFIG_IDF_TARGET_ESP32S3)
+#error "WTTC necesita un ESP32-S3: en el IDE, placa ESP32S3 Dev Module (Flash Size 16MB). El ESP32 clásico no está soportado desde la 0.2.0."
+#endif
 #include "web.h"                // INDEX_HTML: la página web completa (va aparte para que el preprocesador no la toque)
 
 // ================== CONFIGURACIÓN FIJA ==================
 // Valores que no cambian de una placa a otra. Lo demás se cambia desde la web o la app (Configuración).
 #define WBUS_RX 16                    // pin del ESP32 que recibe del TJA1020 (borna TX de la placa)
 #define WBUS_TX 17                    // pin del ESP32 que transmite al TJA1020 (borna RX de la placa)
+#define I2C_SDA 4                     // bus I2C de la pantalla y el termómetro (opcionales): datos
+#define I2C_SCL 5                     // bus I2C: reloj
+#define LED_PIN 48                    // LED RGB WS2812 de la placa ESP32-S3 N16R8
+#define BTN_PIN 0                     // botón BOOT de la placa: enciende la pantalla un minuto
 const char*    HOSTNAME     = "wttc";                 // nombre en la red: http://wttc.local
 const char*    TZ_INFO      = "CET-1CEST,M3.5.0,M10.5.0/3";  // zona horaria POSIX de Europe/Madrid (horario de verano incluido)
 const uint16_t MAX_MIN      = 60;     // duración máxima por encendido (y por programa), en minutos
@@ -110,7 +125,14 @@ const float    FUEL_L_KWH   = 0.124;  // gasoil por kWh de calor: Thermo Top C �
 const uint32_t WIFI_BOOT_MS = 600000; // ms que la Wi-Fi está encendida tras arrancar, en cualquier modo (rescate)
 const uint32_t WIFI_ASK_MS  = 900000; // ms que la Wi-Fi está encendida al pedirla desde la app
 const uint32_t WIFI_TAIL_MS = 600000; // modo «mientras calienta»: ms que sigue encendida tras apagarse la calefacción
-#define FW_VERSION "0.1.6"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+const uint16_t MAX_SESSION  = 240;    // min: ventana máxima de «calentar hasta X °C» (se enciende y apaga dentro de ella)
+const float    TH_HYST      = 1.5;    // °C: con el termostato, vuelve a encender al bajar esto por debajo del objetivo
+const uint32_t TH_MINRUN    = 900000; // ms: mínimo por encendido con termostato (las Webasto no llevan bien los arranques cortos)
+const uint32_t TH_REST      = 180000; // ms: tras apagarse, espera antes de volver a encender (termina su postbarrido)
+const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
+const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
+const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
+#define FW_VERSION "0.2.0"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -129,6 +151,14 @@ uint32_t blePin    = 0;               // PIN Bluetooth de 6 cifras; 0 = generar 
 uint8_t wifiMode   = WM_HEAT;         // por defecto: Wi-Fi solo mientras calienta (y 10 min después)
 float minVolt      = 12.0;            // V: con la batería por debajo, los programas no arrancan
 char staSsid[33]   = "", staPass[64] = "";   // red con internet a la que unirse (opcional), y su contraseña
+// Pantalla, LED y termómetro (opcionales)
+enum { OLED_SH1106, OLED_SSD1306 };   // tipo de pantalla: 1,3" (SH1106) o 0,96" (SSD1306). No se distinguen por I2C
+enum { DISP_OFF, DISP_AUTO, DISP_ALWAYS };
+uint8_t oledType   = OLED_SH1106;
+uint8_t dispMode   = DISP_AUTO;       // apagada / automática (se enciende con algo que ver y se apaga al minuto) / siempre
+uint8_t ledLvl     = 1;               // brillo del LED: 0 apagado, 1 bajo, 2 medio, 3 alto
+float tOff         = 0;               // °C que se suman a la lectura del termómetro (corrección; el de la placa calienta)
+uint8_t warmC      = 0;               // °C del agua para el aviso «ya está caliente» (0 = sin aviso)
 
 // ---------- Wi-Fi bajo demanda ----------
 bool wifiActive = false;              // ¿está ahora mismo encendida la Wi-Fi?
@@ -165,6 +195,11 @@ Preferences prefs;                    // acceso a la memoria no volátil (espaci
 // Un programa semanal: activo, días (bit0 = lunes … bit6 = domingo), hora de inicio en minutos y duración
 struct Sched { uint8_t en, days; uint16_t start, dur; };
 Sched sch[MAX_SCHED];
+// Opciones de cada programa (aparte de Sched para no cambiar lo guardado por versiones anteriores):
+// bits 0–5 = temperatura objetivo en °C (0 = sin termostato), bit 7 = la hora es la de salida (enciende antes)
+uint8_t schX[MAX_SCHED];
+const uint8_t SX_DEP = 0x80, SX_TGT = 0x3F;
+uint32_t depDone[MAX_SCHED];          // última salida ya atendida de cada programa (minuto absoluto), para no repetir
 uint8_t nSch = 0;                     // cuántos programas hay guardados
 bool autoOn = true;                   // interruptor general de los programas
 
@@ -188,6 +223,35 @@ int tempC = -999, flame = -1, power = -1;   // último dato de sensores: °C del
 float volt = -1;                      // tensión de la batería según la Webasto (V); -1 = sin dato
 String lastTx, lastRx;                // última trama enviada y recibida, en hexadecimal (diagnóstico)
 int lastMinute = -1;                  // último minuto en que se revisaron los programas
+uint32_t heatStart = 0;               // millis() del último encendido (mínimo con termostato, gracia de la batería)
+uint32_t lastSensorOk = 0;            // última lectura de sensores de la Webasto que salió bien
+int lowBatt = 0;                      // lecturas seguidas con la batería baja calentando
+bool warmSent = false;                // ya se avisó de «agua caliente» en este encendido
+bool quietStart = false;              // encendidos del termostato: al registro, pero sin aviso por Telegram
+
+// ---------- termómetro del habitáculo (opcional, I2C) ----------
+enum { SN_NONE, SN_SHT31, SN_AHT20 };
+uint8_t snType = SN_NONE, snAddr = 0;
+float cabT = NAN, cabH = NAN;         // °C (ya con la corrección tOff) y % de humedad; NAN = sin dato
+uint32_t snLast = 0, snTrig = 0, hwProbeAt = 0;
+bool snWait = false;                  // medida pedida, esperando a que el sensor la termine
+int snFails = 0;
+
+// ---------- «calentar hasta X °C» (termostato) ----------
+// Una sesión tiene una ventana (thUntil) y una temperatura objetivo: dentro de ella la calefacción se enciende si
+// hace frío y se apaga al llegar, cada vez como mínimo TH_MINRUN. Los encendidos sueltos siguen sin sesión.
+bool thActive = false, thReached = false;
+uint8_t thTarget = 0;
+uint32_t thUntil = 0;
+String thSrc;
+// Salida suelta («salgo a las 8:00»): minuto absoluto (time()/60) de la salida y su objetivo; 0 = ninguna
+uint32_t depOnce = 0, depOnceDone = 0;
+uint8_t depOnceT = 0;
+
+// ---------- pantalla y LED ----------
+bool oledOk = false, dispIsOn = false;
+uint32_t dispUntil = 0, lastDraw = 0;
+uint8_t fb[1024];                     // imagen de la pantalla: 128 columnas × 8 páginas de 8 píxeles
 
 // Registro de los 20 últimos eventos (en RAM: se pierde al reiniciar)
 String logBuf[20];
@@ -216,6 +280,11 @@ enum Txt {
   T_W_ORIGIN, T_W_SETUP, T_E_APPASS_DEF,
   T_OTA_HEAT, T_OTA_FORMAT, T_OTA_NOSLOT, T_OTA_WRITE, T_OTA_SIG, T_OTA_OLD, T_OTA_OK, T_LOG_OTA, T_LOG_OTA_OK,
   T_OTA_NONET, T_OTA_LATEST, T_OTA_NEW, T_OTA_NOTYET, T_OTA_BUSY, T_OTA_DL, T_TG_OTA_NEW,
+  T_LOG_HW, T_LOG_TH_ON, T_LOG_TH_WAIT, T_LOG_TH_END, T_LOG_TH_NOSENS, T_TG_TH_REACHED, T_WHY_TARGET,
+  T_E_NOSENS, T_E_TARGET, T_WHY_BATT, T_NOTE_BATT, T_TG_WARM, T_LOG_DEP, T_LOG_DEP_SET, T_LOG_DEP_OFF, T_E_DEP,
+  T_E_WARM, T_E_TOFF, T_E_VALUE,
+  T_D_OFF, T_D_START, T_D_HEAT, T_D_PAUSE, T_D_LOST, T_D_WAIT, T_D_WATER, T_D_IN, T_D_NEXT, T_D_DEP, T_D_UNTIL,
+  T_D_DAYS, T_D_NOTE,
   T_COUNT
 };
 
@@ -317,6 +386,38 @@ const char* const TXT[T_COUNT][L_N] = {
   /* T_TG_OTA_NEW */       {"Hay una versión nueva de WTTC: %s. Se instala desde la app o la web de la placa (Buscar actualizaciones). Novedades: %s",
                             "A new WTTC version is available: %s. Install it from the app or the board's web page (Check for updates). What's new: %s",
                             "Neue WTTC-Version verfügbar: %s. Installieren über die App oder die Webseite der Platine (Nach Updates suchen). Neu: %s"},
+  /* T_LOG_HW */           {"Detectado: %s", "Detected: %s", "Erkannt: %s"},
+  /* T_LOG_TH_ON */        {"Termostato: hasta %s, durante %d min como mucho", "Thermostat: up to %s, for at most %d min", "Thermostat: bis %s, höchstens %d min"},
+  /* T_LOG_TH_WAIT */      {"Termostato: ya hay %s dentro, espera sin calentar", "Thermostat: already %s inside, waiting without heating", "Thermostat: schon %s innen, wartet ohne zu heizen"},
+  /* T_LOG_TH_END */       {"Termostato terminado", "Thermostat finished", "Thermostat beendet"},
+  /* T_LOG_TH_NOSENS */    {"Termostato cancelado: no hay lectura del termómetro", "Thermostat cancelled: no thermometer reading", "Thermostat abgebrochen: kein Thermometerwert"},
+  /* T_TG_TH_REACHED */    {"Ya hay %s dentro. Se mantiene hasta que acabe el tiempo.", "It is already %s inside. It will be kept until the time is up.", "Innen sind schon %s. Wird bis zum Ende der Zeit gehalten."},
+  /* T_WHY_TARGET */       {"%s alcanzados", "%s reached", "%s erreicht"},
+  /* T_E_NOSENS */         {"No hay termómetro: conecta uno (SHT31 o AHT20) para calentar hasta una temperatura.", "No thermometer: connect one (SHT31 or AHT20) to heat up to a temperature.", "Kein Thermometer: eines anschließen (SHT31 oder AHT20), um bis zu einer Temperatur zu heizen."},
+  /* T_E_TARGET */         {"La temperatura objetivo debe estar entre 5 y 30 °C.", "The target temperature must be between 5 and 30 °C.", "Die Zieltemperatur muss zwischen 5 und 30 °C liegen."},
+  /* T_WHY_BATT */         {"batería baja (%s V)", "low battery (%s V)", "Batterie schwach (%s V)"},
+  /* T_NOTE_BATT */        {"Se apagó para proteger la batería: %s V con la calefacción en marcha.", "It was switched off to protect the battery: %s V while heating.", "Zum Schutz der Batterie ausgeschaltet: %s V während des Heizens."},
+  /* T_TG_WARM */          {"Ya está caliente: el agua del motor está a %d °C.", "It is warm: the engine coolant is at %d °C.", "Es ist warm: das Kühlwasser hat %d °C."},
+  /* T_LOG_DEP */          {"Salida a las %s: enciende %d min antes (%s)", "Departure at %s: switching on %d min before (%s)", "Abfahrt um %s: schaltet %d min vorher ein (%s)"},
+  /* T_LOG_DEP_SET */      {"Salida programada: %s", "Departure set: %s", "Abfahrt eingestellt: %s"},
+  /* T_LOG_DEP_OFF */      {"Salida cancelada", "Departure cancelled", "Abfahrt gelöscht"},
+  /* T_E_DEP */            {"Hora de salida no válida (o la placa no está en hora).", "Invalid departure time (or the board's clock is not set).", "Ungültige Abfahrtszeit (oder die Uhr der Platine ist nicht gestellt)."},
+  /* T_E_WARM */           {"El aviso de agua caliente debe estar entre 30 y 80 °C (0 = sin aviso).", "The warm-water notice must be between 30 and 80 °C (0 = none).", "Die Warmwasser-Meldung muss zwischen 30 und 80 °C liegen (0 = keine)."},
+  /* T_E_TOFF */           {"La corrección del termómetro debe estar entre -5 y 5 °C.", "The thermometer correction must be between -5 and 5 °C.", "Die Thermometerkorrektur muss zwischen -5 und 5 °C liegen."},
+  /* T_E_VALUE */          {"Valor no válido: %s", "Invalid value: %s", "Ungültiger Wert: %s"},
+  /* T_D_OFF */            {"Apagada", "Off", "Aus"},
+  /* T_D_START */          {"Arrancando", "Starting", "Startet"},
+  /* T_D_HEAT */           {"Calentando", "Heating", "Heizt"},
+  /* T_D_PAUSE */          {"En pausa", "Paused", "Pause"},
+  /* T_D_LOST */           {"Sin respuesta", "No answer", "Keine Antwort"},
+  /* T_D_WAIT */           {"Esperando", "Waiting", "Wartet"},
+  /* T_D_WATER */          {"Agua %d°", "Water %d°", "Wasser %d°"},
+  /* T_D_IN */             {"dentro", "inside", "innen"},
+  /* T_D_NEXT */           {"Prox. %s", "Next %s", "Nächst %s"},
+  /* T_D_DEP */            {"Salida %s", "Leave %s", "Abfahrt %s"},
+  /* T_D_UNTIL */          {"Hasta %s", "Up to %s", "Bis %s"},
+  /* T_D_DAYS */           {"Lu,Ma,Mi,Ju,Vi,Sa,Do", "Mo,Tu,We,Th,Fr,Sa,Su", "Mo,Di,Mi,Do,Fr,Sa,So"},
+  /* T_D_NOTE */           {"Aviso: mira la app", "Notice: see the app", "Hinweis: siehe App"},
 };
 
 // Texto en el idioma elegido
@@ -557,6 +658,7 @@ bool readSensors() {
     volt  = ((r[2] << 8) | r[3]) / 1000.0;     // milivoltios -> voltios
     if (n >= 5) flame = r[4];
     if (n >= 7) power = (r[5] << 8) | r[6];
+    lastSensorOk = millis();
   }
   lastSensor = millis();
   return ok;
@@ -639,8 +741,10 @@ bool startHeater(uint16_t minutes, const char* src) {
       stopNote = "";                              // se borra el aviso de un apagado anterior
       gasCur = 0; gasRate = 0; lastGasT = 0;      // gasoil de este encendido desde cero
       onSrc = src;
+      heatStart = millis(); warmSent = false; lowBatt = 0;   // mínimo del termostato, aviso del agua y batería
+      dispWake();
       addLog(trf(T_LOG_ON, srcName(src), minutes));
-      notify(trf(T_LOG_ON, srcName(src), minutes));
+      if (!quietStart) notify(trf(T_LOG_ON, srcName(src), minutes));   // los del termostato van solo al registro
       return true;
     }
     delay(300);                                   // pequeña pausa antes de reintentar
@@ -670,6 +774,7 @@ bool stopHeater(const char* why, bool tell) {
 
 // La Webasto ha dejado de calentar por su cuenta: se apunta, se leen sus averías y se avisa
 void heaterQuit(const char* why) {
+  endSession(true);                               // con una avería no se vuelve a intentar sola
   stopHeater(why, false);                         // sin aviso propio: va uno más completo abajo
   String e = errorsText();
   addLog(trf(T_FAULTS, e.c_str()));
@@ -691,6 +796,492 @@ void evalHeater() {
 }
 
 // ============================================================================================================
+// Termómetro del habitáculo (opcional): SHT31 (dirección 0x44 o 0x45) o AHT20 (0x38), en el bus I2C de IO4/IO5.
+// La medida se pide y se lee en dos pasos (el sensor tarda 15–80 ms) para no parar loop() esperándola.
+// ============================================================================================================
+bool i2cPing(uint8_t a) { Wire.beginTransmission(a); return Wire.endTransmission() == 0; }
+
+// CRC-8 de los sensores de Sensirion (polinomio 0x31, valor inicial 0xFF)
+uint8_t crc8(const uint8_t* d, int n) {
+  uint8_t c = 0xFF;
+  for (int i = 0; i < n; i++) {
+    c ^= d[i];
+    for (int b = 0; b < 8; b++) c = (c & 0x80) ? (uint8_t)((c << 1) ^ 0x31) : (uint8_t)(c << 1);
+  }
+  return c;
+}
+
+const char* snName() { return snType == SN_SHT31 ? "SHT31" : snType == SN_AHT20 ? "AHT20" : ""; }
+
+// Busca el termómetro en el bus
+void snProbe() {
+  snType = SN_NONE;
+  if (i2cPing(0x44)) { snType = SN_SHT31; snAddr = 0x44; }
+  else if (i2cPing(0x45)) { snType = SN_SHT31; snAddr = 0x45; }
+  else if (i2cPing(0x38)) {
+    snType = SN_AHT20; snAddr = 0x38;
+    // Si no está calibrado (bit 3 del estado a 0) se le manda la orden de inicializar
+    Wire.requestFrom((int)snAddr, 1);
+    uint8_t st = Wire.available() ? Wire.read() : 0;
+    if (!(st & 0x08)) {
+      Wire.beginTransmission(snAddr); Wire.write((uint8_t)0xBE); Wire.write((uint8_t)0x08); Wire.write((uint8_t)0x00); Wire.endTransmission();
+      delay(10);
+    }
+  }
+  snWait = false; snFails = 0; snLast = 0;
+}
+
+// Lectura fallida: tras 3 seguidas, sin dato; tras 6, se da por desconectado y se vuelve a buscar
+void snFail() {
+  snLast = millis();
+  if (++snFails >= 3) cabT = cabH = NAN;
+  if (snFails >= 6) snType = SN_NONE;
+}
+
+// Una medida cada 10 s: primero se pide, y en una vuelta posterior de loop() se lee
+void snTick() {
+  if (snType == SN_NONE) return;
+  uint32_t now = millis();
+  if (!snWait) {
+    if (snLast && now - snLast < 10000) return;
+    Wire.beginTransmission(snAddr);
+    if (snType == SN_SHT31) { Wire.write((uint8_t)0x24); Wire.write((uint8_t)0x00); }     // medida única, precisión alta
+    else { Wire.write((uint8_t)0xAC); Wire.write((uint8_t)0x33); Wire.write((uint8_t)0x00); }     // AHT20: medir
+    bool ok = Wire.endTransmission() == 0;
+    snTrig = now; snWait = ok;
+    if (!ok) snFail();
+    return;
+  }
+  if (now - snTrig < (snType == SN_SHT31 ? 30u : 100u)) return;      // tiempo de medida: 15 ms y 80 ms
+  snWait = false; snLast = now;
+  uint8_t d[7]; int n = snType == SN_SHT31 ? 6 : 7, got = 0;
+  Wire.requestFrom((int)snAddr, n);
+  while (Wire.available() && got < n) d[got++] = Wire.read();
+  float t = NAN, h = NAN;
+  if (got == n) {
+    if (snType == SN_SHT31) {
+      if (crc8(d, 2) == d[2] && crc8(d + 3, 2) == d[5]) {
+        t = -45 + 175.0f * ((d[0] << 8) | d[1]) / 65535.0f;
+        h = 100.0f * ((d[3] << 8) | d[4]) / 65535.0f;
+      }
+    } else if (!(d[0] & 0x80)) {                                       // bit 7 a 1 = aún midiendo
+      // Sin comprobar el CRC: algunos AHT20 de imitación no lo mandan bien. Lo filtra el rango de abajo
+      uint32_t rh = ((uint32_t)d[1] << 12) | ((uint32_t)d[2] << 4) | (d[3] >> 4);
+      uint32_t rt = ((uint32_t)(d[3] & 0x0F) << 16) | ((uint32_t)d[4] << 8) | d[5];
+      h = rh * 100.0f / 1048576.0f;
+      t = rt * 200.0f / 1048576.0f - 50;
+    }
+  }
+  if (isnan(t) || t < -40 || t > 85) { snFail(); return; }
+  snFails = 0;
+  cabT = t + tOff;
+  cabH = constrain(h, 0.0f, 100.0f);
+}
+
+// ============================================================================================================
+// Pantalla OLED I2C de 128×64 (opcional; dirección 0x3C). Controlador mínimo propio para no depender de librerías:
+// la imagen se compone en fb[] y se manda entera. La SH1106 (1,3") y la SSD1306 (0,96") se manejan casi igual
+// (modo de páginas); cambian el arranque y que la SH1106 tiene 132 columnas. No se distinguen por I2C: es un ajuste.
+// ============================================================================================================
+// Tipo de letra 5×7 (columnas, bit 0 arriba): ASCII de 0x20 a 0x7E y 0x7F = símbolo de grado
+static const uint8_t FONT[] PROGMEM = {
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x5F, 0x00, 0x00, 0x00, 0x07, 0x00, 0x07, 0x00, 0x14, 0x7F, 0x14, 0x7F, 0x14,
+  0x24, 0x2A, 0x7F, 0x2A, 0x12, 0x23, 0x13, 0x08, 0x64, 0x62, 0x36, 0x49, 0x55, 0x22, 0x50, 0x00, 0x05, 0x03, 0x00, 0x00,
+  0x00, 0x1C, 0x22, 0x41, 0x00, 0x00, 0x41, 0x22, 0x1C, 0x00, 0x14, 0x08, 0x3E, 0x08, 0x14, 0x08, 0x08, 0x3E, 0x08, 0x08,
+  0x00, 0x50, 0x30, 0x00, 0x00, 0x08, 0x08, 0x08, 0x08, 0x08, 0x00, 0x60, 0x60, 0x00, 0x00, 0x20, 0x10, 0x08, 0x04, 0x02,
+  0x3E, 0x51, 0x49, 0x45, 0x3E, 0x00, 0x42, 0x7F, 0x40, 0x00, 0x42, 0x61, 0x51, 0x49, 0x46, 0x21, 0x41, 0x45, 0x4B, 0x31,
+  0x18, 0x14, 0x12, 0x7F, 0x10, 0x27, 0x45, 0x45, 0x45, 0x39, 0x3C, 0x4A, 0x49, 0x49, 0x30, 0x01, 0x71, 0x09, 0x05, 0x03,
+  0x36, 0x49, 0x49, 0x49, 0x36, 0x06, 0x49, 0x49, 0x29, 0x1E, 0x00, 0x36, 0x36, 0x00, 0x00, 0x00, 0x56, 0x36, 0x00, 0x00,
+  0x08, 0x14, 0x22, 0x41, 0x00, 0x14, 0x14, 0x14, 0x14, 0x14, 0x00, 0x41, 0x22, 0x14, 0x08, 0x02, 0x01, 0x51, 0x09, 0x06,
+  0x32, 0x49, 0x79, 0x41, 0x3E, 0x7E, 0x11, 0x11, 0x11, 0x7E, 0x7F, 0x49, 0x49, 0x49, 0x36, 0x3E, 0x41, 0x41, 0x41, 0x22,
+  0x7F, 0x41, 0x41, 0x22, 0x1C, 0x7F, 0x49, 0x49, 0x49, 0x41, 0x7F, 0x09, 0x09, 0x09, 0x01, 0x3E, 0x41, 0x49, 0x49, 0x7A,
+  0x7F, 0x08, 0x08, 0x08, 0x7F, 0x00, 0x41, 0x7F, 0x41, 0x00, 0x20, 0x40, 0x41, 0x3F, 0x01, 0x7F, 0x08, 0x14, 0x22, 0x41,
+  0x7F, 0x40, 0x40, 0x40, 0x40, 0x7F, 0x02, 0x0C, 0x02, 0x7F, 0x7F, 0x04, 0x08, 0x10, 0x7F, 0x3E, 0x41, 0x41, 0x41, 0x3E,
+  0x7F, 0x09, 0x09, 0x09, 0x06, 0x3E, 0x41, 0x51, 0x21, 0x5E, 0x7F, 0x09, 0x19, 0x29, 0x46, 0x46, 0x49, 0x49, 0x49, 0x31,
+  0x01, 0x01, 0x7F, 0x01, 0x01, 0x3F, 0x40, 0x40, 0x40, 0x3F, 0x1F, 0x20, 0x40, 0x20, 0x1F, 0x3F, 0x40, 0x38, 0x40, 0x3F,
+  0x63, 0x14, 0x08, 0x14, 0x63, 0x07, 0x08, 0x70, 0x08, 0x07, 0x61, 0x51, 0x49, 0x45, 0x43, 0x00, 0x7F, 0x41, 0x41, 0x00,
+  0x02, 0x04, 0x08, 0x10, 0x20, 0x00, 0x41, 0x41, 0x7F, 0x00, 0x04, 0x02, 0x01, 0x02, 0x04, 0x40, 0x40, 0x40, 0x40, 0x40,
+  0x00, 0x01, 0x02, 0x04, 0x00, 0x20, 0x54, 0x54, 0x54, 0x78, 0x7F, 0x48, 0x44, 0x44, 0x38, 0x38, 0x44, 0x44, 0x44, 0x20,
+  0x38, 0x44, 0x44, 0x48, 0x7F, 0x38, 0x54, 0x54, 0x54, 0x18, 0x08, 0x7E, 0x09, 0x01, 0x02, 0x0C, 0x52, 0x52, 0x52, 0x3E,
+  0x7F, 0x08, 0x04, 0x04, 0x78, 0x00, 0x44, 0x7D, 0x40, 0x00, 0x20, 0x40, 0x44, 0x3D, 0x00, 0x7F, 0x10, 0x28, 0x44, 0x00,
+  0x00, 0x41, 0x7F, 0x40, 0x00, 0x7C, 0x04, 0x18, 0x04, 0x78, 0x7C, 0x08, 0x04, 0x04, 0x78, 0x38, 0x44, 0x44, 0x44, 0x38,
+  0x7C, 0x14, 0x14, 0x14, 0x08, 0x08, 0x14, 0x14, 0x18, 0x7C, 0x7C, 0x08, 0x04, 0x04, 0x08, 0x48, 0x54, 0x54, 0x54, 0x20,
+  0x04, 0x3F, 0x44, 0x40, 0x20, 0x3C, 0x40, 0x40, 0x20, 0x7C, 0x1C, 0x20, 0x40, 0x20, 0x1C, 0x3C, 0x40, 0x30, 0x40, 0x3C,
+  0x44, 0x28, 0x10, 0x28, 0x44, 0x0C, 0x50, 0x50, 0x50, 0x3C, 0x44, 0x64, 0x54, 0x4C, 0x44, 0x00, 0x08, 0x36, 0x41, 0x00,
+  0x00, 0x00, 0x7F, 0x00, 0x00, 0x00, 0x41, 0x36, 0x08, 0x00, 0x08, 0x04, 0x08, 0x10, 0x08, 0x00, 0x06, 0x09, 0x09, 0x06,
+};
+
+void oCmds(const uint8_t* c, int n) {
+  Wire.beginTransmission(0x3C); Wire.write((uint8_t)0x00);           // 0x00 = lo que sigue son órdenes
+  for (int i = 0; i < n; i++) Wire.write(c[i]);
+  Wire.endTransmission();
+}
+
+// Manda fb[] a la pantalla: 8 páginas de 128 bytes, en trozos de 16 (el búfer de Wire es de 128)
+void oledFlush() {
+  uint8_t col = oledType == OLED_SH1106 ? 2 : 0;           // la SH1106 tiene 132 columnas: la imagen empieza en la 2
+  for (int pg = 0; pg < 8; pg++) {
+    uint8_t c[3] = {(uint8_t)(0xB0 + pg), (uint8_t)(col & 0x0F), (uint8_t)(0x10 | (col >> 4))};
+    oCmds(c, 3);
+    for (int x = 0; x < 128; x += 16) {
+      Wire.beginTransmission(0x3C); Wire.write((uint8_t)0x40);       // 0x40 = lo que sigue es imagen
+      Wire.write(fb + pg * 128 + x, 16);
+      if (Wire.endTransmission() != 0) { oledOk = false; dispIsOn = false; return; }   // desconectada: se vuelve a buscar
+    }
+  }
+}
+
+// Busca la pantalla y la prepara (apagada; dispTick() la enciende cuando toca)
+void oledInit() {
+  dispIsOn = false;
+  oledOk = i2cPing(0x3C);
+  if (!oledOk) return;
+  // Apagar, reloj, 64 líneas, sin desplazamiento, línea 0, giro horizontal y vertical (conector arriba), pines COM,
+  // contraste bajo (alarga la vida de la OLED y de noche sobra), sin invertir
+  static const uint8_t C1[] = {0xAE, 0xD5, 0x80, 0xA8, 0x3F, 0xD3, 0x00, 0x40, 0xA1, 0xC8, 0xDA, 0x12, 0x81, 0x50, 0xA4, 0xA6};
+  oCmds(C1, sizeof C1);
+  if (oledType == OLED_SSD1306) { static const uint8_t C2[] = {0x8D, 0x14, 0x20, 0x02, 0xD9, 0xF1, 0xDB, 0x40}; oCmds(C2, sizeof C2); }
+  else { static const uint8_t C3[] = {0xAD, 0x8B, 0xD9, 0x22, 0xDB, 0x35}; oCmds(C3, sizeof C3); }
+  memset(fb, 0, sizeof fb);
+  oledFlush();
+}
+
+void oledPower(bool on) {
+  if (!oledOk || on == dispIsOn) return;
+  uint8_t c = on ? 0xAF : 0xAE;
+  oCmds(&c, 1);
+  dispIsOn = on;
+}
+
+// Busca la pantalla y el termómetro: al arrancar y, si falta alguno, cada 30 s (se pueden conectar después)
+void hwProbe() {
+  hwProbeAt = millis();
+  bool hadO = oledOk, hadS = snType != SN_NONE;
+  if (!hadS) snProbe();
+  if (!hadO) oledInit();
+  String w;
+  if (snType != SN_NONE && !hadS) w = snName();
+  if (oledOk && !hadO) { if (w.length()) w += ", "; w += oledType == OLED_SH1106 ? "OLED SH1106" : "OLED SSD1306"; }
+  if (w.length()) addLog(trf(T_LOG_HW, w.c_str()));
+}
+
+void dPix(int x, int y) { if (x >= 0 && x < 128 && y >= 0 && y < 64) fb[x + (y >> 3) * 128] |= 1 << (y & 7); }
+
+// Escribe un texto (ya pasado por plain()) con escala sc (1 = 6 × 8 píxeles por letra). Devuelve dónde acaba
+int dText(int x, int y, const String& t, int sc) {
+  for (unsigned i = 0; i < t.length(); i++) {
+    uint8_t c = t[i];
+    if (c < 32 || c > 127) c = '?';
+    for (int cx = 0; cx < 5; cx++) {
+      uint8_t col = pgm_read_byte(FONT + (c - 32) * 5 + cx);
+      for (int cy = 0; cy < 7; cy++)
+        if (col >> cy & 1) for (int a = 0; a < sc; a++) for (int b = 0; b < sc; b++) dPix(x + cx * sc + a, y + cy * sc + b);
+    }
+    x += 6 * sc;
+  }
+  return x;
+}
+int dWidth(const String& t, int sc) { return t.length() ? (int)t.length() * 6 * sc - sc : 0; }
+
+// La pantalla solo tiene ASCII: quita los acentos (UTF-8) y pasa «°» al símbolo propio (0x7F)
+String plain(const String& s) {
+  static const char MAP[] = "AAAAAAACEEEEIIIIDNOOOOOxOUUUUYTsaaaaaaaceeeeiiiidnooooo/ouuuuyty";   // U+00C0 … U+00FF
+  String o;
+  for (unsigned i = 0; i < s.length(); i++) {
+    uint8_t c = s[i];
+    if (c < 0x80) { o += (char)c; continue; }
+    uint8_t d = i + 1 < s.length() ? (uint8_t)s[i + 1] : 0;
+    if (c == 0xC2 && d == 0xB0) { o += (char)0x7F; i++; continue; }
+    if (c == 0xC3 && d >= 0x80 && d <= 0xBF) { o += MAP[d - 0x80]; i++; continue; }
+    if (c >= 0xC0) o += '?';                                   // otro carácter: un «?» y se saltan sus bytes de continuación
+  }
+  return o;
+}
+
+void dispWake() { dispUntil = millis() + DISP_MS; lastDraw = 0; }
+
+// Próximo programa como «Lu 07:30» (vacío si no hay); isDep = es una hora de salida
+String nextSched(bool& isDep) {
+  isDep = false;
+  if (!autoOn || !timeValid()) return "";
+  time_t t = time(nullptr); struct tm tm; localtime_r(&t, &tm);
+  int wd = (tm.tm_wday + 6) % 7, m = tm.tm_hour * 60 + tm.tm_min, best = -1, bi = -1, bd = 0;
+  for (int i = 0; i < nSch; i++) {
+    if (!sch[i].en) continue;
+    for (int k = 0; k < 8; k++) {
+      int d = (wd + k) % 7;
+      if (!(sch[i].days >> d & 1) || (k == 0 && sch[i].start <= m)) continue;
+      int dt = k * 1440 + sch[i].start - m;
+      if (best < 0 || dt < best) { best = dt; bi = i; bd = d; }
+      break;
+    }
+  }
+  if (bi < 0) return "";
+  isDep = schX[bi] & SX_DEP;
+  String days = tr(T_D_DAYS);
+  char h[6]; snprintf(h, sizeof h, "%02d:%02d", sch[bi].start / 60, sch[bi].start % 60);
+  return days.substring(bd * 3, bd * 3 + 2) + " " + h;
+}
+
+// Compone la pantalla: nombre y hora; temperatura grande (la de dentro o, sin termómetro, la del agua); estado;
+// agua y batería; y abajo un aviso, el objetivo del termostato, la salida o el próximo programa
+void dispDraw() {
+  memset(fb, 0, sizeof fb);
+  dText(0, 0, plain(String(cfgName).substring(0, 12)), 1);
+  if (timeValid()) { String h = hhmm(); h.trim(); dText(128 - dWidth(h, 1), 0, h, 1); }
+  String big, s1, s2;
+  if (!isnan(cabT)) {
+    big = plain(num(cabT, 1)) + (char)0x7F;
+    if (!isnan(cabH)) s1 = String((int)lround(cabH)) + "%";
+    s2 = plain(tr(T_D_IN));
+  } else if (tempC > -100) {
+    big = String(tempC) + (char)0x7F;
+    String w = plain(tr(T_D_WATER)); s2 = w.substring(0, w.indexOf(' '));   // «Agua %d°» -> «Agua»
+  } else big = "--";
+  int x = dText(0, 12, big, 3) + 3;
+  if (x + dWidth(s1, 1) <= 128) dText(x, 14, s1, 1);
+  if (x + dWidth(s2, 1) <= 128) dText(x, s1.length() ? 25 : 14, s2, 1);
+  String st;
+  if (heaterOn) {
+    st = tr(phase == PH_FLAME ? T_D_HEAT : phase == PH_PAUSE ? T_D_PAUSE : phase == PH_LOST ? T_D_LOST : T_D_START);
+    int32_t rem = (int32_t)(onUntil - millis()) / 60000 + 1;
+    if (rem > 0) st += " " + String(rem) + "'";
+  } else st = tr(thActive ? T_D_WAIT : T_D_OFF);
+  dText(0, 36, plain(st), 1);
+  String inf;
+  if (tempC > -100 && !isnan(cabT)) inf = plain(trf(T_D_WATER, tempC));
+  if (volt > 0) { if (inf.length()) inf += "  "; inf += plain(num(volt, 1)) + "V"; }
+  dText(0, 46, inf, 1);
+  String bot;
+  bool dep;
+  if (!heaterOn && stopNote.length()) bot = tr(T_D_NOTE);
+  else if (thActive) bot = trf(T_D_UNTIL, (String(thTarget) + "°").c_str());
+  else if (depOnce) {
+    time_t dt = (time_t)depOnce * 60; struct tm tm; localtime_r(&dt, &tm);
+    char h[6]; strftime(h, sizeof h, "%H:%M", &tm);
+    bot = trf(T_D_DEP, h);
+  } else {
+    String n = nextSched(dep);
+    if (n.length()) bot = trf(dep ? T_D_DEP : T_D_NEXT, n.c_str());
+  }
+  dText(0, 56, plain(bot), 1);
+}
+
+// Enciende, refresca (cada segundo) y apaga la pantalla según el modo
+void dispTick() {
+  if (!oledOk) return;
+  uint32_t now = millis();
+  bool want = dispMode == DISP_ALWAYS ||
+              (dispMode == DISP_AUTO && (heaterOn || (int32_t)(dispUntil - now) > 0 || now - lastUi < 15000));
+  if (!want) { oledPower(false); return; }
+  if (dispIsOn && now - lastDraw < 1000) return;
+  lastDraw = now;
+  dispDraw();
+  oledFlush();
+  oledPower(true);
+}
+
+// Botón BOOT: enciende la pantalla un minuto
+void btnTick() {
+  static bool was = false;
+  static uint32_t t = 0;
+  bool p = digitalRead(BTN_PIN) == LOW;
+  if (p != was && millis() - t > 50) { t = millis(); was = p; if (p) dispWake(); }
+}
+
+// ============================================================================================================
+// LED RGB de la placa: el estado de un vistazo, sin el móvil
+//   naranja = calentando (parpadea arrancando) · verde = ya está caliente (aviso del agua) · rojo parpadeando = la
+//   Webasto no responde · destello rojo cada 3 s = se apagó sola o por batería (hasta el próximo encendido) ·
+//   azul claro = termostato esperando · azul = app conectada · apagado = nada que contar
+// ============================================================================================================
+void ledTick() {
+  static uint32_t last = 0, cur = 0xFFFFFFFF;
+  uint32_t now = millis();
+  if (now - last < 100) return;
+  last = now;
+  bool blink = (now / 500) & 1;
+  uint8_t r = 0, g = 0, b = 0;
+  if (heaterOn && (phase == PH_LOST || busState == 0)) { if (blink) r = 255; }
+  else if (heaterOn && warmSent) g = 255;
+  else if (heaterOn && phase == PH_START) { if (blink) { r = 255; g = 70; } }
+  else if (heaterOn) { r = 255; g = 70; }
+  else if (stopNote.length()) { if ((now / 250) % 12 == 0) r = 255; }
+  else if (thActive) { g = 120; b = 255; }
+  else if (bleConn > 0) b = 255;
+  static const uint8_t DIV[] = {1, 16, 4, 1};                // brillo bajo, medio y alto
+  uint8_t lv = ledLvl > 3 ? 3 : ledLvl;
+  if (!lv) r = g = b = 0;
+  else { r /= DIV[lv]; g /= DIV[lv]; b /= DIV[lv]; }
+  uint32_t c = (uint32_t)r << 16 | (uint32_t)g << 8 | b;
+  if (c == cur) return;                                      // solo se escribe al cambiar
+  cur = c;
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+  rgbLedWrite(LED_PIN, r, g, b);
+#else
+  neopixelWrite(LED_PIN, r, g, b);
+#endif
+}
+
+// ============================================================================================================
+// Batería, aviso de agua caliente, termostato y hora de salida
+// ============================================================================================================
+String degs(float t, int dec) { return num(t, dec) + " °C"; }
+
+// Antes de encender sin nadie delante (programa, salida, termostato): con poca batería no se arranca
+bool battOk() {
+  readSensors();
+  if (volt > 0 && volt < minVolt) {
+    addLog(trf(T_LOG_SKIP, num(volt, 1).c_str()));
+    notify(trf(T_LOG_SKIP, num(volt, 1).c_str()));
+    return false;
+  }
+  return true;
+}
+
+// Calentando: si la batería baja de la mínima (menos BATT_RUN_DROP: con la calefacción en marcha cae algo) tres
+// lecturas seguidas, se apaga para que luego arranque el motor. Los primeros minutos no, por el tirón de la bujía.
+void battRunCheck() {
+  if (!heaterOn || millis() - heatStart < BATT_GRACE || volt <= 0 || volt >= minVolt - BATT_RUN_DROP) { lowBatt = 0; return; }
+  if (++lowBatt < 3) return;
+  String v = num(volt, 1);
+  endSession(false);
+  stopHeater(trf(T_WHY_BATT, v.c_str()).c_str(), true);
+  stopNote = hhmm() + trf(T_NOTE_BATT, v.c_str());
+  lowBatt = 0;
+}
+
+// Aviso de «ya está caliente»: una vez por encendido, al llegar el agua a warmC
+void warmCheck() {
+  if (!heaterOn || !warmC || warmSent || tempC < warmC) return;
+  warmSent = true;
+  dispWake();
+  addLog(trf(T_TG_WARM, tempC));
+  notify(trf(T_TG_WARM, tempC));
+}
+
+void endSession(bool log) {
+  if (!thActive) return;
+  thActive = false;
+  if (log) addLog(tr(T_LOG_TH_END));
+}
+
+// Empieza «calentar hasta tgt °C» durante como mucho «minutes» minutos. Necesita el termómetro.
+bool startSession(uint16_t minutes, uint8_t tgt, const char* src) {
+  if (isnan(cabT)) { addLog(tr(T_LOG_TH_NOSENS)); return false; }
+  minutes = constrain(minutes, 1, MAX_SESSION);
+  thActive = true; thReached = false; thTarget = tgt; thSrc = src;
+  thUntil = millis() + minutes * 60000UL;
+  addLog(trf(T_LOG_TH_ON, degs(tgt, 0).c_str(), minutes));
+  dispWake();
+  if (cabT >= tgt) { thReached = true; addLog(trf(T_LOG_TH_WAIT, degs(cabT, 1).c_str())); return true; }
+  if (!startHeater(min(minutes, MAX_MIN), src)) { thActive = false; return false; }
+  return true;
+}
+
+// Termostato (cada 5 s): apaga al llegar (si ya lleva el mínimo) y vuelve a encender si se enfría
+void thermoTick() {
+  static uint32_t last = 0;
+  uint32_t now = millis();
+  if (!thActive || now - last < 5000) return;
+  last = now;
+  if ((int32_t)(now - thUntil) >= 0) {                      // se acabó la ventana
+    endSession(true);
+    if (heaterOn) stopHeater(tr(T_WHY_END), true);
+    return;
+  }
+  if (isnan(cabT)) { addLog(tr(T_LOG_TH_NOSENS)); thActive = false; return; }   // el encendido en marcha sigue hasta su fin
+  if (heaterOn) {
+    if (cabT >= thTarget && now - heatStart >= TH_MINRUN) {
+      String t = degs(cabT, 1);
+      if (!thReached) notify(trf(T_TG_TH_REACHED, t.c_str()));   // solo la primera vez: luego mantiene en silencio
+      thReached = true;
+      stopHeater(trf(T_WHY_TARGET, t.c_str()).c_str(), false);
+    }
+    return;
+  }
+  // Apagada dentro de la ventana: vuelve a encender si se ha enfriado, queda margen y ya terminó el postbarrido
+  uint32_t left = thUntil - now;
+  if (cabT <= thTarget - TH_HYST && left >= TH_MINRUN && (!lastHeatOff || now - lastHeatOff >= TH_REST)) {
+    if (!battOk()) { endSession(true); return; }
+    quietStart = true;
+    bool ok = startHeater(min((uint16_t)(left / 60000), MAX_MIN), thSrc.c_str());
+    quietStart = false;
+    if (!ok) endSession(true);
+  }
+}
+
+// Minutos de antelación para una salida según la temperatura: 15 min a 15 °C o más, 1,5 min más por cada grado
+// menos, hasta 60 (a −15 °C). Sin dato, 30. Es una estimación sencilla, no un cálculo del motor.
+int depLead(float t) {
+  if (isnan(t)) return 30;
+  return constrain((int)lround(15 + (15 - t) * 1.5), 15, 60);
+}
+
+// Temperatura para decidirlo: la de dentro; sin termómetro, la del agua del motor (con el motor frío se parece a la
+// de fuera) si es reciente
+float depTemp() {
+  if (!isnan(cabT)) return cabT;
+  if (tempC > -100 && lastSensorOk && millis() - lastSensorOk < 600000) return tempC;
+  return NAN;
+}
+
+// ¿Toca encender para una salida? depMin = minuto absoluto (time()/60) de la salida; done = la última ya atendida
+void depCheck(uint32_t depMin, uint8_t tgt, uint32_t& done, const char* src) {
+  uint32_t nowMin = time(nullptr) / 60;
+  if (depMin <= nowMin || done == depMin) return;
+  uint32_t left = depMin - nowMin;
+  if (left > 60) return;
+  if (isnan(cabT) && millis() - lastSensor > 300000) readSensors();   // sin termómetro: leer el agua (cada 5 min)
+  float t = depTemp();
+  int lead = depLead(t);
+  if (left > (uint32_t)lead) return;
+  done = depMin;                                            // se atiende una sola vez, encienda o no
+  if (heaterOn || thActive || left < 10) return;            // ya está calentando, o queda demasiado poco
+  if (tgt && !isnan(cabT) && cabT >= tgt) { addLog(trf(T_LOG_TH_WAIT, degs(cabT, 1).c_str())); return; }
+  if (!battOk()) return;
+  time_t dt = (time_t)depMin * 60; struct tm tm; localtime_r(&dt, &tm);
+  char h[6]; strftime(h, sizeof h, "%H:%M", &tm);
+  addLog(trf(T_LOG_DEP, h, (int)left, isnan(t) ? "?" : degs(t, 0).c_str()));
+  if (tgt && !isnan(cabT)) startSession(left, tgt, src);
+  else startHeater(min((uint16_t)left, MAX_MIN), src);
+}
+
+// Próxima vez que el reloj marque hh:mm (hoy o mañana), como minuto absoluto
+uint32_t depNext(int h, int mi) {
+  time_t t = time(nullptr); struct tm tm; localtime_r(&t, &tm);
+  tm.tm_hour = h; tm.tm_min = mi; tm.tm_sec = 0; tm.tm_isdst = -1;
+  time_t d = mktime(&tm);
+  if (d <= t + 60) { tm.tm_mday += 1; tm.tm_isdst = -1; d = mktime(&tm); }
+  return d / 60;
+}
+
+// Guarda la salida suelta (0 = ninguna)
+void depSet(uint32_t m, uint8_t tgt) {
+  depOnce = m; depOnceT = m ? tgt : 0; depOnceDone = 0;
+  prefs.begin("webasto", false);
+  prefs.putUInt("dep", depOnce);
+  prefs.putUChar("dept", depOnceT);
+  prefs.end();
+  if (!m) return;
+  time_t dt = (time_t)m * 60; struct tm tm; localtime_r(&dt, &tm);
+  char h[16]; strftime(h, sizeof h, "%d/%m %H:%M", &tm);
+  addLog(trf(T_LOG_DEP_SET, (String(h) + (tgt ? " · " + degs(tgt, 0) : String(""))).c_str()));
+}
+
+// Encender desde la app, la web o la consola; con objetivo, termostato. Devuelve "" si va bien, o el error
+String heatOn(int m, int tg, const char* src) {
+  if (tg) {
+    if (tg < 5 || tg > 30) return tr(T_E_TARGET);
+    if (isnan(cabT)) return tr(T_E_NOSENS);
+    endSession(false);
+    return startSession(m > 0 ? m : 60, tg, src) ? "" : tr(T_E_ON);
+  }
+  endSession(false);
+  return startHeater(m > 0 ? m : 30, src) ? "" : tr(T_E_ON);
+}
+
+// ============================================================================================================
 // Configuración guardada (memoria no volátil, espacio de nombres "webasto")
 // ============================================================================================================
 
@@ -700,7 +1291,13 @@ void loadCfg() {
   nSch = prefs.getUChar("n", 0);
   if (nSch > MAX_SCHED) nSch = 0;                 // dato corrupto: sin programas
   if (nSch) prefs.getBytes("sch", sch, sizeof(Sched) * nSch);
-  for (int i = 0; i < nSch; i++) if (sch[i].dur > MAX_MIN) sch[i].dur = MAX_MIN;   // programas de versiones anteriores (antes se permitían 4 h)
+  memset(schX, 0, sizeof schX);
+  if (nSch && prefs.isKey("schx")) prefs.getBytes("schx", schX, nSch);
+  for (int i = 0; i < nSch; i++) {
+    if ((schX[i] & SX_TGT) > 30) schX[i] &= SX_DEP;                // objetivo imposible: sin termostato
+    uint16_t lim = (schX[i] & SX_TGT) ? MAX_SESSION : MAX_MIN;     // con termostato, la ventana puede ser más larga
+    if (sch[i].dur > lim) sch[i].dur = lim;       // programas de versiones anteriores (antes se permitían 4 h)
+  }
   autoOn = prefs.getBool("auto", true);
   // isKey() evita mensajes de error en la consola por claves que aún no existen
   if (prefs.isKey("tgtok"))  prefs.getString("tgtok", tgToken, sizeof tgToken);
@@ -717,7 +1314,18 @@ void loadCfg() {
   wifiMode = prefs.getUChar("wmode", WM_HEAT);
   minVolt  = prefs.getFloat("minv", 12.0);
   lang     = prefs.getUChar("lang", L_ES);
+  oledType = prefs.getUChar("oled", OLED_SH1106);
+  dispMode = prefs.getUChar("disp", DISP_AUTO);
+  ledLvl   = prefs.getUChar("led", 1);
+  tOff     = prefs.getFloat("toff", 0);
+  warmC    = prefs.getUChar("warm", 0);
+  depOnce  = prefs.getUInt("dep", 0);
+  depOnceT = prefs.getUChar("dept", 0);
   prefs.end();
+  if (oledType > OLED_SSD1306) oledType = OLED_SH1106;
+  if (dispMode > DISP_ALWAYS) dispMode = DISP_AUTO;
+  if (ledLvl > 3) ledLvl = 1;
+  if (isnan(tOff) || tOff < -5 || tOff > 5) tOff = 0;
   if (lang >= L_N) lang = L_ES;
   if (wifiMode > WM_DEMAND) wifiMode = WM_HEAT;   // valor imposible: el de por defecto
   if (blePin < 100000 || blePin > 999999) {       // primer arranque: PIN al azar, distinto en cada placa
@@ -732,14 +1340,15 @@ void loadCfg() {
 void saveSched() {
   prefs.begin("webasto", false);
   prefs.putUChar("n", nSch);
-  if (nSch) prefs.putBytes("sch", sch, sizeof(Sched) * nSch);
-  else prefs.remove("sch");
+  if (nSch) { prefs.putBytes("sch", sch, sizeof(Sched) * nSch); prefs.putBytes("schx", schX, nSch); }
+  else { prefs.remove("sch"); prefs.remove("schx"); }
   prefs.putBool("auto", autoOn);
   prefs.end();
 }
 
-// Programas en texto (los manda la web o la app): auto = "1"/"0"; lista = "en,días,inicio,duración;..."
-// Se descartan las entradas mal formadas o fuera de rango; la duración se limita a MAX_MIN.
+// Programas en texto (los manda la web o la app): auto = "1"/"0"; lista = "en,días,inicio,duración[,opciones];..."
+// opciones = schX (objetivo en °C en los bits 0–5, bit 7 = hora de salida); sin ellas, 0 (como en versiones anteriores).
+// Se descartan las entradas mal formadas o fuera de rango; la duración se limita a MAX_MIN (MAX_SESSION con objetivo).
 void applySched(const String& a, const String& L) {
   autoOn = a == "1";
   nSch = 0;
@@ -749,12 +1358,17 @@ void applySched(const String& a, const String& L) {
     if (q < 0) q = L.length();
     String it = L.substring(p, q);
     p = q + 1;
-    int e, d, st, du;
-    if (sscanf(it.c_str(), "%d,%d,%d,%d", &e, &d, &st, &du) == 4 && st >= 0 && st < 1440 && du > 0) {
+    int e, d, st, du, x = 0;
+    if (sscanf(it.c_str(), "%d,%d,%d,%d,%d", &e, &d, &st, &du, &x) >= 4 && st >= 0 && st < 1440 && du > 0) {
+      x &= SX_DEP | SX_TGT;
+      int tg = x & SX_TGT;
+      if (tg && (tg < 5 || tg > 30)) x &= SX_DEP;     // objetivo fuera de rango: sin termostato
       sch[nSch].en = e ? 1 : 0;
       sch[nSch].days = d & 0x7F;                  // solo los 7 bits de los días
       sch[nSch].start = st;                       // minutos desde las 00:00
-      sch[nSch].dur = min(du, (int)MAX_MIN);
+      sch[nSch].dur = min(du, (int)((x & SX_TGT) ? MAX_SESSION : MAX_MIN));
+      schX[nSch] = x;
+      depDone[nSch] = 0;
       nSch++;
     }
   }
@@ -762,12 +1376,13 @@ void applySched(const String& a, const String& L) {
   addLog(trf(T_LOG_SCHED, nSch));
 }
 
-// Los programas en el mismo formato de texto, para la app ("1|1,31,420,30;0,96,600,15")
+// Los programas en el mismo formato de texto, para la app ("1|1,31,420,30;0,96,600,15,148"); las opciones solo si hay
 String schedText() {
   String s = autoOn ? "1|" : "0|";
   for (int i = 0; i < nSch; i++) {
     if (i) s += ";";
     s += sch[i].en; s += ","; s += sch[i].days; s += ","; s += sch[i].start; s += ","; s += sch[i].dur;
+    if (schX[i]) { s += ","; s += schX[i]; }
   }
   return s;
 }
@@ -816,13 +1431,34 @@ int cfgSet(String k, String v, String& err) {
     for (int i = 0; i < L_N; i++) if (v == LANG_CODES[i]) l = i;
     if (l < 0) { err = tr(T_E_LANG); r = 0; }
     else if (l != lang) { lang = l; prefs.putUChar("lang", lang); }   // se aplica al momento; solo se escribe si cambia
+  } else if (k == "oled") {                       // 0 = SH1106 (1,3"), 1 = SSD1306 (0,96")
+    int m = v.toInt();
+    if (!v.length() || m < OLED_SH1106 || m > OLED_SSD1306) { err = trf(T_E_VALUE, k.c_str()); r = 0; }
+    else if (m != oledType) { oledType = m; prefs.putUChar("oled", oledType); oledInit(); dispWake(); }
+  } else if (k == "disp") {                       // pantalla: 0 apagada, 1 automática, 2 siempre encendida
+    int m = v.toInt();
+    if (!v.length() || m < DISP_OFF || m > DISP_ALWAYS) { err = trf(T_E_VALUE, k.c_str()); r = 0; }
+    else { dispMode = m; prefs.putUChar("disp", dispMode); dispWake(); }
+  } else if (k == "led") {                        // brillo del LED: 0 apagado … 3 alto
+    int m = v.toInt();
+    if (!v.length() || m < 0 || m > 3) { err = trf(T_E_VALUE, k.c_str()); r = 0; }
+    else { ledLvl = m; prefs.putUChar("led", ledLvl); }
+  } else if (k == "toff") {                       // corrección del termómetro (°C)
+    float f = v.toFloat();
+    if (!v.length() || f < -5 || f > 5) { err = tr(T_E_TOFF); r = 0; }
+    else { if (!isnan(cabT)) cabT += f - tOff; tOff = f; prefs.putFloat("toff", tOff); }
+  } else if (k == "warm") {                       // aviso de agua caliente (°C; 0 = sin aviso)
+    int w = v.toInt();
+    if (!v.length() || (w != 0 && (w < 30 || w > 80))) { err = tr(T_E_WARM); r = 0; }
+    else { warmC = w; prefs.putUChar("warm", warmC); }
   } else { err = trf(T_E_UNKNOWN_SET, k.c_str()); r = 0; }
   prefs.end();
   return r;
 }
 
 // Ajustes que admite el formulario de configuración de la web (en este orden)
-const char* CFG_KEYS[] = {"lang", "name", "appass", "pin", "wifimode", "ssid", "pass", "tgtok", "tgchat", "minvolt"};
+const char* CFG_KEYS[] = {"lang", "name", "appass", "pin", "wifimode", "ssid", "pass", "tgtok", "tgchat", "minvolt",
+                          "oled", "disp", "led", "toff", "warm"};
 
 // ¿Sigue la Wi-Fi propia con la clave de fábrica? Entonces cualquiera cerca puede entrar: la web obliga a cambiarla
 bool apDefault() { return strcmp(cfgApPass, AP_PASS_DEFAULT) == 0; }
@@ -841,6 +1477,14 @@ String cfgJson(bool withPin) {
   j += ",\"bonds\":";    j += bondCount();                       // cuántos móviles están emparejados
   j += ",\"lang\":\"";  j += LANG_CODES[lang]; j += "\"";     // idioma de la placa (la app lo iguala al del móvil)
   j += ",\"ota\":1";                                            // sabe buscar y actualizar por internet
+  j += ",\"th\":1";                                             // sabe termostato y hora de salida (0.2.0+)
+  j += ",\"oled\":";   j += (int)oledType;
+  j += ",\"disp\":";   j += (int)dispMode;
+  j += ",\"led\":";    j += (int)ledLvl;
+  j += ",\"toff\":";   j += String(tOff, 1);
+  j += ",\"warm\":";   j += (int)warmC;
+  j += ",\"sens\":";   j += js(String(snName()));               // termómetro detectado ("" = ninguno)
+  j += ",\"scr\":";    j += oledOk ? "true" : "false";           // ¿hay pantalla?
   j += ",\"ver\":\"" FW_VERSION "\"}";
   return j;
 }
@@ -894,20 +1538,34 @@ void checkSchedule() {
   time_t t = time(nullptr); struct tm tm; localtime_r(&t, &tm);
   if (tm.tm_min == lastMinute) return;            // ya revisado este minuto
   lastMinute = tm.tm_min;
-  if (!autoOn || heaterOn) return;                // programas apagados, o ya está calentando
+  uint32_t nowMin = t / 60;
+  // Salida suelta: se atiende aunque los programas estén desactivados; pasada la hora se borra
+  if (depOnce) {
+    depCheck(depOnce, depOnceT, depOnceDone, "app");
+    if (nowMin >= depOnce) depSet(0, 0);
+  }
+  if (!autoOn) return;                            // programas apagados
 
   uint8_t wd = (tm.tm_wday + 6) % 7;             // día de la semana con 0 = lunes (tm_wday tiene 0 = domingo)
   uint16_t m = tm.tm_hour * 60 + tm.tm_min;      // minuto del día
   for (int i = 0; i < nSch; i++) {
-    if (sch[i].en && (sch[i].days & (1 << wd)) && sch[i].start == m) {
-      // Antes de encender se mira la batería: con poca tensión, no se arranca (para poder arrancar el motor)
-      readSensors();
-      if (volt > 0 && volt < minVolt) {
-        addLog(trf(T_LOG_SKIP, num(volt, 1).c_str()));
-        notify(trf(T_LOG_SKIP, num(volt, 1).c_str()));
-        return;
+    if (!sch[i].en) continue;
+    uint8_t tgt = schX[i] & SX_TGT;
+    if (schX[i] & SX_DEP) {
+      // La hora es la de salida: se mira la de hoy y la de mañana (por si cae pasada la medianoche) y depCheck()
+      // decide cuánto antes encender según la temperatura
+      for (int k = 0; k < 2; k++) {
+        int32_t diff = k * 1440 + sch[i].start - m;
+        if ((sch[i].days >> ((wd + k) % 7) & 1) && diff > 0 && diff <= 60) depCheck(nowMin + diff, tgt, depDone[i], "programa");
       }
-      startHeater(sch[i].dur, "programa");
+      continue;
+    }
+    if (heaterOn || thActive) continue;           // ya está calentando
+    if ((sch[i].days & (1 << wd)) && sch[i].start == m) {
+      // Antes de encender se mira la batería: con poca tensión, no se arranca (para poder arrancar el motor)
+      if (!battOk()) return;
+      if (tgt && !isnan(cabT)) startSession(sch[i].dur, tgt, "programa");   // con objetivo: termostato
+      else startHeater(min(sch[i].dur, MAX_MIN), "programa");
       return;
     }
   }
@@ -938,7 +1596,14 @@ String stateJson() {
   j += ",\"gas\":[";  j += String(gasCur, 2); j += ","; j += String(gasLast, 2); j += ",";
   j += String(gasMonth, 1); j += ","; j += String(gasTotal, 1); j += "]";
   j += ",\"op\":";   j += otaProg;                // actualización por internet: 0–100 %, -1 = ninguna
-  j += ",\"note\":"; j += js(stopNote.substring(0, 200));   // recortado para que quepa
+  j += ",\"ct\":";   j += isnan(cabT) ? -999 : (int)lround(cabT * 10);   // °C × 10 de dentro (-999 = sin termómetro)
+  j += ",\"ch\":";   j += isnan(cabH) ? -1 : (int)lround(cabH);          // humedad (%)
+  j += ",\"tg\":";   j += thActive ? (int)thTarget : 0;                   // termostato: objetivo (0 = sin él)
+  j += ",\"tu\":";   j += thActive ? (int32_t)(thUntil - millis()) / 1000 : 0;   // y segundos que le quedan
+  j += ",\"dp\":";   j += depOnce * 60;            // salida suelta (segundos desde 1970; 0 = ninguna)
+  j += ",\"dt\":";   j += (int)depOnceT;           // y su objetivo
+  j += ",\"wa\":";   j += (heaterOn && warmSent) ? 1 : 0;   // ya avisó de «agua caliente» en este encendido
+  j += ",\"note\":"; j += js(stopNote.substring(0, 150));   // recortado para que quepa
   j += "}";
   return j;
 }
@@ -1053,11 +1718,21 @@ String runCmd(String c) {
   // k = la orden (primera palabra), a = el resto (argumentos)
   String k = sp < 0 ? c : c.substring(0, sp), a = sp < 0 ? String("") : c.substring(sp + 1);
   k.toLowerCase();
-  if (k == "on") {                                 // on [minutos]
-    int m = a.toInt();
-    return startHeater(m > 0 ? m : 30, "app") ? String("on:ok") : String("on:err ") + tr(T_E_ON);
+  if (k == "on") {                                 // on [minutos] [objetivo °C]: con objetivo, termostato
+    int m = a.toInt(), b = a.indexOf(' ');
+    String e = heatOn(m, b > 0 ? a.substring(b + 1).toInt() : 0, "app");
+    return e.length() ? "on:err " + e : String("on:ok");
   }
-  if (k == "off") return stopHeater(tr(T_SRC_APP), true) ? String("off:ok") : String("off:ok ") + tr(T_OFF_NOCONF_SHORT);
+  if (k == "off") { endSession(true); return stopHeater(tr(T_SRC_APP), true) ? String("off:ok") : String("off:ok ") + tr(T_OFF_NOCONF_SHORT); }
+  if (k == "dep") {                                // dep HH:MM [objetivo °C] | dep off: salida suelta
+    if (a == "off" || a == "0") { if (depOnce) addLog(tr(T_LOG_DEP_OFF)); depSet(0, 0); return "dep:ok"; }
+    int h = -1, mi = -1, tg = 0;
+    int nf = sscanf(a.c_str(), "%d:%d %d", &h, &mi, &tg);
+    if (!timeValid() || nf < 2 || h < 0 || h > 23 || mi < 0 || mi > 59 || (tg && (tg < 5 || tg > 30)))
+      return String("dep:err ") + tr(T_E_DEP);
+    depSet(depNext(h, mi), tg);
+    return "dep:ok";
+  }
   if (k == "state") return "state:" + stateJson();
   if (k == "time") {                               // time <segundos desde 1970>: la app pone la placa en hora
     long e = a.toInt();
@@ -1150,6 +1825,13 @@ void handleState() {
   j += ",\"op\":";     j += otaProg;                             // actualización por internet en curso (0–100)
   j += ",\"om\":";     j += js(lastWebMsg);                      // último resultado de buscar o actualizar
   j += ",\"onew\":";   j += (otaNetNew && !otaNetBusy) ? "true" : "false";   // ese resultado es «hay versión nueva»
+  j += ",\"ct\":";     j += isnan(cabT) ? String("null") : String(cabT, 1);   // dentro (°C); null = sin termómetro
+  j += ",\"ch\":";     j += isnan(cabH) ? String("null") : String((int)lround(cabH));
+  j += ",\"tgt\":";    j += thActive ? (int)thTarget : 0;                     // termostato: objetivo y segundos que quedan
+  j += ",\"tun\":";    j += thActive ? (int32_t)(thUntil - now) / 1000 : 0;
+  j += ",\"dep\":";    j += depOnce * 60;                                     // salida suelta (0 = ninguna) y su objetivo
+  j += ",\"dept\":";   j += (int)depOnceT;
+  j += ",\"wa\":";     j += (heaterOn && warmSent) ? "true" : "false";
   bool sta = WiFi.status() == WL_CONNECTED;       // ¿unida a la red con internet?
   j += ",\"sta\":";    j += sta ? "true" : "false";
   j += ",\"ssid\":";   j += js(sta ? WiFi.SSID() : String(""));
@@ -1157,11 +1839,11 @@ void handleState() {
   j += ",\"rssi\":";   j += sta ? WiFi.RSSI() : 0;   // intensidad de la señal (dBm)
   j += ",\"tx\":";     j += js(lastTx);
   j += ",\"rx\":";     j += js(lastRx);
-  j += ",\"sch\":[";                              // programas como [activo, días, inicio, duración]
+  j += ",\"sch\":[";                              // programas como [activo, días, inicio, duración, opciones]
   for (int i = 0; i < nSch; i++) {
     if (i) j += ",";
     j += "["; j += sch[i].en; j += ","; j += sch[i].days; j += ",";
-    j += sch[i].start; j += ","; j += sch[i].dur; j += "]";
+    j += sch[i].start; j += ","; j += sch[i].dur; j += ","; j += (int)schX[i]; j += "]";
   }
   j += "],\"log\":[";                             // registro, del más reciente al más antiguo
   for (int i = logN - 1; i >= 0; i--) { j += js(logBuf[i]); if (i) j += ","; }
@@ -1438,16 +2120,23 @@ bool setupDone() {
   return false;
 }
 
-// POST /api/on (min=minutos): encender
+// POST /api/on (min=minutos, tgt=objetivo °C opcional): encender
 void handleOn() {
-  int m = server.arg("min").toInt();
-  if (m <= 0) m = 30;
-  bool ok = startHeater(m, "manual");
-  server.send(ok ? 200 : 502, "text/plain", ok ? "ok" : tr(T_E_ON));
+  String e = heatOn(server.arg("min").toInt(), server.arg("tgt").toInt(), "manual");
+  server.send(e.length() ? 400 : 200, "text/plain", e.length() ? e : String("ok"));
+}
+
+// POST /api/dep (t=HH:MM u «off», tgt=objetivo opcional): salida suelta
+void handleDep() {
+  String t = server.arg("t"), g = server.arg("tgt");
+  String r = runCmd("dep " + t + (g.length() && g != "0" ? " " + g : String("")));
+  if (r.startsWith("dep:err ")) { server.send(400, "text/plain", r.substring(8)); return; }
+  server.send(200, "text/plain", "ok");
 }
 
 // POST /api/off: apagar
 void handleOff() {
+  endSession(true);
   bool ok = stopHeater(tr(T_SRC_MANUAL), true);
   server.send(200, "text/plain", ok ? "ok" : tr(T_W_OFF_NOCONF));
 }
@@ -1521,8 +2210,9 @@ void serialCli() {
   String c = Serial.readStringUntil('\n');
   c.trim();
   String l = c; l.toLowerCase();                  // l en minúsculas para comparar; c conserva el original (claves)
-  if (l.startsWith("on")) { int m = l.substring(2).toInt(); startHeater(m > 0 ? m : 30, "consola"); }
-  else if (l == "off") stopHeater(tr(T_SRC_CONSOLE), true);
+  if (l.startsWith("on")) { String a = l.substring(2); a.trim(); int b = a.indexOf(' ');
+    String e = heatOn(a.toInt(), b > 0 ? a.substring(b + 1).toInt() : 0, "consola"); if (e.length()) Serial.println(e); }
+  else if (l == "off") { endSession(true); stopHeater(tr(T_SRC_CONSOLE), true); }
   else if (l == "status") {
     readSensors();
     static const char* PH[] = {"apagada", "arrancando", "con llama", "pausa de regulación", "sin respuesta"};
@@ -1530,12 +2220,15 @@ void serialCli() {
                   PH[phase], tempC, volt, flame, power, lastTx.c_str(), lastRx.c_str());
     Serial.println(String("Gasoil estimado: encendido ") + litros(gasCur) + " | último " + litros(gasLast) +
                    " | mes " + litros(gasMonth) + " | total " + litros(gasTotal));
+    if (snType != SN_NONE) Serial.printf("Dentro (%s): %.1f C, %.0f %% | termostato %s\n", snName(), cabT, cabH,
+                                         thActive ? (String(thTarget) + " C").c_str() : "no");
+    Serial.printf("Pantalla: %s\n", oledOk ? "sí" : "no");
     if (stopNote.length()) Serial.println(stopNote);
   }
   else if (l == "errores") Serial.println(errorsJson());
   else if (l == "cfg") Serial.println(cfgJson(true));
   else if (l.startsWith("set ") || l == "wifi" || l == "forget" || l == "reboot" || l == "gasreset") Serial.println(runCmd(c));
-  else if (l.length()) Serial.println("Comandos: on [min] | off | status | errores | cfg | set clave=valor | wifi | forget | reboot | gasreset");
+  else if (l.length()) Serial.println("Comandos: on [min] [°C] | off | status | errores | cfg | set clave=valor | wifi | forget | reboot | gasreset");
 }
 
 // ============================================================================================================
@@ -1561,6 +2254,7 @@ void setup() {
   server.on("/api/on", HTTP_POST, [] { if (sameOrigin() && setupDone()) handleOn(); });
   server.on("/api/off", HTTP_POST, [] { if (sameOrigin() && setupDone()) handleOff(); });
   server.on("/api/sched", HTTP_POST, [] { if (sameOrigin() && setupDone()) handleSched(); });
+  server.on("/api/dep", HTTP_POST, [] { if (sameOrigin() && setupDone()) handleDep(); });
   server.on("/api/time", HTTP_POST, [] { if (sameOrigin()) handleTime(); });
   server.on("/api/errors", HTTP_GET, [] { server.send(200, "application/json", errorsJson()); });
   server.on("/api/cfg", HTTP_GET, [] { server.send(200, "application/json", cfgJson(!apDefault())); });
@@ -1584,9 +2278,14 @@ void setup() {
   wifiStart();
 
   addLog(trf(T_LOG_BOOT, FW_VERSION));
+  // Pantalla y termómetro (opcionales) en el bus I2C; botón BOOT para encender la pantalla
+  Wire.begin(I2C_SDA, I2C_SCL, (uint32_t)400000);
+  pinMode(BTN_PIN, INPUT_PULLUP);
+  hwProbe();
+  dispWake();
   // El PIN Bluetooth sale aquí: es la forma de conocerlo la primera vez (o en la web, Configuración)
   Serial.printf("WTTC %s | Bluetooth y Wi-Fi: \"%s\" | PIN Bluetooth: %06u\n", FW_VERSION, cfgName, (unsigned)blePin);
-  Serial.println("Consola: on [min] | off | status | errores | cfg | set clave=valor | wifi | forget | reboot | gasreset");
+  Serial.println("Consola: on [min] [°C] | off | status | errores | cfg | set clave=valor | wifi | forget | reboot | gasreset");
 }
 
 // ============================================================================================================
@@ -1618,7 +2317,7 @@ void loop() {
 
   uint32_t now = millis();
   if (heaterOn) {
-    if ((int32_t)(now - onUntil) >= 0) stopHeater(tr(T_WHY_END), true);   // se acabó el tiempo pedido
+    if ((int32_t)(now - onUntil) >= 0) stopHeater(tr(T_WHY_END), !thActive);   // se acabó el tiempo (con termostato, sin aviso: sigue)
     else if (now - lastKA >= KEEPALIVE_MS) {
       // Mensaje de mantenimiento: «sigue con la orden 0x21». Sin él, la Webasto se apaga sola.
       uint8_t d[2] = {0x21, 0x00}, r[64], n;
@@ -1634,6 +2333,7 @@ void loop() {
         addLog(tr(T_LOG_BUS_LOST));
         notify(tr(T_TG_BUS_LOST));
       } else if (kaFails >= 24) {                    // 2 minutos sin respuesta: se da por apagada
+        endSession(true);
         stopHeater(tr(T_WHY_NO_COMM), false);
         stopNote = hhmm() + tr(T_NOTE_LOST);
         notify(tr(T_TG_LOST));
@@ -1642,8 +2342,14 @@ void loop() {
   }
   // Sensores: cada SENSOR_MS si está encendida o hay alguien mirando (web abierta o app conectada en los últimos 15 s)
   if ((heaterOn || now - lastUi < 15000) && now - lastSensor >= SENSOR_MS) {
-    if (readSensors() && heaterOn) { gasTick(); evalHeater(); }
+    if (readSensors() && heaterOn) { gasTick(); evalHeater(); battRunCheck(); warmCheck(); }
   }
+  snTick();                                       // termómetro de dentro (si lo hay)
+  thermoTick();                                   // «calentar hasta X °C»
+  if ((!oledOk || snType == SN_NONE) && millis() - hwProbeAt > 30000) hwProbe();   // ¿se ha conectado algo?
+  dispTick();                                     // pantalla
+  ledTick();                                      // LED de estado
+  btnTick();                                      // botón BOOT
   checkSchedule();                                // ¿toca encender por programa?
   otaConfirm();                                   // tras una actualización: confirmarla al minuto de funcionar
   otaNetPoll();                                   // ¿ha terminado una búsqueda o descarga por internet?
