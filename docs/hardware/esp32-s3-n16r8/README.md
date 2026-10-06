@@ -46,9 +46,16 @@ Todos los pines que usa WTTC están en el **lado izquierdo** (visto con la anten
   de la de 5Vin, como en la placa de Espressif (sin comprobar). Mientras no se compruebe, **no conectar el USB con la
   placa alimentada por el LM2596**, y no soldar el puente IN-OUT.
 - **LED RGB WS2812** («RGB»): direccionable, un solo hilo de datos. En la DevKitC-1 de Espressif va al **GPIO48**
-  (v1.0) o al **GPIO38** (v1.1); en esta placa, por la serigrafía, parece el 48 (sin comprobar). WTTC aún no lo usa.
+  (v1.0) o al **GPIO38** (v1.1); en esta placa es el **GPIO48** (lo confirma la ficha de Naylamp, abajo).
 - **LED de encendido y LEDs TX/RX** del CH343P.
 - **Botones:** **BOOT** (GPIO0; mantenerlo pulsado al conectar si no entra a grabar sola) y **RST** (reinicio).
+
+## Otra documentación de la misma placa
+
+- [Naylamp Mechatronics: ESP32-S3 DevKitC-1 44 pines](https://naylampmechatronics.com/espressif-esp/1206-esp32-s3-devkitc-1-44-pin-esp32-s3-wifi-usb-c.html):
+  confirma el LED WS2812 en el GPIO48, el conversor CH343, 16 MB de flash y 8 MB de PSRAM, 65 × 28 mm. Para
+  alimentarla por 5V recomienda una fuente de 5 V / 1 A con un condensador de 100 µF en paralelo (el módulo LM2596
+  ya lleva uno a la salida).
 
 ## Antena
 
