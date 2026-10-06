@@ -138,7 +138,7 @@ const float    TH_STALL_C   = 0.5;    // °C (si hace demasiado frío fuera o el
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.2.3"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.2.4"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -1768,7 +1768,7 @@ String stateJson() {
   j += ",\"wm\":";   j += wifiMode;               // modo de la Wi-Fi
   // Gasoil estimado: [encendido actual, último, mes, total]
   j += ",\"gas\":[";  j += String(gasCur, 2); j += ","; j += String(gasLast, 2); j += ",";
-  j += String(gasMonth, 1); j += ","; j += String(gasTotal, 1); j += "]";
+  j += String(gasMonth, 2); j += ","; j += String(gasTotal, 2); j += "]";   // con 2 decimales, como el encendido: si no, el total redondeado podía salir menor
   j += ",\"op\":";   j += otaProg;                // actualización por internet: 0–100 %, -1 = ninguna
   j += ",\"ct\":";   j += isnan(cabT) ? -999 : (int)lround(cabT * 10);   // °C × 10 de dentro (-999 = sin termómetro)
   j += ",\"ch\":";   j += isnan(cabH) ? -1 : (int)lround(cabH);          // humedad (%)
@@ -1946,7 +1946,8 @@ String runCmd(String c) {
     return "tgtest:ok";
   }
   if (k == "forget") { bleForgetAll(); return "forget:ok"; }
-  if (k == "gasreset") { gasMonth = gasTotal = gasLast = 0; gasSave(); addLog(tr(T_LOG_GASRESET)); return "gasreset:ok"; }
+  // Gasoil a cero: todo, también el encendido en marcha (si no, este podría pasar del total)
+  if (k == "gasreset") { gasCur = gasMonth = gasTotal = gasLast = 0; gasSave(); addLog(tr(T_LOG_GASRESET)); return "gasreset:ok"; }
   if (k == "otacheck" || k == "update") {         // buscar actualización / buscar e instalar (va en otra tarea)
     String e = otaNetStart(k == "update", false);
     return e.length() ? k + ":err " + e : k + ":busy";   // «busy» = en marcha; el resultado llega luego como k:…
@@ -1986,7 +1987,7 @@ void handleState() {
   j += ",\"auto\":";   j += autoOn ? "true" : "false";
   j += ",\"ph\":";     j += phase;
   j += ",\"gas\":[";   j += String(gasCur, 2); j += ","; j += String(gasLast, 2); j += ",";
-  j += String(gasMonth, 1); j += ","; j += String(gasTotal, 1); j += "]";
+  j += String(gasMonth, 2); j += ","; j += String(gasTotal, 2); j += "]";   // con 2 decimales, como el encendido: si no, el total redondeado podía salir menor
   j += ",\"note\":";   j += js(stopNote);
   j += ",\"tg\":";     j += (tgToken[0] && tgChat[0]) ? "true" : "false";
   j += ",\"tgchat\":"; j += js(String(tgChat));

@@ -141,7 +141,7 @@ class DemoDevice(private val ctx: Context, private val main: Handler, private va
             .put("t", temp.toInt()).put("v", if (on) 12.4 else 12.7).put("fl", if (on && ph == 2) 1 else 0)
             .put("pw", power()).put("bus", 1).put("tv", 1).put("time", now() / 1000)
             .put("auto", if (auto) 1 else 0).put("wf", 1).put("wm", 1)
-            .put("gas", JSONArray().put(r2(gasCur)).put(r2(gasLast)).put(r1(gasMonth)).put(r1(gasTotal)))
+            .put("gas", JSONArray().put(r2(gasCur)).put(r2(gasLast)).put(r2(gasMonth)).put(r2(gasTotal)))
             .put("ct", Math.round(cab * 10)).put("ch", 58).put("tg", tgt)
             .put("tu", if (tgt > 0) ((tgtUntil - now()) / 1000).coerceAtLeast(0) else 0)
             .put("dp", dep).put("dt", depT).put("wa", if (on && temp >= 50) 1 else 0)
@@ -181,14 +181,13 @@ class DemoDevice(private val ctx: Context, private val main: Handler, private va
             "cfg" -> cfg.toString()
             "set" -> { if (a.startsWith("lang=")) cfg.put("lang", a.substring(5)); "ok" }
             "wifi", "tgtest", "forget", "reboot" -> "ok"
-            "gasreset" -> { gasLast = 0.0; gasMonth = 0.0; gasTotal = 0.0; "ok" }
+            "gasreset" -> { gasCur = 0.0; gasLast = 0.0; gasMonth = 0.0; gasTotal = 0.0; "ok" }
             else -> "err " + ctx.getString(R.string.demo_unknown)
         }
         main.post { listener.onResponse(k, r); emitState() }
     }
 
     private fun r2(x: Double) = Math.round(x * 100) / 100.0
-    private fun r1(x: Double) = Math.round(x * 10) / 10.0
 
     private fun addLog(m: String) {
         val t = SimpleDateFormat("dd/MM HH:mm", Locale.ROOT).format(Date())

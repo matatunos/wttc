@@ -6,6 +6,13 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.2.4 — 2026-10-06
+
+Versión de prueba (sin probar con una Webasto real).
+
+- El gasoil del mes y el total se mandan con dos decimales, como el del encendido: redondeados a uno, el total podía salir menor que el encendido (0,24 l frente a 0,2 l).
+- «Gasoil a cero» pone a cero también el encendido en marcha: antes, pulsado mientras calentaba, el gasoil de ese encendido podía salir mayor que el del mes y el total.
+
 ## 0.2.3 — 2026-10-06
 
 Versión de prueba (sin probar con una Webasto real).
