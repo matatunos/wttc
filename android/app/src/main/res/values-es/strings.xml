@@ -211,7 +211,7 @@
         <item>OLED 0,96\" (SSD1306)</item>
     </string-array>
     <string-array name="disp_modes">
-        <item>Apagada</item>
+        <item>Apagada (solo con el botón BOOT)</item>
         <item>Automática (se apaga al minuto)</item>
         <item>Siempre encendida</item>
     </string-array>

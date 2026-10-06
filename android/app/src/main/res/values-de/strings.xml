@@ -211,7 +211,7 @@
         <item>OLED 0,96\" (SSD1306)</item>
     </string-array>
     <string-array name="disp_modes">
-        <item>Aus</item>
+        <item>Aus (nur mit der BOOT-Taste)</item>
         <item>Automatisch (nach einer Minute aus)</item>
         <item>Immer an</item>
     </string-array>

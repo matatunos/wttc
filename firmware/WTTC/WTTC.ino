@@ -136,7 +136,7 @@ const float    TH_STALL_C   = 0.5;    // °C (si hace demasiado frío fuera o el
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.2.1"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.2.2"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -159,7 +159,7 @@ char staSsid[33]   = "", staPass[64] = "";   // red con internet a la que unirse
 enum { OLED_SH1106, OLED_SSD1306 };   // tipo de pantalla: 1,3" (SH1106) o 0,96" (SSD1306). No se distinguen por I2C
 enum { DISP_OFF, DISP_AUTO, DISP_ALWAYS };
 uint8_t oledType   = OLED_SH1106;
-uint8_t dispMode   = DISP_AUTO;       // apagada / automática (se enciende con algo que ver y se apaga al minuto) / siempre
+uint8_t dispMode   = DISP_AUTO;       // apagada (solo con el botón) / automática (se enciende con algo que ver y se apaga al minuto) / siempre
 uint8_t ledLvl     = 1;               // brillo del LED: 0 apagado, 1 bajo, 2 medio, 3 alto
 float tOff         = 0;               // °C que se suman a la lectura del termómetro (corrección; el de la placa calienta)
 uint8_t warmC      = 0;               // °C del agua para el aviso «ya está caliente» (0 = sin aviso)
@@ -257,6 +257,7 @@ uint8_t depOnceT = 0;
 // ---------- pantalla y LED ----------
 bool oledOk = false, dispIsOn = false;
 uint32_t dispUntil = 0, lastDraw = 0;
+uint32_t btnUntil = 0;                // pulsado el botón BOOT: encendida hasta aquí aunque el modo sea «apagada»
 uint8_t fb[1024];                     // imagen de la pantalla: 128 columnas × 8 páginas de 8 píxeles
 
 // Registro de los 20 últimos eventos (en RAM: se pierde al reiniciar)
@@ -1077,11 +1078,12 @@ void dispDraw() {
   dText(0, 56, plain(bot), 1);
 }
 
-// Enciende, refresca (cada segundo) y apaga la pantalla según el modo
+// Enciende, refresca (cada segundo) y apaga la pantalla según el modo. El botón BOOT la enciende un minuto en
+// cualquier modo (también en «apagada»: quien lo pulsa quiere verla)
 void dispTick() {
   if (!oledOk) return;
   uint32_t now = millis();
-  bool want = dispMode == DISP_ALWAYS ||
+  bool want = dispMode == DISP_ALWAYS || (int32_t)(btnUntil - now) > 0 ||
               (dispMode == DISP_AUTO && (heaterOn || (int32_t)(dispUntil - now) > 0 || now - lastUi < 15000));
   if (!want) { oledPower(false); return; }
   if (dispIsOn && now - lastDraw < 1000) return;
@@ -1091,12 +1093,12 @@ void dispTick() {
   oledPower(true);
 }
 
-// Botón BOOT: enciende la pantalla un minuto
+// Botón BOOT: enciende la pantalla un minuto (en cualquier modo)
 void btnTick() {
   static bool was = false;
   static uint32_t t = 0;
   bool p = digitalRead(BTN_PIN) == LOW;
-  if (p != was && millis() - t > 50) { t = millis(); was = p; if (p) dispWake(); }
+  if (p != was && millis() - t > 50) { t = millis(); was = p; if (p) { dispWake(); btnUntil = millis() + DISP_MS; } }
 }
 
 // ============================================================================================================
@@ -1460,7 +1462,7 @@ int cfgSet(String k, String v, String& err) {
     int m = v.toInt();
     if (!v.length() || m < OLED_SH1106 || m > OLED_SSD1306) { err = trf(T_E_VALUE, k.c_str()); r = 0; }
     else if (m != oledType) { oledType = m; prefs.putUChar("oled", oledType); oledInit(); dispWake(); }
-  } else if (k == "disp") {                       // pantalla: 0 apagada, 1 automática, 2 siempre encendida
+  } else if (k == "disp") {                       // pantalla: 0 apagada (solo con el botón), 1 automática, 2 siempre encendida
     int m = v.toInt();
     if (!v.length() || m < DISP_OFF || m > DISP_ALWAYS) { err = trf(T_E_VALUE, k.c_str()); r = 0; }
     else { dispMode = m; prefs.putUChar("disp", dispMode); dispWake(); }

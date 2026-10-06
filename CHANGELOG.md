@@ -6,6 +6,13 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.2.2 — 2026-10-06
+
+Versión de prueba (sin probar con una Webasto real).
+
+- **El botón BOOT enciende la pantalla un minuto en cualquier modo**, también con la pantalla «apagada» en Configuración (que pasa a ser «solo con el botón»). Antes, en ese modo, no había forma de verla.
+- Simulador: avisa de que la pantalla está desactivada o de que se está detectando (la placa busca piezas nuevas cada 30 s).
+
 ## 0.2.1 — 2026-10-06
 
 Versión de prueba (sin probar con una Webasto real). Arreglo de la web de la placa.
