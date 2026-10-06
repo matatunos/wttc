@@ -11,7 +11,7 @@ name: Firmware
 
 on:
   push:
-    paths: ['firmware/**', 'VERSION', '.github/workflows/firmware.yml']
+    paths: ['firmware/**', 'VERSION', '.github/workflows/firmware.yml', '.github/scripts/**']
   pull_request:
     paths: ['firmware/**']
   workflow_dispatch:
@@ -44,6 +44,10 @@ jobs:
         run: |
           v=$(tr -d ' \r\n' < VERSION); fw=$(grep -oP '#define FW_VERSION "\K[^"]+' firmware/WTTC/WTTC.ino)
           [ "$v" = "$fw" ] || { echo "::error::VERSION ($v) y FW_VERSION ($fw) no coinciden"; exit 1; }
+      # La web de la placa va dentro del firmware: se prueba su JavaScript antes de compilar (sin navegador)
+      - name: Probar la web de la placa
+        shell: bash
+        run: node .github/scripts/probar_web.js firmware/WTTC/web.h
       - uses: arduino/setup-arduino-cli@v2
       - name: Instalar el núcleo ESP32 ${{ matrix.core }}
         shell: bash

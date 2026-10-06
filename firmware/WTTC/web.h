@@ -113,8 +113,8 @@ details h3{font-size:15px;margin:18px 0 0}
 <div class="line" id="tgtRow" style="margin-top:12px" hidden><span data-t="tgtL">Hasta</span><select id="tgt" aria-label="Hasta" data-ta="tgtL"></select></div>
 <button class="big" id="big" disabled data-t="turnOn">Encender</button>
 <!-- Salida suelta: «salgo a las 8:00»; la placa decide cuánto antes encender según el frío que haga -->
-<div class="line" style="margin-top:12px"><span data-t="depL">Salgo a las</span><span><input type="time" id="depT" value="08:00" aria-label="Salgo a las" data-ta="depL"> <button class="btn" id="depGo" data-t="depGo">Programar</button></span></div>
-<p class="sub" id="depSt"></p>
+<div class="row" style="margin-top:12px"><div class="rtop"><span data-t="depL">Salgo a las</span><input type="time" id="depT" value="08:00" aria-label="Salgo a las" data-ta="depL" style="font-size:20px"><button class="btn" id="depGo" style="margin-left:auto;background:var(--sf2)" data-t="depGo">Programar</button></div>
+<p class="sub" id="depSt" style="margin:8px 0 0"></p></div>
 
 <!-- Programas semanales: hora, duración, días y activo; se guardan en la placa con «Guardar programas» -->
 <h2 data-t="schedules">Programas</h2><p class="sub" id="next" data-t="noSched">Sin programas.</p>
@@ -263,8 +263,8 @@ de:{loc:'de-DE',cabin:'Innen: {0}',hum:' · Feuchte {0} %',tgtL:'Bis',tgtNone:'O
  askGas:'Dieselschätzung (letzter Lauf, Monat und gesamt) zurücksetzen?',askForget:'Alle gekoppelten Geräte löschen? Die App muss dann erneut mit der PIN gekoppelt werden.',
  days:['M','D','M','D','F','S','S'],daysL:['am Montag','am Dienstag','am Mittwoch','am Donnerstag','am Freitag','am Samstag','am Sonntag']}};
 let lang=(navigator.language||'').slice(0,2);if(!I18N[lang])lang='en';
-// Texto traducido; {0}, {1}… se sustituyen por los datos
-const T=(k,...a)=>{const v=I18N[lang][k];return String(v!==undefined?v:I18N.es[k]).replace(/\{(\d)\}/g,(m,i)=>a[i])};
+// Texto traducido; {0}, {1}… se sustituyen por los datos. Las listas (PH, days, daysL) se devuelven tal cual
+const T=(k,...a)=>{let v=I18N[lang][k];if(v===undefined)v=I18N.es[k];return Array.isArray(v)?v:String(v).replace(/\{(\d)\}/g,(m,i)=>a[i])};
 // Cambia el idioma y repinta los textos fijos (data-t) y las etiquetas para lectores de pantalla (data-ta)
 function setLang(l){if(!I18N[l])return;lang=l;document.documentElement.lang=l;
  document.querySelectorAll('[data-t]').forEach(e=>e.textContent=T(e.dataset.t));

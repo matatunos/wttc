@@ -6,6 +6,19 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.2.1 — 2026-10-06
+
+Versión de prueba (sin probar con una Webasto real). Arreglo de la web de la placa.
+
+### Web de la placa
+- **La lista de programas volvía a salir**: desde la traducción a tres idiomas (0.1.x) no se dibujaba, y el estado salía como una sola letra («a» en vez de «Calentando»). La app no estaba afectada.
+- La fila de «Salgo a las» se ve entera en el móvil.
+- La compilación en GitHub prueba ahora la web de la placa en los tres idiomas antes de publicar nada.
+
+### Simulador (wttc.favala.es)
+- Pantalla OLED dibujada píxel a píxel como en la placa, LED de estado y botón BOOT.
+- Pantalla y termómetro se pueden conectar y quitar, y la temperatura de dentro se puede poner a mano.
+
 ## 0.2.0 — 2026-10-06
 
 Versión de prueba (sin probar con una Webasto real). **Pantalla, termómetro y termostato.** Solo ESP32-S3.
