@@ -80,7 +80,7 @@ Hechas automáticamente: la web con el simulador y la app en un emulador Android
 | Pieza | Modelo usado | Para qué |
 |---|---|---|
 | Calefactor | Webasto Thermo Top C de fábrica (ref. VW 7H0 010 398 J), mandada por W-Bus | Lo que se controla; el ESP32 se enchufa en el conector del temporizador original |
-| Microcontrolador | **ESP32-S3 DevKitC-1 N16R8** (16 MB, mejor sobre base con bornas de tornillo) o ESP32 DevKitC con ESP-WROOM-32 (4 MB) | Bluetooth, Wi-Fi, programas y W-Bus por UART2 (IO16/IO17) |
+| Microcontrolador | **ESP32-S3 DevKitC-1 N16R8** (16 MB, mejor sobre base con bornas de tornillo; [la de referencia](docs/hardware/esp32-s3-n16r8/README.md)) o ESP32 DevKitC con ESP-WROOM-32 (4 MB) | Bluetooth, Wi-Fi, programas y W-Bus por UART2 (IO16/IO17) |
 | Transceptor | Módulo UART ↔ LIN/K-Line con **TJA1020** (o TJA1021, MCP2003, L9637D) | Adapta los 3,3 V del ESP32 al bus de un hilo a 12 V |
 | Alimentación | Regulador **LM2596** ajustado a **5,0 V** | 5 V para el ESP32 desde el +12 V permanente |
 

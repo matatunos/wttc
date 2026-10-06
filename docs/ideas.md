@@ -257,7 +257,9 @@ enchufe directamente en el conector del temporizador, sin cables dupont ni empal
 «electrónica» a «enchufar»: es lo que más ayudaría a que otros lo usen.
 
 **A tener en cuenta:**
-- Conseguir o identificar el **conector** del temporizador original (medidas y referencia) para que encaje.
+- El **conector** del temporizador ya está identificado: TE (AMP) **AMPMODU** de 4 vías, 2×2, paso de 2,54 mm,
+  con clip («Lock-Clip»); carcasa TE 965082-1 (Webasto 67769A) y contactos hembra TE 87191-1 (Webasto 24990A).
+  La placa llevaría la hembra, o un pin header 2×2 de 2,54 mm con su carcasa.
 - Aprovechar para meter lo de las ideas 2 y 11: regulador de bajo consumo en reposo, entrada del contacto con
   optoacoplador, reloj DS3231 con pila y conector para el sensor.
 - Protecciones de automoción (fusible, picos de tensión, polaridad inversa).
@@ -282,5 +284,10 @@ estén estables.
   [este hilo de t6forum](https://www.t6forum.com/threads/retrofit-telestart-t90-on-t5gp-thermotopc-recognized-but-does-not-start.46420/page-3)
   alguien enciende una Thermo Top C de T5 GP con un ESP mandando `0x21` y manteniendo la orden, que es lo que hace
   WTTC. Podría ser el primer probador.
+- **Usar el LED RGB de la placa** (WS2812 en la ESP32-S3 N16R8, ver
+  [docs/hardware/esp32-s3-n16r8](hardware/esp32-s3-n16r8/README.md)): ver el estado de un vistazo sin el móvil. Por
+  ejemplo: azul tenue esperando, verde respirando con la Webasto encendida, rojo parpadeando si hay avería o no
+  contesta el W-Bus, y un destello al conectar el móvil. Con brillo bajo y apagable desde la configuración (dentro de
+  la furgo de noche molesta). Poco código; la librería del núcleo de ESP32 ya trae `neopixelWrite()`.
 - **Home Assistant:** publicar el estado y aceptar órdenes por MQTT cuando la placa tenga red, o un componente de
   ESPHome. Lo piden a menudo en sus foros y no hay nada hecho para la Thermo Top por W-Bus.
