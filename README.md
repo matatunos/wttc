@@ -67,25 +67,35 @@ Hechas automáticamente: la web con el simulador y la app en un emulador Android
 
 ## Qué hace
 - Encender y apagar (15–60 min) y hasta 8 programas semanales.
+- **Hora de salida**: «salgo a las 8:00» (suelta o como programa) y la placa decide cuánto antes encender según el frío.
+- Con el termómetro opcional, **calentar hasta una temperatura** (5–25 °C): apaga al llegar y vuelve a encender si se
+  enfría, con un mínimo de 15 min por encendido; si dentro no sube, se rinde y avisa en vez de gastar en balde.
 - **Estado real**: arrancando, calentando, en pausa (agua caliente) o sin respuesta. Si la Webasto se apaga por su
   cuenta, lo detecta y muestra sus códigos de avería.
 - Temperatura del agua, tensión de batería, llama y potencia.
-- No arranca un programa si la batería está por debajo del mínimo configurado.
+- No arranca un programa si la batería está por debajo del mínimo configurado, y **apaga si baja calentando**.
+- Aviso de **«ya está caliente»** cuando el agua llega a la temperatura elegida.
 - **Bluetooth LE** con emparejamiento por PIN (generado al azar en cada placa) como vía principal.
 - **Wi-Fi** propia como segunda opción: siempre, solo mientras calienta o solo a petición (para gastar menos).
 - Avisos opcionales por **Telegram** (bot propio) si el ESP32 llega a una red con internet.
-- Todo se configura desde la app o la web, sin tocar el código.
+- Opcional: **pantalla OLED** con el estado y la temperatura de dentro, y el **LED RGB** de la placa como piloto.
+- **Acceso rápido** en Android: botón en los ajustes rápidos y widget para encender o apagar sin abrir la app.
+- Todo se configura desde la app o la web, sin tocar el código. Lo que depende de una pieza opcional solo aparece si
+  la placa la tiene conectada.
 
 ## Hardware
 | Pieza | Modelo usado | Para qué |
 |---|---|---|
 | Calefactor | Webasto Thermo Top C de fábrica (ref. VW 7H0 010 398 J), mandada por W-Bus | Lo que se controla; el ESP32 se enchufa en el conector del temporizador original |
-| Microcontrolador | **ESP32-S3 DevKitC-1 N16R8** (16 MB, mejor sobre base con bornas de tornillo; [la de referencia](docs/hardware/esp32-s3-n16r8/README.md)) o ESP32 DevKitC con ESP-WROOM-32 (4 MB) | Bluetooth, Wi-Fi, programas y W-Bus por UART2 (IO16/IO17) |
+| Microcontrolador | **ESP32-S3 DevKitC-1 N16R8** (16 MB, mejor sobre base con bornas de tornillo; [ficha](docs/hardware/esp32-s3-n16r8/README.md)). Desde la 0.2.0, el único soportado | Bluetooth, Wi-Fi, programas y W-Bus por UART2 (IO16/IO17) |
 | Transceptor | Módulo UART ↔ LIN/K-Line con **TJA1020** (o TJA1021, MCP2003, L9637D) | Adapta los 3,3 V del ESP32 al bus de un hilo a 12 V |
 | Alimentación | Regulador **LM2596** ajustado a **5,0 V** | 5 V para el ESP32 desde el +12 V permanente |
+| *Opcional:* pantalla | OLED I2C 128×64: 1,3" (SH1106) o 0,96" (SSD1306) | Estado, temperatura de dentro, agua, batería y lo siguiente que va a pasar |
+| *Opcional:* termómetro | Módulo I2C **SHT31** o **AHT20** | Temperatura y humedad de dentro; «calentar hasta X °C» |
 
 Conexiones: +12 V permanente y masa del conector a la placa TJA1020 y al LM2596; W-Bus a la borna LIN; TX de la placa
-a IO16, RX a IO17, SLP a 3V3. El cable de contacto (borne 15) no se usa. **Mide los cables con el polímetro**: los
+a IO16, RX a IO17, SLP a 3V3. El cable de contacto (borne 15) no se usa. Opcionales, en el mismo bus I2C: pantalla y
+termómetro a 3V3, GND, **IO4 (SDA)** e **IO5 (SCL)**; la placa los detecta sola. **Mide los cables con el polímetro**: los
 colores cambian entre vehículos.
 
 **Antes de montar, comprueba que tu calefacción habla W-Bus.** La de las T5 con temporizador de fábrica lo hace, pero se
@@ -94,21 +104,22 @@ dice que algunas Thermo Top C antiguas usan otro protocolo. La primera prueba po
 
 ## Instalar el firmware
 1. Arduino IDE 2 (o arduino-cli) con el núcleo **esp32 de Espressif** (2.x o 3.x). Sin librerías externas.
-2. Placa **ESP32S3 Dev Module** con **Flash Size 16MB** (con la DevKitC, **ESP32 Dev Module**) y esquema de partición
+2. Placa **ESP32S3 Dev Module** con **Flash Size 16MB** y esquema de partición
    **Huge APP**. Ese esquema solo fija el límite de tamaño del IDE: la tabla que se graba es `partitions.csv` de la
    carpeta, con dos huecos para las actualizaciones sin cable.
 3. Abre `firmware/WTTC/WTTC.ino` (la carpeta entera: lleva también `web.h`, `partitions.csv` y `rollback.cpp`) y
    súbelo. En el ESP32-S3, por el USB marcado **UART** o **COM**. En el monitor serie (115200) aparece el **PIN Bluetooth**.
 
 ```sh
-# ESP32-S3 (con la DevKitC: --fqbn esp32:esp32:esp32:PartitionScheme=huge_app)
 arduino-cli compile --fqbn esp32:esp32:esp32s3:FlashSize=16M,PartitionScheme=huge_app firmware/WTTC
 arduino-cli upload  --fqbn esp32:esp32:esp32s3:FlashSize=16M,PartitionScheme=huge_app -p /dev/ttyUSB0 firmware/WTTC
 ```
 
 Después, las versiones nuevas se instalan sin cable: app o web de la placa → **Buscar actualizaciones**.
 
-Cada cambio se compila automáticamente en GitHub Actions para ESP32-S3 y ESP32, con los núcleos 2.0.17 y 3.3.12.
+Más fácil: **instalar desde el navegador** en https://wttc.favala.es/instalar.php (Chrome o Edge, la placa por USB).
+
+Cada cambio se compila automáticamente en GitHub Actions para ESP32-S3, con los núcleos 2.0.17 y 3.3.12.
 
 ## App Android
 Se descarga como APK en [Releases](../../releases). Busca el ESP32 por Bluetooth, empareja con el PIN y se conecta

@@ -147,6 +147,8 @@ luces, es la iluminación del mando (borne 58) y no vale.
 
 ## 3. Encender por «hora de salida»
 
+**✅ Hecho en la 0.2.0.**
+
 **La idea:** en lugar de «encender a las 7:30 durante 30 min», decir «quiero salir a las 8:00». La placa decide
 cuándo arrancar según lo que ha tardado otras veces en calentar el agua y la temperatura de partida (el agua del
 motor, y la del habitáculo si hay sensor, idea 11). Es como lo hacen los temporizadores oficiales de Webasto.
@@ -158,6 +160,8 @@ El programa sigue teniendo una duración máxima (60 min).
 ---
 
 ## 4. Proteger la batería mientras calienta
+
+**✅ Hecho en la 0.2.0.**
 
 **La idea:** hoy la batería mínima solo se mira **al arrancar un programa**. Vigilarla también durante todo el
 encendido y apagar (con aviso por la app y Telegram) si cae por debajo del límite durante un rato seguido.
@@ -196,6 +200,8 @@ que comprobar en una Thermo Top C real qué registros contesta. Si se añaden a 
 
 ## 7. Aviso de «ya está caliente»
 
+**✅ Hecho en la 0.2.0.**
+
 **La idea:** una notificación (app y Telegram) cuando el agua del motor llega a una temperatura, por ejemplo
 50 °C, para saber que ya se puede salir o entrar.
 
@@ -216,6 +222,8 @@ placa, o mandarle un programa puntual la noche anterior (mejor). Que sea opciona
 
 ## 9. Accesos rápidos en Android
 
+**✅ Hecho en la 0.2.0.**
+
 **La idea:** un widget en la pantalla de inicio y un botón en los ajustes rápidos («Webasto 30 min») para encender
 con un toque, sin abrir la app.
 
@@ -224,6 +232,8 @@ con un toque, sin abrir la app.
 ---
 
 ## 10. Actualizar el firmware sin cable (OTA)
+
+**✅ Hecho en la 0.1.5 (firmadas, con vuelta atrás y búsqueda desde la app y la web).**
 
 **La idea:** poder actualizar la placa sin desmontarla ni llevar un PC: desde la web de la placa (subir el fichero)
 o desde la app por Bluetooth, con la versión de las Releases de GitHub. **Fundamental** para que la gente actualice
@@ -241,6 +251,8 @@ de verdad (correcciones de seguridad incluidas).
 ---
 
 ## 11. Sensor de temperatura del habitáculo
+
+**✅ Hecho en la 0.2.0 (con SHT31 o AHT20 en vez del DS18B20, y pantalla).**
 
 **La idea:** un sensor DS18B20 (menos de 2 €, un cable) para ver la temperatura dentro de la furgo en la app y la
 web, y afinar la «hora de salida» (idea 3).
@@ -284,7 +296,7 @@ estén estables.
   [este hilo de t6forum](https://www.t6forum.com/threads/retrofit-telestart-t90-on-t5gp-thermotopc-recognized-but-does-not-start.46420/page-3)
   alguien enciende una Thermo Top C de T5 GP con un ESP mandando `0x21` y manteniendo la orden, que es lo que hace
   WTTC. Podría ser el primer probador.
-- **Usar el LED RGB de la placa** (WS2812 en la ESP32-S3 N16R8, ver
+- ✅ *(hecho en la 0.2.0)* **Usar el LED RGB de la placa** (WS2812 en la ESP32-S3 N16R8, ver
   [docs/hardware/esp32-s3-n16r8](hardware/esp32-s3-n16r8/README.md)): ver el estado de un vistazo sin el móvil. Por
   ejemplo: azul tenue esperando, verde respirando con la Webasto encendida, rojo parpadeando si hay avería o no
   contesta el W-Bus, y un destello al conectar el móvil. Con brillo bajo y apagable desde la configuración (dentro de
