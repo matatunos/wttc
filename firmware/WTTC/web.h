@@ -53,6 +53,7 @@ header b{color:var(--ink);font-size:17px}
 .dlg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:9}
 .dlg[hidden]{display:none}.dlg>div{background:var(--sf);border-radius:16px;padding:18px;max-width:420px;width:100%}
 .dlg p{white-space:pre-line;margin:0 0 14px}.dlg .btn{text-transform:capitalize}
+progress{width:100%;height:12px;margin-top:10px;accent-color:var(--fl)}progress[hidden]{display:none}
 .nets{display:flex;flex-direction:column;gap:6px;margin-top:8px}.nets button{display:flex;justify-content:space-between;gap:10px;text-align:left;border:0;border-radius:10px;padding:10px 12px;font:inherit;font-size:15px;background:var(--sf2);color:var(--ink)}.nets small{color:var(--mut);white-space:nowrap}
 .opts{display:flex;gap:8px;margin-top:10px}.opts select{flex:1;min-width:0;font:inherit;font-size:14px;background:var(--sf2);color:var(--ink);border:0;border-radius:8px;padding:6px 8px}
 .seg{display:flex;background:var(--sf);border-radius:12px;padding:4px;gap:4px}
@@ -170,6 +171,7 @@ details h3{font-size:15px;margin:18px 0 0}
 <p class="sub" data-t="updHelp">Descarga el fichero .ota de la última versión (github.com/matatunos/wttc/releases) y súbelo aquí. Solo se instalan actualizaciones oficiales (con firma) y nunca mientras calienta; si la nueva no arranca bien, la placa vuelve sola a la anterior.</p>
 <label class="f"><span data-t="updFile">Fichero .ota</span><input id="u_file" type="file" accept=".ota"></label>
 <div class="acts" style="margin-top:10px"><button class="btn" id="u_go" data-t="updBtn">Actualizar</button><button class="btn pri" id="u_check" data-t="updCheck">Buscar actualizaciones</button></div>
+<progress id="u_bar" max="100" value="0" hidden></progress>
 <p class="sub" id="u_st" style="margin-top:8px"></p>
 <p class="sub" id="c_ver" style="margin-top:10px"></p></details>
 <!-- Avisos y preguntas dentro de la página: en la ventanita del portal cautivo (Android, iPhone) alert() y confirm()
@@ -429,15 +431,17 @@ $('s_save').onclick=async()=>{const v=$('s_ap').value;if(v.length<8)return say(T
 const inSim=()=>{try{return window.parent!==window&&!!parent.WB}catch(e){return false}};
 $('u_go').onclick=()=>{if(inSim())return say(T('updSim'));const f=$('u_file').files[0];if(!f)return say(T('updNoFile'));
  const x=new XMLHttpRequest(),fd=new FormData();fd.append('ota',f,f.name);$('u_go').disabled=true;
- x.upload.onprogress=e=>{if(e.lengthComputable)$('u_st').textContent=e.loaded<e.total?T('updSending',Math.floor(e.loaded*100/e.total)):T('updChecking')};
+ x.upload.onprogress=e=>{if(e.lengthComputable){const p=Math.floor(e.loaded*100/e.total);$('u_bar').hidden=p>=100;$('u_bar').value=p;$('u_st').textContent=p<100?T('updSending',p):T('updChecking')}};
  x.onload=()=>{$('u_go').disabled=false;$('u_st').textContent=x.responseText;say(x.responseText)};
  x.onerror=()=>{$('u_go').disabled=false;$('u_st').textContent=T('updNet')};
  x.open('POST','/api/update');x.send(fd)};
 // Buscar actualizaciones por internet: la placa mira la última versión; si hay una nueva, pregunta y, si se acepta,
 // la placa la descarga, comprueba la firma, la instala y se reinicia. El progreso llega en el estado (op, om, onew)
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-async function otaWait(){for(let i=0;i<80;i++){await sleep(1500);await poll();
- if(st&&st.op>=0)$('u_st').textContent=T('updDownloading',st.op);if(st&&st.om)return st.om}return ''}
+// Barra de progreso: con el porcentaje de la descarga (op) mientras dura; se oculta al acabar
+async function otaWait(){try{for(let i=0;i<80;i++){await sleep(1500);await poll();
+ if(st&&st.op>=0){$('u_st').textContent=T('updDownloading',st.op);$('u_bar').hidden=false;$('u_bar').value=st.op}
+ if(st&&st.om)return st.om}return ''}finally{$('u_bar').hidden=true}}
 $('u_check').onclick=async()=>{if(inSim())return say(T('updSim'));$('u_check').disabled=true;$('u_st').textContent=T('updSearching');
  try{await api('/api/otacheck',{});const m=await otaWait();$('u_st').textContent=m||T('updTimeout');
   if(m&&st.onew&&await ask(m+'\n\n'+T('updAsk'),true)){await api('/api/otaupdate',{});const r=await otaWait();$('u_st').textContent=r||T('updTimeout');if(r)say(r)}}

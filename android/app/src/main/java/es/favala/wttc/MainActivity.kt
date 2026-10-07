@@ -160,6 +160,7 @@ class MainActivity : Activity(), BleLink.Listener {
     private lateinit var eToff: EditText
     private lateinit var tCfg: TextView
     private lateinit var tUpd: TextView                // estado de «Buscar actualizaciones»
+    private lateinit var pUpd: android.widget.ProgressBar   // y su barra de progreso (mientras la placa descarga)
     private var fwVer = ""                             // versión del firmware de la placa (de «cfg»)
     private var fwOta = false                          // ¿sabe actualizarse sola por internet? (firmware 0.1.5+)
     private var fwTh = false                           // ¿sabe termostato, hora de salida y pantalla? (firmware 0.2.0+)
@@ -355,7 +356,8 @@ class MainActivity : Activity(), BleLink.Listener {
             tGas.text = if (on) getString(R.string.gas_on, l(0), l(2), l(3)) else getString(R.string.gas_off, l(1), l(2), l(3))
         }
         val op = j.optInt("op", -1)
-        if (op >= 0) { tUpd.visibility = View.VISIBLE; tUpd.text = getString(R.string.upd_progress, op) }
+        if (op >= 0) { tUpd.visibility = View.VISIBLE; tUpd.text = getString(R.string.upd_progress, op); pUpd.visibility = View.VISIBLE; pUpd.progress = op }
+        else pUpd.visibility = View.GONE
         val note = j.optString("note")
         val warn = mutableListOf<String>()
         if (!on && note.isNotEmpty()) warn += note
@@ -625,6 +627,11 @@ class MainActivity : Activity(), BleLink.Listener {
         cfg.addView(row(button(getString(R.string.btn_wifi15)) { link.send("wifi") }, button(getString(R.string.btn_reboot)) { confirmReboot() }), lp(top = 10))
         // Actualizaciones del firmware: la app consulta la última versión y, si hay una nueva, la placa la descarga e instala
         cfg.addView(button(getString(R.string.upd_check)) { checkUpdates() }, lp(top = 10))
+        pUpd = android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 100; visibility = View.GONE
+            progressTintList = android.content.res.ColorStateList.valueOf(cFl)
+        }
+        cfg.addView(pUpd, lp(top = 8))
         tUpd = text("", 13f, cMut).apply { visibility = View.GONE }
         cfg.addView(tUpd, lp(top = 8))
         tCfg = text("", 13f, cMut)

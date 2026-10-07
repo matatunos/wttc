@@ -11,6 +11,7 @@ ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya pro
 Versión de prueba (sin probar con una Webasto real).
 
 - **La web de la placa funciona dentro de la ventanita del portal cautivo**: los avisos y las preguntas («¿Actualizar ahora?», «Guardado», errores) salen ahora en un recuadro de la propia página. Esa ventanita (Android, iPhone) no muestra los del navegador, y botones como «Buscar actualizaciones» parecían no hacer nada.
+- **Barra de progreso** al actualizar, en la web de la placa (también al subir el fichero .ota) y en la app.
 - Si algo falla en la página, sale un aviso con el error en vez de quedarse callada.
 - «Buscar actualizaciones» avisa de que puede tardar hasta un minuto, y si la placa no consigue unirse a la red con internet lo dice enseguida y con el nombre de la red, en vez de esperar 40 segundos y decir «sin internet».
 
