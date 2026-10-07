@@ -187,6 +187,7 @@ class MainActivity : Activity(), BleLink.Listener {
         if (demoMode) startLink()                     // la placa simulada no necesita permisos de Bluetooth
         else if (askPermissions()) startLink()
         if (!demoMode) Stats.maybeSend(this)
+        if (!capturas) checkAppUpdate(silent = true)   // ¿hay app nueva? (una vez al día como mucho)
     }
 
     // Al salir de primer plano se cierra la conexión: la placa vuelve a anunciarse y gasta menos
@@ -653,6 +654,17 @@ class MainActivity : Activity(), BleLink.Listener {
             addView(text(getString(R.string.stats_help), 13f, cMut), lp(top = 6))
             addView(button(getString(R.string.btn_public_stats)) { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Stats.URL_PUBLIC))) }, lp(top = 10))
         }, lp(top = 10))
+        // Versión nueva de la app: aviso automático (interruptor) y búsqueda a mano
+        val swAppUpd = Switch(this).apply {
+            text = getString(R.string.app_upd_auto); setTextColor(cInk); textSize = 15f
+            isChecked = getSharedPreferences("wttc", MODE_PRIVATE).getBoolean("app_upd_auto", true)
+        }
+        swAppUpd.setOnCheckedChangeListener { _: CompoundButton, c: Boolean -> getSharedPreferences("wttc", MODE_PRIVATE).edit().putBoolean("app_upd_auto", c).apply() }
+        root.addView(card().apply {
+            addView(swAppUpd)
+            addView(text(getString(R.string.app_upd_help), 13f, cMut), lp(top = 6))
+            addView(button(getString(R.string.app_upd_btn)) { checkAppUpdate(silent = false) }, lp(top = 10))
+        }, lp(top = 10))
         // Acceso rápido (ajustes rápidos de Android y widget): duración con la que enciende
         val qPrefs = getSharedPreferences("wttc", MODE_PRIVATE)
         val spQuick = Spinner(this).apply {
@@ -791,6 +803,51 @@ class MainActivity : Activity(), BleLink.Listener {
 
     // ---------- actualizaciones del firmware ----------
     // Compara versiones «a.b.c»: <0 si a es más antigua que b
+    // ---------- versión nueva de la app ----------
+    // La app y el firmware llevan el mismo número: se lee de ota.json (el mismo fichero que usa «Buscar actualizaciones»).
+    // Antes de avisar se comprueba que el WTTC.apk de esa versión ya está en su Release (tarda unos minutos en salir).
+    // silent = la comprobación automática al abrir: una vez al día como mucho, si está activada, y sin avisar si no hay
+    // nada nuevo; con «Más tarde» no vuelve a avisar de esa versión. El botón «Buscar versión nueva» la hace siempre.
+    private fun checkAppUpdate(silent: Boolean) {
+        val prefs = getSharedPreferences("wttc", MODE_PRIVATE)
+        if (silent) {
+            if (!prefs.getBoolean("app_upd_auto", true)) return
+            if (System.currentTimeMillis() - prefs.getLong("app_upd_last", 0) < 24 * 3600_000L) return
+            prefs.edit().putLong("app_upd_last", System.currentTimeMillis()).apply()
+        }
+        val mine = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "0.0.0"
+        kotlin.concurrent.thread(name = "wttc-app-upd", isDaemon = true) {
+            val m = runCatching {
+                val con = java.net.URL(OTA_MANIFEST).openConnection() as java.net.HttpURLConnection
+                con.connectTimeout = 8000; con.readTimeout = 8000
+                JSONObject(con.inputStream.bufferedReader().use { it.readText() }).also { con.disconnect() }
+            }.getOrNull()
+            val v = m?.optString("version").orEmpty()
+            val url = "https://github.com/matatunos/wttc/releases/download/v$v/WTTC.apk"
+            val newer = v.isNotEmpty() && verCmp(v, mine) > 0
+            // ¿Ya está publicado el APK? (HEAD; GitHub redirige a su almacén: 200 si existe)
+            val ready = newer && runCatching {
+                val con = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                con.requestMethod = "HEAD"; con.connectTimeout = 8000; con.readTimeout = 8000
+                (con.responseCode == 200).also { con.disconnect() }
+            }.getOrDefault(false)
+            runOnUiThread {
+                when {
+                    m == null -> if (!silent) toast(getString(R.string.upd_no_net))
+                    !newer -> if (!silent) toast(getString(R.string.app_upd_latest, mine))
+                    !ready -> if (!silent) toast(getString(R.string.app_upd_notyet, v))
+                    silent && prefs.getString("app_upd_skip", "") == v -> {}
+                    else -> AlertDialog.Builder(this)
+                        .setTitle(getString(R.string.app_upd_title, v))
+                        .setMessage(getString(R.string.app_upd_msg, mine, m?.optString("notas").orEmpty().ifEmpty { "—" }))
+                        .setPositiveButton(getString(R.string.app_upd_dl)) { _, _ -> startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                        .setNegativeButton(getString(R.string.later)) { _, _ -> prefs.edit().putString("app_upd_skip", v).apply() }
+                        .show()
+                }
+            }
+        }
+    }
+
     private fun verCmp(a: String, b: String): Int {
         val x = a.split('.').map { it.toIntOrNull() ?: 0 }; val y = b.split('.').map { it.toIntOrNull() ?: 0 }
         for (i in 0 until 3) { val d = x.getOrElse(i) { 0 } - y.getOrElse(i) { 0 }; if (d != 0) return d }

@@ -178,6 +178,14 @@
     <string name="scan_searching">Suche Netze… (ein paar Sekunden)</string>
     <string name="scan_none">Kein Netz in Reichweite.</string>
     <string name="scan_fail">Die Platine ist mit der Suche nicht fertig geworden. Nochmal versuchen.</string>
+    <string name="app_upd_title">Neue App-Version: %1$s</string>
+    <string name="app_upd_msg">Du hast %1$s.\n\nNeu: %2$s\n\nDie Datei WTTC.apk wird heruntergeladen: öffnen, dann wird sie über die vorhandene installiert (Kopplung und Einstellungen bleiben). Android fragt eventuell nach der Erlaubnis, aus dem Browser zu installieren.</string>
+    <string name="app_upd_dl">Herunterladen</string>
+    <string name="app_upd_latest">Du hast die neueste App-Version (%1$s).</string>
+    <string name="app_upd_notyet">Version %1$s wird gerade veröffentlicht: in ein paar Minuten erneut versuchen.</string>
+    <string name="app_upd_btn">Nach neuer App-Version suchen</string>
+    <string name="app_upd_auto">Melden, wenn es eine neue App-Version gibt</string>
+    <string name="app_upd_help">Höchstens einmal am Tag prüft die App beim Öffnen auf wttc.favala.es die neueste Version (sie sendet nichts über dich).</string>
     <string name="quick_title">Schnellzugriff</string>
     <string name="quick_help">„Webasto“-Schalter in den Schnelleinstellungen von Android (herunterziehen und bearbeiten, um ihn hinzuzufügen) und ein Widget für den Startbildschirm. Ein Tippen verbindet mit der Platine und schaltet für diese Dauer ein, oder aus, wenn sie schon läuft.</string>
     <string name="quick_dur">Dauer des Schnellzugriffs</string>

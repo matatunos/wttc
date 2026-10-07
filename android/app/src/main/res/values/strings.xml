@@ -179,6 +179,14 @@
     <string name="scan_searching">Looking for networks… (a few seconds)</string>
     <string name="scan_none">No network in sight.</string>
     <string name="scan_fail">The board did not finish searching. Try again.</string>
+    <string name="app_upd_title">New app version: %1$s</string>
+    <string name="app_upd_msg">You have %1$s.\n\nWhat\'s new: %2$s\n\nThe WTTC.apk file is downloaded: open it and it installs over the one you have (pairing and settings are kept). Android may ask for permission to install from the browser.</string>
+    <string name="app_upd_dl">Download</string>
+    <string name="app_upd_latest">You have the latest app version (%1$s).</string>
+    <string name="app_upd_notyet">Version %1$s is being published: try again in a few minutes.</string>
+    <string name="app_upd_btn">Check for a new app version</string>
+    <string name="app_upd_auto">Notify when there is a new app version</string>
+    <string name="app_upd_help">At most once a day, when opened, the app checks the latest version at wttc.favala.es (it sends nothing about you).</string>
     <string name="quick_title">Quick access</string>
     <string name="quick_help">“Webasto” button in Android\'s quick settings (pull them down and edit them to add it) and a home screen widget. Tapping it connects to the board and switches on for this long, or off if it is already on.</string>
     <string name="quick_dur">Quick access duration</string>

@@ -178,6 +178,14 @@
     <string name="scan_searching">Buscando redes… (unos segundos)</string>
     <string name="scan_none">No se ve ninguna red.</string>
     <string name="scan_fail">La placa no ha terminado de buscar. Prueba otra vez.</string>
+    <string name="app_upd_title">App nueva: %1$s</string>
+    <string name="app_upd_msg">Tienes la %1$s.\n\nNovedades: %2$s\n\nSe descarga el fichero WTTC.apk: ábrelo y se instala encima del que tienes (conservas el emparejamiento y los ajustes). Android puede pedirte permiso para instalar desde el navegador.</string>
+    <string name="app_upd_dl">Descargar</string>
+    <string name="app_upd_latest">Tienes la última versión de la app (%1$s).</string>
+    <string name="app_upd_notyet">La versión %1$s se está publicando: prueba dentro de unos minutos.</string>
+    <string name="app_upd_btn">Buscar versión nueva de la app</string>
+    <string name="app_upd_auto">Avisar cuando haya una versión nueva de la app</string>
+    <string name="app_upd_help">Una vez al día como mucho, al abrirla, la app mira en wttc.favala.es cuál es la última versión (no envía nada tuyo).</string>
     <string name="quick_title">Acceso rápido</string>
     <string name="quick_help">Botón «Webasto» en los ajustes rápidos de Android (despliégalos y edítalos para añadirlo) y widget para la pantalla de inicio. Al pulsarlo se conecta a la placa y enciende con esta duración, o apaga si ya está encendida.</string>
     <string name="quick_dur">Duración del acceso rápido</string>
