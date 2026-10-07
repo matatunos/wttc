@@ -77,7 +77,7 @@ Hechas automáticamente: la web con el simulador y la app en un emulador Android
 - No arranca un programa si la batería está por debajo del mínimo configurado, y **apaga si baja calentando**.
 - Aviso de **«ya está caliente»** cuando el agua llega a la temperatura elegida.
 - **Bluetooth LE** con emparejamiento por PIN (generado al azar en cada placa) como vía principal.
-- **Wi-Fi** propia como segunda opción: siempre, solo mientras calienta o solo a petición (para gastar menos).
+- **Wi-Fi** propia como segunda opción, con portal cautivo (al conectarse, el móvil abre solo la web de la placa): siempre, solo mientras calienta o solo a petición (para gastar menos).
 - Avisos opcionales por **Telegram** (bot propio) si el ESP32 llega a una red con internet.
 - Opcional: **pantalla OLED** con el estado y la temperatura de dentro, y el **LED RGB** de la placa como piloto.
 - **Acceso rápido** en Android: botón en los ajustes rápidos y widget para encender o apagar sin abrir la app.

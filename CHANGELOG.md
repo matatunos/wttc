@@ -6,6 +6,12 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.2.9 — 2026-10-07
+
+Versión de prueba (sin probar con una Webasto real).
+
+- **Portal cautivo en la Wi-Fi de la placa**: al conectarse a la red «WTTC», el móvil (Android, iPhone) o el ordenador abre solo la web de la placa, como en la Wi-Fi de un hotel; ya no hace falta escribir 192.168.4.1. Cualquier dirección que se escriba en esa red lleva también a la placa. En el iPhone, si se cierra esa ventana con «Cancelar» se desconecta de la red: hay que elegir «Usar sin internet».
+
 ## 0.2.8 — 2026-10-07
 
 Versión de prueba (sin probar con una Webasto real). La primera grabada en una placa real: el instalador desde el navegador funciona.

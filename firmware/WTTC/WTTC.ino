@@ -46,7 +46,8 @@
   --------------
     - Bluetooth LE (principal): app Android «WTTC». Emparejamiento con PIN de 6 cifras; el PIN se genera
       al azar en el primer arranque y sale por la consola serie y en la web (apartado Configuración).
-    - Wi-Fi propia "WTTC" -> http://192.168.4.1 (segunda opción). Se puede dejar siempre encendida,
+    - Wi-Fi propia "WTTC" -> http://192.168.4.1 (segunda opción). Es un portal cautivo: al conectarse, el móvil abre
+      solo la web de la placa (como la Wi-Fi de un hotel). Se puede dejar siempre encendida,
       solo mientras calienta o solo a petición, para ahorrar batería. Tras arrancar siempre está 10 min encendida.
     - Si se configura una red con internet (casa o punto de acceso del móvil): http://wttc.local
     - Consola serie (115200 baudios): on [min] | off | status | errores | cfg | set clave=valor | wifi | forget | reboot | gasreset
@@ -84,6 +85,7 @@
 #include <WiFi.h>               // Wi-Fi: punto de acceso propio y conexión a otra red
 #include <WebServer.h>          // servidor HTTP para la web de la placa
 #include <ESPmDNS.h>            // nombre wttc.local en la red local
+#include <DNSServer.h>          // portal cautivo: en la Wi-Fi propia, cualquier nombre lleva a la placa
 #include <Preferences.h>        // memoria no volátil (NVS): configuración, programas y contadores
 #include <HTTPClient.h>         // cliente HTTP para enviar los avisos a Telegram
 #include <WiFiClientSecure.h>   // HTTPS para Telegram
@@ -146,7 +148,7 @@ const float    TH_STALL_C   = 0.5;    // °C (si hace demasiado frío fuera o el
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.2.8"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.2.9"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -205,6 +207,8 @@ uint32_t otaAutoLast = 0;             // última búsqueda automática (una al d
 const uint8_t MAX_SCHED = 8;          // número máximo de programas semanales
 HardwareSerial wbus(2);               // UART2 del ESP32: la del W-Bus
 WebServer server(80);                 // servidor web en el puerto 80
+DNSServer dns;                        // portal cautivo: responde a cualquier nombre con la IP de la red propia
+bool dnsOn = false;
 Preferences prefs;                    // acceso a la memoria no volátil (espacio de nombres "webasto")
 
 // Un programa semanal: activo, días (bit0 = lunes … bit6 = domingo), hora de inicio en minutos y duración
@@ -1722,6 +1726,10 @@ void wifiStart() {
   WiFi.setHostname(HOSTNAME);
   WiFi.mode(WIFI_AP_STA);                         // a la vez punto de acceso propio y cliente de otra red
   WiFi.softAP(cfgName, cfgApPass);
+  // Portal cautivo: todos los nombres se resuelven a la placa. Android, iPhone y Windows, al conectarse, comprueban si
+  // hay internet pidiendo una página suya; les llega la de la placa y la abren solos (ver onNotFound en setup())
+  dns.setErrorReplyCode(DNSReplyCode::NoError);
+  dnsOn = dns.start(53, "*", WiFi.softAPIP());
   if (staSsid[0]) WiFi.begin(staSsid, staPass);
   WiFi.setAutoReconnect(true);
   MDNS.begin(HOSTNAME);
@@ -1737,6 +1745,7 @@ void wifiStop() {
   MDNS.end();
   WiFi.disconnect(true);
   WiFi.softAPdisconnect(true);
+  if (dnsOn) { dns.stop(); dnsOn = false; }
   WiFi.mode(WIFI_OFF);
   wifiActive = false;
   lastWeb = 0;
@@ -2064,6 +2073,21 @@ void handleState() {
   for (int i = logN - 1; i >= 0; i--) { j += js(logBuf[i]); if (i) j += ","; }
   j += "]}";
   server.send(200, "application/json", j);
+}
+
+// ¿Han pedido la web con un nombre que no es el de la placa? (en la Wi-Fi propia, por el portal cautivo, cualquier
+// nombre llega aquí). Los suyos: su IP en la red propia, su IP en la red de casa y wttc.local
+bool foreignHost() {
+  String h = server.hostHeader();
+  int c = h.indexOf(':'); if (c >= 0) h = h.substring(0, c);
+  if (h == WiFi.softAPIP().toString() || h.equalsIgnoreCase(String(HOSTNAME) + ".local") || h.equalsIgnoreCase(HOSTNAME)) return false;
+  if (WiFi.status() == WL_CONNECTED && h == WiFi.localIP().toString()) return false;
+  return h.length() > 0;
+}
+// A la página de la placa: con su dirección si venían con otro nombre (portal cautivo), o a «/» si ya era la suya
+void toPortal() {
+  server.sendHeader("Location", foreignHost() ? "http://" + WiFi.softAPIP().toString() + "/" : String("/"));
+  server.send(302);
 }
 
 // Protección CSRF de la API web. Una página ajena abierta en el móvil (conectado a la Wi-Fi de la placa o a la red
@@ -2463,7 +2487,9 @@ void setup() {
   configTzTime(TZ_INFO, "pool.ntp.org", "time.google.com");   // hora por internet cuando haya red
 
   // Rutas del servidor web
-  server.on("/", HTTP_GET, [] { server.send_P(200, "text/html", INDEX_HTML); });   // la página (desde la flash)
+  // La página (desde la flash). Pedida con otro nombre (portal cautivo), se manda a la dirección de la placa: así la web
+  // y sus órdenes van siempre con el mismo origen
+  server.on("/", HTTP_GET, [] { if (foreignHost()) { toPortal(); return; } server.send_P(200, "text/html", INDEX_HTML); });
   server.on("/api/state", HTTP_GET, handleState);
   // Las órdenes (POST) solo se aceptan desde la propia web de la placa (ver sameOrigin)
   server.on("/api/on", HTTP_POST, [] { if (sameOrigin() && setupDone()) handleOn(); });
@@ -2488,7 +2514,9 @@ void setup() {
     server.send(e.length() ? 400 : 202, "text/plain", e.length() ? e : String("")); });
   static const char* HDRS[] = {"Origin"};          // cabeceras que el servidor guarda para leerlas en los manejadores
   server.collectHeaders(HDRS, 1);
-  server.onNotFound([] { server.sendHeader("Location", "/"); server.send(302); });   // cualquier otra ruta: a la página
+  // Cualquier otra ruta, incluidas las comprobaciones de internet de los móviles (/generate_204, /hotspot-detect.html,
+  // /connecttest.txt…): a la página de la placa. Al no recibir lo que esperan, los móviles la abren como portal
+  server.onNotFound(toPortal);
 
   bleInit();
   wifiUntil = millis() + WIFI_BOOT_MS;   // rescate: Wi-Fi encendida los primeros minutos en cualquier modo
@@ -2511,6 +2539,7 @@ void setup() {
 // ============================================================================================================
 void loop() {
   if (wifiActive) server.handleClient();          // peticiones de la web
+  if (dnsOn) dns.processNextRequest();            // portal cautivo: preguntas de nombres en la red propia
   serialCli();                                    // órdenes de la consola serie
 
   // Órdenes de la app (llegan por la tarea del Bluetooth); la respuesta va por la característica RESP
