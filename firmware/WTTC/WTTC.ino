@@ -86,6 +86,7 @@
 #include <WebServer.h>          // servidor HTTP para la web de la placa
 #include <ESPmDNS.h>            // nombre wttc.local en la red local
 #include <DNSServer.h>          // portal cautivo: en la Wi-Fi propia, cualquier nombre lleva a la placa
+#include <atomic>               // contador de tareas que salen a internet (portal en pausa mientras tanto)
 #include <Preferences.h>        // memoria no volátil (NVS): configuración, programas y contadores
 #include <HTTPClient.h>         // cliente HTTP para enviar los avisos a Telegram
 #include <WiFiClientSecure.h>   // HTTPS para Telegram
@@ -148,7 +149,7 @@ const float    TH_STALL_C   = 0.5;    // °C (si hace demasiado frío fuera o el
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.2.11"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.2.12"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -208,7 +209,10 @@ const uint8_t MAX_SCHED = 8;          // número máximo de programas semanales
 HardwareSerial wbus(2);               // UART2 del ESP32: la del W-Bus
 WebServer server(80);                 // servidor web en el puerto 80
 DNSServer dns;                        // portal cautivo: responde a cualquier nombre con la IP de la red propia
-bool dnsOn = false;
+volatile bool dnsOn = false;
+// Tareas que están saliendo a internet (actualizaciones, Telegram). Mientras haya alguna, loop() deja el portal
+// cautivo en pausa, para que su servidor de nombres no se cruce con las búsquedas de nombres de la propia placa
+std::atomic<int> netUse{0};
 Preferences prefs;                    // acceso a la memoria no volátil (espacio de nombres "webasto")
 
 // Un programa semanal: activo, días (bit0 = lunes … bit6 = domingo), hora de inicio en minutos y duración
@@ -307,7 +311,7 @@ enum Txt {
   T_OTA_NONET, T_OTA_LATEST, T_OTA_NEW, T_OTA_NOTYET, T_OTA_BUSY, T_OTA_DL, T_TG_OTA_NEW,
   T_LOG_HW, T_LOG_TH_ON, T_LOG_TH_WAIT, T_LOG_TH_END, T_LOG_TH_NOSENS, T_TG_TH_REACHED, T_WHY_TARGET,
   T_E_NOSENS, T_E_TARGET, T_WHY_BATT, T_NOTE_BATT, T_TG_WARM, T_LOG_DEP, T_LOG_DEP_SET, T_LOG_DEP_OFF, T_E_DEP,
-  T_E_WARM, T_E_TOFF, T_E_VALUE, T_TG_TH_STALL, T_OTA_NOSTA,
+  T_E_WARM, T_E_TOFF, T_E_VALUE, T_TG_TH_STALL, T_OTA_NOSTA, T_OTA_NETERR,
   T_D_OFF, T_D_START, T_D_HEAT, T_D_PAUSE, T_D_LOST, T_D_WAIT, T_D_WATER, T_D_IN, T_D_NEXT, T_D_DEP, T_D_UNTIL,
   T_D_DAYS, T_D_NOTE,
   T_COUNT
@@ -436,6 +440,9 @@ const char* const TXT[T_COUNT][L_N] = {
   /* T_OTA_NOSTA */        {"La placa no consigue unirse a «%s»: ¿están bien el nombre y la contraseña, y llega la señal? Sin esa red no puede buscar actualizaciones.",
                             "The board cannot join “%s”: are the name and password right, and does the signal reach? Without that network it cannot check for updates.",
                             "Die Platine kann sich nicht mit „%s“ verbinden: stimmen Name und Passwort, und reicht das Signal? Ohne dieses Netz kann sie nicht nach Updates suchen."},
+  /* T_OTA_NETERR */       {"La placa está en la red pero no llega a wttc.favala.es (código %d · ese nombre le da %s · DNS %s · router %s).",
+                            "The board is on the network but cannot reach wttc.favala.es (code %d · that name gives %s · DNS %s · router %s).",
+                            "Die Platine ist im Netz, erreicht aber wttc.favala.es nicht (Code %d · der Name ergibt %s · DNS %s · Router %s)."},
   /* T_D_OFF */            {"Apagada", "Off", "Aus"},
   /* T_D_START */          {"Arrancando", "Starting", "Startet"},
   /* T_D_HEAT */           {"Calentando", "Heating", "Heizt"},
@@ -594,6 +601,7 @@ void tgTask(void*) {
     strlcpy(tok, tgToken, sizeof tok);
     strlcpy(chat, tgChat, sizeof chat);
     if (!tok[0] || !chat[0]) continue;
+    netBegin();
     WiFiClientSecure cli;
     cli.setCACert(TG_ROOT_CA);        // solo vale un certificado firmado por la raíz de Telegram (ver arriba)
     HTTPClient http;
@@ -605,6 +613,7 @@ void tgTask(void*) {
       code = http.POST(String("chat_id=") + urlenc(chat) + "&text=" + urlenc(x.t));
       http.end();
     }
+    netEnd();
     // El resultado se muestra en la web (Configuración → «Último aviso»)
     if (code == 200) strlcpy(tgLast, trf(T_TG_SENT, x.t).c_str(), sizeof tgLast);
     else strlcpy(tgLast, trf(T_TG_ERROR, code, x.t).c_str(), sizeof tgLast);
@@ -2260,7 +2269,20 @@ bool otaNetWait() {
   return WiFi.status() == WL_CONNECTED;
 }
 
-void otaNetDone(bool ok, const String& msg) { otaNetOk = ok; otaNetMsg = msg; otaProg = -1; otaNetEnd = true; }
+bool otaNetHeld = false;              // la búsqueda o descarga tiene pedida la pausa del portal (netBegin)
+void otaNetDone(bool ok, const String& msg) { if (otaNetHeld) { netEnd(); otaNetHeld = false; } otaNetOk = ok; otaNetMsg = msg; otaProg = -1; otaNetEnd = true; }
+
+// Para salir a internet desde una tarea: pide la pausa del portal cautivo (y espera a que loop() la haga, 0,5 s como
+// mucho) y luego la devuelve. Cada netBegin() lleva su netEnd(); el contador no baja de cero por si acaso
+void netBegin() { netUse++; for (int i = 0; i < 20 && dnsOn; i++) vTaskDelay(pdMS_TO_TICKS(25)); }
+void netEnd() { int n = netUse.load(); while (n > 0 && !netUse.compare_exchange_weak(n, n - 1)) {} }
+
+// Por qué no llega al servidor de actualizaciones, en datos (para el mensaje de error)
+String netDiag(int code) {
+  IPAddress ip;
+  bool ok = WiFi.hostByName("wttc.favala.es", ip) == 1;
+  return trf(T_OTA_NETERR, code, ok ? ip.toString().c_str() : "?", WiFi.dnsIP(0).toString().c_str(), WiFi.gatewayIP().toString().c_str());
+}
 
 void otaNetTask(void*) {
   bool install = otaNetInstall;
@@ -2270,10 +2292,12 @@ void otaNetTask(void*) {
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
   // 1) ¿qué versión hay?
   String body;
-  if (http.begin(cli, OTA_MANIFEST)) { if (http.GET() == 200) body = http.getString(); http.end(); }
+  netBegin(); otaNetHeld = true;
+  int mcode = -100;                                       // -100: no se pudo ni empezar la petición
+  if (http.begin(cli, OTA_MANIFEST)) { mcode = http.GET(); if (mcode == 200) body = http.getString(); http.end(); }
   String ver = jsonStr(body, "version"), url = jsonStr(body, OTA_KEY);
   otaNetNotes = jsonStr(body, "notas");                   // novedades de esa versión (del CHANGELOG)
-  if (!ver.length() || !url.startsWith("https://") || ver.length() > 16) { otaNetDone(false, tr(T_OTA_NONET)); vTaskDelete(nullptr); return; }
+  if (!ver.length() || !url.startsWith("https://") || ver.length() > 16) { String d = netDiag(mcode); otaNetDone(false, d); vTaskDelete(nullptr); return; }
   strlcpy(otaNetVer, ver.c_str(), sizeof otaNetVer);
   if (verCmp(otaNetVer, FW_VERSION) <= 0) { otaNetDone(true, trf(T_OTA_LATEST, FW_VERSION)); vTaskDelete(nullptr); return; }
   otaNetNew = true;
@@ -2546,7 +2570,11 @@ void setup() {
 // ============================================================================================================
 void loop() {
   if (wifiActive) server.handleClient();          // peticiones de la web
-  if (dnsOn) dns.processNextRequest();            // portal cautivo: preguntas de nombres en la red propia
+  // Portal cautivo: en pausa mientras una tarea sale a internet; luego vuelve (si no arranca, se reintenta a los 5 s)
+  static uint32_t dnsTry = 0;
+  if (dnsOn && netUse > 0) { dns.stop(); dnsOn = false; }
+  else if (!dnsOn && wifiActive && netUse == 0 && millis() - dnsTry > 5000) { dnsTry = millis(); dnsOn = dns.start(53, "*", WiFi.softAPIP()); }
+  if (dnsOn) dns.processNextRequest();            // preguntas de nombres en la red propia
   serialCli();                                    // órdenes de la consola serie
 
   // Órdenes de la app (llegan por la tarea del Bluetooth); la respuesta va por la característica RESP
