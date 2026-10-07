@@ -50,6 +50,7 @@ header b{color:var(--ink);font-size:17px}
 .gas{text-align:center;color:var(--mut);font-size:13px;margin:-10px 0 18px}
 .cab{text-align:center;font-size:17px;margin:-8px 0 16px}.cab b{font-weight:600}
 .line select,.line input[type=time]{font:inherit;font-size:15px;background:var(--sf2);color:var(--ink);border:0;border-radius:8px;padding:6px 8px}
+.nets{display:flex;flex-direction:column;gap:6px;margin-top:8px}.nets button{display:flex;justify-content:space-between;gap:10px;text-align:left;border:0;border-radius:10px;padding:10px 12px;font:inherit;font-size:15px;background:var(--sf2);color:var(--ink)}.nets small{color:var(--mut);white-space:nowrap}
 .opts{display:flex;gap:8px;margin-top:10px}.opts select{flex:1;min-width:0;font:inherit;font-size:14px;background:var(--sf2);color:var(--ink);border:0;border-radius:8px;padding:6px 8px}
 .seg{display:flex;background:var(--sf);border-radius:12px;padding:4px;gap:4px}
 .seg button{flex:1;border:0;background:none;color:var(--mut);padding:9px 0;border-radius:9px;font:inherit;font-size:15px}
@@ -139,6 +140,9 @@ details h3{font-size:15px;margin:18px 0 0}
 <p class="sub" data-t="wmHelp">Tras arrancar, la Wi-Fi siempre queda 10 minutos encendida, por si hay que entrar sin Bluetooth. En «solo a petición» se enciende desde la app, y unos minutos para enviar avisos.</p>
 <h3 data-t="inet">Red con internet (opcional)</h3>
 <label class="f"><span data-t="fSsid">Red Wi-Fi (casa o punto de acceso del móvil)</span><input id="c_ssid" autocomplete="off" autocapitalize="off" autocorrect="off"></label>
+<!-- Buscar redes cercanas: tocar una rellena el nombre (la placa tarda unos segundos en buscar) -->
+<div class="acts" style="margin-top:8px"><button class="btn" id="scanBtn" style="background:var(--sf2)" data-t="scanBtn">Buscar redes</button></div>
+<div class="nets" id="scanList"></div>
 <label class="f"><span data-t="fPass">Contraseña (vacío: no cambiarla)</span><input id="c_pass" type="password" autocomplete="new-password"></label>
 <h3 data-t="tg">Avisos por Telegram (opcional)</h3>
 <label class="f"><span data-t="fTok">Token del bot (de @BotFather; vacío: no cambiarlo)</span><input id="c_tok" type="password" autocomplete="off" autocapitalize="off" autocorrect="off"></label>
@@ -172,7 +176,7 @@ details h3{font-size:15px;margin:18px 0 0}
 const $=id=>document.getElementById(id);
 // ---- Idioma: el de la placa (ajuste «lang»); hasta saberlo, el del navegador. Textos en es, en y de ----
 const I18N={
-es:{loc:'es-ES',cabin:'Dentro: {0}',hum:' · humedad {0} %',tgtL:'Hasta',tgtNone:'Sin límite de temperatura',waiting:'En espera',tgtOn:'Hasta {0} · margen {1}',
+es:{loc:'es-ES',scanBtn:'Buscar redes',scanning:'Buscando redes… (unos segundos)',scanNone:'No se ve ninguna red.',scanFail:'La placa no ha terminado de buscar. Prueba otra vez.',scanPick:'Toca una para usarla:',cabin:'Dentro: {0}',hum:' · humedad {0} %',tgtL:'Hasta',tgtNone:'Sin límite de temperatura',waiting:'En espera',tgtOn:'Hasta {0} · margen {1}',
  warmOk:' · agua caliente',turnOnTgt:'Encender hasta {0} (máx. {1})',depL:'Salgo a las',depGo:'Programar',depCancel:'Cancelar',
  depSet:'Salida: {0} a las {1}{2}. Enciende antes, según el frío que haga.',depTgt:' (hasta {0})',mStart:'Encender a esta hora',mDep:'Salgo a esta hora',
  sTgt:'Sin termostato',nextDep:'Próxima salida: {0} a las {1}.',minvHelp:'Calentando, se apaga sola si la batería baja medio voltio por debajo de esta.',
@@ -202,7 +206,7 @@ es:{loc:'es-ES',cabin:'Dentro: {0}',hum:' · humedad {0} %',tgtL:'Hasta',tgtNone
  ver:'Firmware WTTC {0} · código generado íntegramente con Claude (Anthropic) · github.com/matatunos/wttc',
  askGas:'¿Poner a cero el gasoil estimado (último encendido, mes y total)?',askForget:'¿Borrar todos los dispositivos emparejados? Habrá que volver a emparejar la app con el PIN.',
  days:['L','M','X','J','V','S','D'],daysL:['el lunes','el martes','el miércoles','el jueves','el viernes','el sábado','el domingo']},
-en:{loc:'en-GB',cabin:'Inside: {0}',hum:' · humidity {0} %',tgtL:'Up to',tgtNone:'No temperature limit',waiting:'Waiting',tgtOn:'Up to {0} · window {1}',
+en:{loc:'en-GB',scanBtn:'Find networks',scanning:'Looking for networks… (a few seconds)',scanNone:'No network in sight.',scanFail:'The board did not finish searching. Try again.',scanPick:'Tap one to use it:',cabin:'Inside: {0}',hum:' · humidity {0} %',tgtL:'Up to',tgtNone:'No temperature limit',waiting:'Waiting',tgtOn:'Up to {0} · window {1}',
  warmOk:' · water is warm',turnOnTgt:'Heat up to {0} (max {1})',depL:'I leave at',depGo:'Set',depCancel:'Cancel',
  depSet:'Departure: {0} at {1}{2}. It switches on earlier, depending on how cold it is.',depTgt:' (up to {0})',mStart:'Switch on at this time',mDep:'I leave at this time',
  sTgt:'No thermostat',nextDep:'Next departure: {0} at {1}.',minvHelp:'While heating, it switches itself off if the battery drops half a volt below this.',
@@ -232,7 +236,7 @@ en:{loc:'en-GB',cabin:'Inside: {0}',hum:' · humidity {0} %',tgtL:'Up to',tgtNon
  ver:'WTTC firmware {0} · code generated entirely with Claude (Anthropic) · github.com/matatunos/wttc',
  askGas:'Reset the diesel estimate (last run, month and total)?',askForget:'Delete all paired devices? The app will have to be paired again with the PIN.',
  days:['M','T','W','T','F','S','S'],daysL:['on Monday','on Tuesday','on Wednesday','on Thursday','on Friday','on Saturday','on Sunday']},
-de:{loc:'de-DE',cabin:'Innen: {0}',hum:' · Feuchte {0} %',tgtL:'Bis',tgtNone:'Ohne Temperaturgrenze',waiting:'Wartet',tgtOn:'Bis {0} · Zeitfenster {1}',
+de:{loc:'de-DE',scanBtn:'Netze suchen',scanning:'Suche Netze… (ein paar Sekunden)',scanNone:'Kein Netz in Reichweite.',scanFail:'Die Platine ist mit der Suche nicht fertig geworden. Nochmal versuchen.',scanPick:'Eines antippen, um es zu nutzen:',cabin:'Innen: {0}',hum:' · Feuchte {0} %',tgtL:'Bis',tgtNone:'Ohne Temperaturgrenze',waiting:'Wartet',tgtOn:'Bis {0} · Zeitfenster {1}',
  warmOk:' · Wasser ist warm',turnOnTgt:'Heizen bis {0} (max. {1})',depL:'Abfahrt um',depGo:'Einstellen',depCancel:'Löschen',
  depSet:'Abfahrt: {0} um {1}{2}. Schaltet je nach Kälte früher ein.',depTgt:' (bis {0})',mStart:'Zu dieser Zeit einschalten',mDep:'Abfahrt zu dieser Zeit',
  sTgt:'Ohne Thermostat',nextDep:'Nächste Abfahrt: {0} um {1}.',minvHelp:'Während des Heizens schaltet sie sich ab, wenn die Batterie ein halbes Volt darunter fällt.',
@@ -423,6 +427,16 @@ $('u_check').onclick=async()=>{if(window.parent!==window)return alert(T('updSim'
  try{await api('/api/otacheck',{});const m=await otaWait();$('u_st').textContent=m||T('updTimeout');
   if(m&&st.onew&&confirm(m+'\n\n'+T('updAsk'))){await api('/api/otaupdate',{});const r=await otaWait();$('u_st').textContent=r||T('updTimeout');if(r)alert(r)}}
  catch(e){$('u_st').textContent=e.message}$('u_check').disabled=false};
+// Buscar redes Wi-Fi: la placa busca en segundo plano; se le pregunta cada 1,5 s hasta tener la lista (como mucho 25 s)
+const bars=r=>r>=-55?'▂▄▆█':r>=-67?'▂▄▆':r>=-78?'▂▄':'▂';
+$('scanBtn').onclick=async()=>{const L=$('scanList');$('scanBtn').disabled=true;L.innerHTML='<p class="sub">'+T('scanning')+'</p>';
+ try{let r=null;for(let i=0;i<16;i++){r=await api('/api/scan');if(r.nets)break;await sleep(1500)}
+  L.innerHTML=!r||!r.nets?'<p class="sub">'+T('scanFail')+'</p>':!r.nets.length?'<p class="sub">'+T('scanNone')+'</p>':
+   '<p class="sub" style="margin:0">'+T('scanPick')+'</p>'+r.nets.map(n=>`<button data-s="${esc(n.s)}"><span>${esc(n.s)}${n.e?' 🔒':''}</span><small>${bars(n.r)} ${n.r} dBm</small></button>`).join('')}
+ catch(e){L.innerHTML='<p class="sub">'+esc(e.message)+'</p>'}
+ $('scanBtn').disabled=false};
+// Tocar una red: se pone su nombre y se pasa a la contraseña
+$('scanList').onclick=e=>{const b=e.target.closest('button[data-s]');if(!b)return;$('c_ssid').value=b.dataset.s;$('scanList').innerHTML='';$('c_pass').focus()};
 // Poner a cero el gasoil estimado
 $('gasreset').onclick=async()=>{if(!confirm(T('askGas')))return;try{alert(await api('/api/gasreset',{}));poll()}catch(e){alert(e.message)}};
 // Borrar los móviles emparejados por Bluetooth

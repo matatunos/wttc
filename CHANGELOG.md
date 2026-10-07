@@ -6,6 +6,12 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.2.8 — 2026-10-07
+
+Versión de prueba (sin probar con una Webasto real). La primera grabada en una placa real: el instalador desde el navegador funciona.
+
+- **Buscar redes Wi-Fi** al configurar la red con internet, en la web de la placa y en la app: la placa busca las cercanas y las enseña por orden de señal (con candado si llevan clave); al tocar una se rellena su nombre. Si la Wi-Fi estaba apagada por ahorro, la enciende unos minutos para buscar.
+
 ## 0.2.7 — 2026-10-06
 
 Versión de prueba (sin probar con una Webasto real). **Cambio de licencia.**

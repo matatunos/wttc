@@ -86,7 +86,7 @@
     <string name="stats_help">Una vez al día como mucho: versiones, tipo de dispositivo, país, número de encendidos y averías. Sin ubicación, nombres, redes ni PIN, y sin guardar tu IP.</string>
     <string name="btn_public_stats">Ver estadísticas públicas</string>
     <string name="footer">App WTTC %1$s · wttc.favala.es\nSoftware libre, licencia GPL v3 o posterior · github.com/matatunos/wttc\nCódigo generado íntegramente con Claude (Anthropic)</string>
-    <string name="scan_title">Buscando placas WTTC…</string>
+    <string name="scan_title">Redes cercanas</string>
     <string name="cancel">Cancelar</string>
     <string name="stats_title">¿Nos ayudas con estadísticas anónimas?</string>
     <string name="stats_msg">WTTC puede enviar, una vez al día como mucho: versión de la app y del firmware, versión de Android, tipo de dispositivo (móvil, tablet o radio), país según el idioma del sistema, número de encendidos y apagados y los códigos de avería.\n\nNunca se envía ubicación, nombres, redes Wi-Fi, PIN ni horarios, y no se guarda tu IP. Los resultados son públicos en wttc.favala.es/estadisticas.php.\n\nPuedes cambiar de idea cuando quieras en «Ajustes de la app», al final de la pantalla.</string>
@@ -174,6 +174,10 @@
     <string name="hw_none">No se detecta pantalla ni termómetro (bus I2C: SDA a IO4, SCL a IO5, más 3V3 y GND).</string>
     <string name="notif_warm">Ya está caliente</string>
     <string name="notif_warm_body">El agua del motor está a %1$d °C.</string>
+    <string name="scan_btn">Buscar redes</string>
+    <string name="scan_searching">Buscando redes… (unos segundos)</string>
+    <string name="scan_none">No se ve ninguna red.</string>
+    <string name="scan_fail">La placa no ha terminado de buscar. Prueba otra vez.</string>
     <string name="quick_title">Acceso rápido</string>
     <string name="quick_help">Botón «Webasto» en los ajustes rápidos de Android (despliégalos y edítalos para añadirlo) y widget para la pantalla de inicio. Al pulsarlo se conecta a la placa y enciende con esta duración, o apaga si ya está encendida.</string>
     <string name="quick_dur">Duración del acceso rápido</string>

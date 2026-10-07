@@ -180,6 +180,7 @@ class DemoDevice(private val ctx: Context, private val main: Handler, private va
             "log" -> log.reversed().joinToString("\n")
             "cfg" -> cfg.toString()
             "set" -> { if (a.startsWith("lang=")) cfg.put("lang", a.substring(5)); "ok" }
+            "scan" -> """[{"s":"Furgo 4G","r":-48,"e":1},{"s":"Casa","r":-61,"e":1},{"s":"Camping La Playa","r":-72,"e":0},{"s":"MOVISTAR_8F21","r":-83,"e":1}]"""
             "wifi", "tgtest", "forget", "reboot" -> "ok"
             "gasreset" -> { gasCur = 0.0; gasLast = 0.0; gasMonth = 0.0; gasTotal = 0.0; "ok" }
             else -> "err " + ctx.getString(R.string.demo_unknown)

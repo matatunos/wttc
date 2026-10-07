@@ -87,7 +87,7 @@
     <string name="stats_help">At most once a day: versions, device type, country, number of starts and faults. No location, names, networks or PIN, and your IP is not stored.</string>
     <string name="btn_public_stats">View public statistics</string>
     <string name="footer">WTTC app %1$s · wttc.favala.es\nFree software, GPL v3 or later licence · github.com/matatunos/wttc\nCode generated entirely with Claude (Anthropic)</string>
-    <string name="scan_title">Searching for WTTC boards…</string>
+    <string name="scan_title">Nearby networks</string>
     <string name="cancel">Cancel</string>
     <string name="stats_title">Help us with anonymous statistics?</string>
     <string name="stats_msg">WTTC can send, at most once a day: app and firmware version, Android version, device type (phone, tablet or radio), country from the system language, number of starts and stops, and fault codes.\n\nLocation, names, Wi-Fi networks, PIN and schedules are never sent, and your IP is not stored. The results are public at wttc.favala.es/estadisticas.php.\n\nYou can change your mind at any time in “App settings”, at the bottom of the screen.</string>
@@ -175,6 +175,10 @@
     <string name="hw_none">No display or thermometer detected (I2C bus: SDA to IO4, SCL to IO5, plus 3V3 and GND).</string>
     <string name="notif_warm">It is warm</string>
     <string name="notif_warm_body">The engine coolant is at %1$d °C.</string>
+    <string name="scan_btn">Find networks</string>
+    <string name="scan_searching">Looking for networks… (a few seconds)</string>
+    <string name="scan_none">No network in sight.</string>
+    <string name="scan_fail">The board did not finish searching. Try again.</string>
     <string name="quick_title">Quick access</string>
     <string name="quick_help">“Webasto” button in Android\'s quick settings (pull them down and edit them to add it) and a home screen widget. Tapping it connects to the board and switches on for this long, or off if it is already on.</string>
     <string name="quick_dur">Quick access duration</string>

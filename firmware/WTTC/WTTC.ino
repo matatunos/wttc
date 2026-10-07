@@ -146,7 +146,7 @@ const float    TH_STALL_C   = 0.5;    // °C (si hace demasiado frío fuera o el
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.2.7"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.2.8"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -1688,6 +1688,35 @@ bool wifiWanted() {
   return false;
 }
 
+// Redes Wi-Fi cercanas, para elegir la red con internet sin escribir su nombre. La búsqueda tarda unos segundos y va en
+// segundo plano: mientras dura devuelve "" (y la primera llamada la lanza); al acabar, la lista en JSON
+// [{"s":"nombre","r":-60,"e":1},…] con las 20 de más señal, sin repetir nombre ni las ocultas (e = lleva clave).
+// Con la Wi-Fi apagada por ahorro, la enciende unos minutos (loop()) y la búsqueda empieza en la siguiente llamada.
+String scanNets() {
+  if (!wifiActive) {
+    if ((int32_t)(wifiUntil - (millis() + 180000)) < 0) wifiUntil = millis() + 180000;
+    return "";
+  }
+  int n = WiFi.scanComplete();
+  if (n == WIFI_SCAN_RUNNING) return "";
+  if (n < 0) { WiFi.scanNetworks(true); return ""; }    // sin búsqueda (o falló): se lanza
+  int idx[64], m = 0;
+  for (int i = 0; i < n && m < 64; i++) if (WiFi.SSID(i).length()) idx[m++] = i;
+  for (int a = 1; a < m; a++)                            // de más a menos señal
+    for (int b = a; b > 0 && WiFi.RSSI(idx[b]) > WiFi.RSSI(idx[b - 1]); b--) { int t = idx[b]; idx[b] = idx[b - 1]; idx[b - 1] = t; }
+  String j = "[", seen = "\n";
+  int c = 0;
+  for (int k = 0; k < m && c < 20; k++) {
+    String s = WiFi.SSID(idx[k]);
+    if (seen.indexOf("\n" + s + "\n") >= 0) continue;   // la misma red en varios puntos de acceso: solo la más fuerte
+    seen += s + "\n";
+    if (c++) j += ",";
+    j += "{\"s\":" + js(s) + ",\"r\":" + String(WiFi.RSSI(idx[k])) + ",\"e\":" + (WiFi.encryptionType(idx[k]) == WIFI_AUTH_OPEN ? "0" : "1") + "}";
+  }
+  WiFi.scanDelete();
+  return j + "]";
+}
+
 // Enciende la red propia, se une a la red externa (si la hay) y arranca el servidor web y wttc.local
 void wifiStart() {
   WiFi.setHostname(HOSTNAME);
@@ -1949,6 +1978,7 @@ String runCmd(String c) {
     return r == 2 ? String("set:restart") : String("set:ok");   // restart = se aplica al reiniciar
   }
   if (k == "wifi") { wifiUntil = millis() + WIFI_ASK_MS; return "wifi:ok"; }   // encender la Wi-Fi 15 min
+  if (k == "scan") { String r = scanNets(); return r.length() ? "scan:" + r : String("scan:run"); }   // redes cercanas (repetir hasta tener la lista)
   if (k == "tgtest") {                             // aviso de prueba por Telegram
     if (!tgToken[0] || !tgChat[0]) return String("tgtest:err ") + tr(T_E_TG_CFG);
     if (!staSsid[0]) return String("tgtest:err ") + tr(T_E_TG_NET);
@@ -2441,6 +2471,8 @@ void setup() {
   server.on("/api/sched", HTTP_POST, [] { if (sameOrigin() && setupDone()) handleSched(); });
   server.on("/api/dep", HTTP_POST, [] { if (sameOrigin() && setupDone()) handleDep(); });
   server.on("/api/time", HTTP_POST, [] { if (sameOrigin()) handleTime(); });
+  // Redes Wi-Fi cercanas: {"run":true} mientras busca; {"nets":[…]} al acabar (solo lectura: no hace falta el origen)
+  server.on("/api/scan", HTTP_GET, [] { String r = scanNets(); server.send(200, "application/json", r.length() ? "{\"nets\":" + r + "}" : String("{\"run\":true}")); });
   server.on("/api/errors", HTTP_GET, [] { server.send(200, "application/json", errorsJson()); });
   server.on("/api/cfg", HTTP_GET, [] { server.send(200, "application/json", cfgJson(!apDefault())); });
   server.on("/api/cfg", HTTP_POST, [] { if (sameOrigin()) handleCfgPost(); });

@@ -295,6 +295,7 @@ class MainActivity : Activity(), BleLink.Listener {
                 data.startsWith("restart") -> needRestart = true
             }
             "wifi" -> toast(getString(R.string.wifi_on))
+            "scan" -> scanResult(data)
             "dep" -> { if (err) toast(msg); link.refresh() }
             "tgtest" -> toast(if (err) msg else getString(R.string.tg_sent))
             "gasreset" -> { toast(getString(R.string.gas_zeroed)); link.refresh() }
@@ -588,6 +589,8 @@ class MainActivity : Activity(), BleLink.Listener {
         cfg.addView(spWm, lp(top = 4))
         cfg.addView(text(getString(R.string.cfg_inet), 15f, cInk, true), lp(top = 18))
         field(getString(R.string.f_ssid)).let { cfg.addView(it.first); eSsid = it.second }
+        // Buscar redes cercanas: la placa busca y se elige una de la lista (rellena el nombre)
+        cfg.addView(button(getString(R.string.scan_btn)) { scanNets() }, lp(top = 8))
         field(getString(R.string.f_pass), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD, getString(R.string.hint_unchanged)).let { cfg.addView(it.first); ePass = it.second }
         cfg.addView(text(getString(R.string.cfg_tg), 15f, cInk, true), lp(top = 18))
         field(getString(R.string.f_tok), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD, getString(R.string.hint_unchanged)).let { cfg.addView(it.first); eTok = it.second }
@@ -967,6 +970,34 @@ class MainActivity : Activity(), BleLink.Listener {
             progList.addView(c, lp(top = 10))
         }
         refreshSaveBtn()
+    }
+
+    // ---------- redes Wi-Fi cercanas ----------
+    // La placa busca en segundo plano: responde «run» mientras busca; se le vuelve a preguntar cada 1,5 s (25 s como mucho)
+    private val ui = android.os.Handler(android.os.Looper.getMainLooper())
+    private var scanTries = 0
+    private fun scanNets() {
+        scanTries = 0
+        toast(getString(R.string.scan_searching))
+        link.send("scan")
+    }
+    private fun scanResult(data: String) {
+        if (data == "run") {
+            if (++scanTries < 16) ui.postDelayed({ link.send("scan") }, 1500) else toast(getString(R.string.scan_fail))
+            return
+        }
+        val a = runCatching { org.json.JSONArray(data) }.getOrNull() ?: run { toast(getString(R.string.scan_fail)); return }
+        if (a.length() == 0) { toast(getString(R.string.scan_none)); return }
+        val nets = (0 until a.length()).map { a.getJSONObject(it) }
+        fun bars(r: Int) = if (r >= -55) "▂▄▆█" else if (r >= -67) "▂▄▆" else if (r >= -78) "▂▄" else "▂"
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.scan_title))
+            .setItems(nets.map { "${bars(it.optInt("r"))}  ${it.optString("s")}" + (if (it.optInt("e") == 1) "  🔒" else "") }.toTypedArray()) { _, i ->
+                eSsid.setText(nets[i].optString("s"))
+                ePass.requestFocus()
+            }
+            .setNegativeButton(getString(R.string.cancel), null)
+            .show()
     }
 
     // ---------- configuración ----------
