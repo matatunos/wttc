@@ -154,3 +154,6 @@ Lo que usa por dentro es compatible: núcleo Arduino del ESP32 (LGPL 2.1), ESP-I
 (MIT, en la web) y las letras DejaVu (licencia Bitstream Vera, ver `firmware/WTTC/fuentes.h`).
 
 Código generado con Claude (Anthropic).
+
+
+<!-- Security scan triggered at 2026-10-07 11:18:53 -->
