@@ -148,7 +148,7 @@ const float    TH_STALL_C   = 0.5;    // °C (si hace demasiado frío fuera o el
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.2.9"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.2.10"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -307,7 +307,7 @@ enum Txt {
   T_OTA_NONET, T_OTA_LATEST, T_OTA_NEW, T_OTA_NOTYET, T_OTA_BUSY, T_OTA_DL, T_TG_OTA_NEW,
   T_LOG_HW, T_LOG_TH_ON, T_LOG_TH_WAIT, T_LOG_TH_END, T_LOG_TH_NOSENS, T_TG_TH_REACHED, T_WHY_TARGET,
   T_E_NOSENS, T_E_TARGET, T_WHY_BATT, T_NOTE_BATT, T_TG_WARM, T_LOG_DEP, T_LOG_DEP_SET, T_LOG_DEP_OFF, T_E_DEP,
-  T_E_WARM, T_E_TOFF, T_E_VALUE, T_TG_TH_STALL,
+  T_E_WARM, T_E_TOFF, T_E_VALUE, T_TG_TH_STALL, T_OTA_NOSTA,
   T_D_OFF, T_D_START, T_D_HEAT, T_D_PAUSE, T_D_LOST, T_D_WAIT, T_D_WATER, T_D_IN, T_D_NEXT, T_D_DEP, T_D_UNTIL,
   T_D_DAYS, T_D_NOTE,
   T_COUNT
@@ -433,6 +433,9 @@ const char* const TXT[T_COUNT][L_N] = {
   /* T_TG_TH_STALL */      {"Termostato parado: dentro no pasa de %s en %d min y no llegará a %s. Se ha apagado para no gastar en balde.",
                             "Thermostat stopped: inside it stays at %s after %d min and will not reach %s. Switched off so as not to waste fuel.",
                             "Thermostat gestoppt: innen bleibt es bei %s (nach %d min) und erreicht %s nicht. Ausgeschaltet, um nichts zu verschwenden."},
+  /* T_OTA_NOSTA */        {"La placa no consigue unirse a «%s»: ¿están bien el nombre y la contraseña, y llega la señal? Sin esa red no puede buscar actualizaciones.",
+                            "The board cannot join “%s”: are the name and password right, and does the signal reach? Without that network it cannot check for updates.",
+                            "Die Platine kann sich nicht mit „%s“ verbinden: stimmen Name und Passwort, und reicht das Signal? Ohne dieses Netz kann sie nicht nach Updates suchen."},
   /* T_D_OFF */            {"Apagada", "Off", "Aus"},
   /* T_D_START */          {"Arrancando", "Starting", "Startet"},
   /* T_D_HEAT */           {"Calentando", "Heating", "Heizt"},
@@ -2249,7 +2252,11 @@ String jsonStr(const String& j, const char* k) {
 
 // Espera a la red con internet (la Wi-Fi puede estar apagada por ahorro: loop() la enciende con wifiUntil)
 bool otaNetWait() {
-  for (int i = 0; i < 40 && WiFi.status() != WL_CONNECTED; i++) vTaskDelay(pdMS_TO_TICKS(1000));
+  for (int i = 0; i < 40 && WiFi.status() != WL_CONNECTED; i++) {
+    wl_status_t s = WiFi.status();
+    if (i >= 8 && (s == WL_NO_SSID_AVAIL || s == WL_CONNECT_FAILED)) break;   // no ve la red o la clave no vale: no esperar más
+    vTaskDelay(pdMS_TO_TICKS(1000));
+  }
   return WiFi.status() == WL_CONNECTED;
 }
 
@@ -2257,7 +2264,7 @@ void otaNetDone(bool ok, const String& msg) { otaNetOk = ok; otaNetMsg = msg; ot
 
 void otaNetTask(void*) {
   bool install = otaNetInstall;
-  if (!otaNetWait()) { otaNetDone(false, tr(T_OTA_NONET)); vTaskDelete(nullptr); return; }
+  if (!otaNetWait()) { otaNetDone(false, trf(T_OTA_NOSTA, staSsid)); vTaskDelete(nullptr); return; }
   WiFiClientSecure cli; cli.setInsecure();
   HTTPClient http; http.setConnectTimeout(10000); http.setTimeout(15000);
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
