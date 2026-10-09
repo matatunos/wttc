@@ -101,7 +101,8 @@ wttc_visit('mi');
     <form id="gform" autocomplete="off">
       <input id="code" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="19" spellcheck="false" autocapitalize="characters" aria-label="Código de instalación">
       <div class="err" id="gerr"></div>
-      <button class="btn" id="go" style="margin-top:4px">Ver mis estadísticas</button><br>
+      <button class="btn" id="go" style="margin-top:4px">Ver mis estadísticas</button>
+      <button class="btn ghost" id="demo" type="button" style="margin-top:4px">Ver un ejemplo</button><br>
       <label class="rem"><input type="checkbox" id="remember" checked> Recordar en este navegador</label>
     </form>
   </div>
@@ -196,13 +197,32 @@ async function openCode(code) {
     history.replaceState(null, '', '#' + data.iid);
     $('gate').hidden = true; $('main').hidden = false;
     $('shownCode').textContent = data.iid;
+    $('del').hidden = false;
     render();
   } catch (e) { $('gerr').textContent = e.message; $('gate').hidden = false; $('main').hidden = true; }
   $('go').disabled = false;
 }
 $('gform').onsubmit = e => { e.preventDefault(); const c = norm($('code').value); if (!c) { $('gerr').textContent = 'El código son 16 letras y números, como ABCD-2345-EFGH-6789.'; return; } openCode(c); };
+// Ejemplo con datos inventados (una furgoneta en otoño): para ver cómo queda sin tener placa
+$('demo').onclick = () => {
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const now = Math.floor(Date.now() / 1000), runs = [];
+  for (let s = 1; s <= 70; s++) {
+    const day = new Date((now - (71 - s) * 86400 * 1.3) * 1000); day.setHours([6, 7, 7, 7, 8, 18, 19, 20][Math.floor(rnd() * 8)], Math.floor(rnd() * 60), 0, 0);
+    const dur = Math.round(15 + rnd() * 45) * 60, c0 = Math.round(-3 + rnd() * 12), th = rnd() < .55;
+    const src = [0, 1, 1, 2, 2, 4][Math.floor(rnd() * 6)];
+    let end = th ? (rnd() < .9 ? 2 : 6) : [0, 0, 1][Math.floor(rnd() * 3)], err = 0;
+    if (s === 41) { end = 4; err = 3; }
+    runs.push([s, Math.floor(day / 1000), dur, Math.round(dur / 3600 * (330 + rnd() * 60)), c0, c0 + Math.round(5 + rnd() * 10),
+      Math.round(55 + rnd() * 25) + 50, Math.round(118 + rnd() * 8), src | (th ? 0x80 : 0), end, err]);
+  }
+  data = { iid: 'EJEMPLO', demo: true, board: { fw: '0.2.16', last: new Date().toISOString().slice(0, 10), gas: 9.8, hsec: 160000, nruns: 70, sens: 1 },
+    runs, days: [], errnames: { '03': 'fallo de llama' } };
+  $('del').hidden = true; $('gate').hidden = true; $('main').hidden = false; $('shownCode').textContent = 'EJEMPLO · datos inventados'; render();
+};
 $('other').onclick = () => { data = null; store.set('wttc_iid', null); history.replaceState(null, '', location.pathname); $('code').value = ''; $('main').hidden = true; $('gate').hidden = false; $('code').focus(); };
 $('del').onclick = async () => {
+  if (data && data.demo) return;
   if (!data || !confirm('¿Borrar del servidor todas las estadísticas de esta placa? No se puede deshacer.\n\nSi la placa sigue enviando, volverá a empezar de cero; para que no envíe más, desactívalo en su Configuración.')) return;
   try { await api({ c: data.iid, borrar: true }); store.set('wttc_iid', null); alert('Borrado.'); $('other').onclick(); } catch (e) { alert(e.message); }
 };
