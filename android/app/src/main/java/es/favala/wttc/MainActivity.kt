@@ -176,6 +176,7 @@ class MainActivity : Activity(), BleLink.Listener {
     private var hasOtaAuto = false
     private var nvAsked = ""                           // versión nueva de la placa por la que ya se ha preguntado
     // Acceso web desde otra red y «Mis estadísticas» (firmware 0.2.16+)
+    private lateinit var swApAuto: Switch               // ocultar la Wi-Fi propia en la red con internet (0.2.20+)
     private lateinit var webBox: LinearLayout
     private lateinit var eWuser: EditText
     private lateinit var eWpass: EditText
@@ -684,6 +685,8 @@ class MainActivity : Activity(), BleLink.Listener {
             background = rounded(cSf2, 10)
         }
         cfg.addView(spWm, lp(top = 4))
+        swApAuto = Switch(this).apply { text = getString(R.string.sw_apauto); setTextColor(cInk); textSize = 15f; visibility = View.GONE }
+        cfg.addView(swApAuto, lp(top = 10))
         cfg.addView(text(getString(R.string.cfg_inet), 15f, cInk, true), lp(top = 18))
         field(getString(R.string.f_ssid)).let { cfg.addView(it.first); eSsid = it.second }
         // Buscar redes cercanas: la placa busca y se elige una de la lista (rellena el nombre)
@@ -1235,6 +1238,8 @@ class MainActivity : Activity(), BleLink.Listener {
         eTok.hint = getString(if (c.optBoolean("tg")) R.string.hint_token_saved else R.string.hint_not_set)
         eAp.setText(""); ePass.setText(""); eTok.setText("")
         fwVer = c.optString("ver"); fwOta = c.optInt("ota") == 1
+        swApAuto.visibility = if (c.has("apauto")) View.VISIBLE else View.GONE
+        if (c.has("apauto")) swApAuto.isChecked = c.optInt("apauto") == 1
         webBox.visibility = if (c.has("webuser")) View.VISIBLE else View.GONE
         if (c.has("webuser")) { eWuser.setText(c.optString("webuser")); eWpass.setText("")
             tWdef.visibility = if (c.optBoolean("webdef")) View.VISIBLE else View.GONE }
@@ -1283,6 +1288,7 @@ class MainActivity : Activity(), BleLink.Listener {
             "minvolt" to eMinV.text.toString().trim().replace(',', '.'),
         )
         if (hasOtaAuto) sets += "otaauto" to spOtaAuto.selectedItemPosition.toString()
+        if (swApAuto.visibility == View.VISIBLE) sets += "apauto" to (if (swApAuto.isChecked) "1" else "0")
         if (webBox.visibility == View.VISIBLE) {
             sets += "webuser" to eWuser.text.toString().trim()
             if (eWpass.text.isNotEmpty()) sets += "webpass" to eWpass.text.toString()

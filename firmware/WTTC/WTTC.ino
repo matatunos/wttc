@@ -150,7 +150,7 @@ const float    TH_STALL_C   = 0.5;    // °C (si hace demasiado frío fuera o el
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.2.19"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.2.20"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -206,6 +206,12 @@ bool rebootPending = false;           // reiniciar en la próxima vuelta de loop
 // ---------- actualización por internet (ver «Buscar e instalar por internet») ----------
 volatile bool otaNetBusy = false;     // hay una búsqueda o descarga en marcha (en otra tarea)
 volatile int otaProg = -1;            // progreso de la descarga (0–100); -1 = ninguna
+// Wi-Fi propia y red con internet comparten la única radio: con las dos, la propia cambia de canal y va a trompicones
+// mientras se busca la otra. apAuto = ocultar la propia cuando la placa está estable en la red con internet
+bool apAuto = true, apOn = false;
+uint32_t staUpSince = 0, staDownSince = 0, staTryAt = 0;
+uint8_t bootWhy = 0;                  // motivo del último arranque (RR_*, ver resetReason())
+uint32_t heapMin = 0;                 // memoria libre más baja vista desde que arrancó (bytes)
 volatile bool otaUploading = false;   // se está subiendo un .ota desde la web (Configuración → Actualizar)
 uint32_t otaUploadAt = 0;             // último trozo recibido (si la subida se corta sin aviso, a los 2 min deja de contar)
 volatile bool otaNetEnd = false;      // la tarea ha terminado: loop() responde y, si se instaló, reinicia
@@ -368,7 +374,7 @@ enum Txt {
   T_LOG_HW, T_LOG_TH_ON, T_LOG_TH_WAIT, T_LOG_TH_END, T_LOG_TH_NOSENS, T_TG_TH_REACHED, T_WHY_TARGET,
   T_E_NOSENS, T_E_TARGET, T_WHY_BATT, T_NOTE_BATT, T_TG_WARM, T_LOG_DEP, T_LOG_DEP_SET, T_LOG_DEP_OFF, T_E_DEP,
   T_E_WARM, T_E_TOFF, T_E_VALUE, T_TG_TH_STALL, T_OTA_NOSTA, T_OTA_NETERR, T_LOG_OTA_AUTO, T_LOG_OTA_FAIL,
-  T_W_UPDATING,
+  T_LOG_AP_OFF, T_LOG_AP_ON, T_W_UPDATING, T_RR_POWER, T_RR_SW, T_RR_CRASH, T_RR_WDT, T_RR_BROWN, T_RR_RST, T_RR_OTHER, T_LOG_RESET, T_TG_RESET,
   T_W_LOGIN, T_W_LOGINBAD, T_W_LOGINLOCK, T_W_SETUPWEB, T_E_WEBUSER, T_E_WEBPASS, T_E_WEBDEF, T_LOG_LOGIN,
   T_E_IID, T_TG_IID, T_E_NOTG, T_LOG_IID,
   T_D_OFF, T_D_START, T_D_HEAT, T_D_PAUSE, T_D_LOST, T_D_WAIT, T_D_WATER, T_D_IN, T_D_NEXT, T_D_DEP, T_D_UNTIL,
@@ -504,7 +510,18 @@ const char* const TXT[T_COUNT][L_N] = {
                             "Die Platine ist im Netz, erreicht aber wttc.favala.es nicht (Code %d · der Name ergibt %s · DNS %s · Router %s)."},
   /* T_LOG_OTA_AUTO */     {"Instalando sola la versión %s (actualizaciones automáticas)", "Installing version %s by itself (automatic updates)", "Installiert Version %s selbst (automatische Updates)"},
   /* T_LOG_OTA_FAIL */     {"La actualización automática falló: %s", "The automatic update failed: %s", "Das automatische Update ist fehlgeschlagen: %s"},
+  /* T_LOG_AP_OFF */       {"Wi-Fi propia oculta: la placa está en la red «%s» (vuelve sola si se pierde)", "Own Wi-Fi hidden: the board is on the network “%s” (it comes back if that is lost)", "Eigenes WLAN versteckt: die Platine ist im Netz „%s“ (kommt zurück, wenn es wegfällt)"},
+  /* T_LOG_AP_ON */        {"Wi-Fi propia visible otra vez: sin la red «%s»", "Own Wi-Fi visible again: the network “%s” is gone", "Eigenes WLAN wieder sichtbar: Netz „%s“ weg"},
   /* T_W_UPDATING */       {"La placa se está actualizando: espera a que termine y se reinicie.", "The board is updating: wait until it finishes and restarts.", "Die Platine wird aktualisiert: warten, bis sie fertig ist und neu startet."},
+  /* T_RR_POWER */         {"se enchufó o volvió la corriente", "it was plugged in or power came back", "eingesteckt oder Strom kam zurück"},
+  /* T_RR_SW */            {"reinicio pedido (actualización, ajustes o la orden reboot)", "requested restart (update, settings or the reboot command)", "angeforderter Neustart (Update, Einstellungen oder reboot)"},
+  /* T_RR_CRASH */         {"se colgó (fallo del programa)", "it crashed (program fault)", "Absturz (Programmfehler)"},
+  /* T_RR_WDT */           {"se quedó bloqueada (la reinició el vigilante)", "it got stuck (restarted by the watchdog)", "hing fest (Watchdog hat neu gestartet)"},
+  /* T_RR_BROWN */         {"le bajó la tensión (alimentación floja o cable)", "its voltage dropped (weak power supply or cable)", "Spannung eingebrochen (schwache Versorgung oder Kabel)"},
+  /* T_RR_RST */           {"se pulsó el botón RST", "the RST button was pressed", "RST-Taste gedrückt"},
+  /* T_RR_OTHER */         {"motivo desconocido", "unknown reason", "unbekannter Grund"},
+  /* T_LOG_RESET */        {"Motivo del arranque: %s", "Reason for the start: %s", "Grund des Starts: %s"},
+  /* T_TG_RESET */         {"La placa se reinició sola: %s. Si se repite, avísalo en github.com/matatunos/wttc/issues", "The board restarted by itself: %s. If it happens again, report it at github.com/matatunos/wttc/issues", "Die Platine hat sich selbst neu gestartet: %s. Wenn es wieder passiert, bitte unter github.com/matatunos/wttc/issues melden"},
   /* T_W_LOGIN */          {"Hace falta entrar con usuario y clave.", "You need to log in with user and password.", "Anmeldung mit Benutzer und Passwort nötig."},
   /* T_W_LOGINBAD */       {"Usuario o clave incorrectos.", "Wrong user or password.", "Benutzer oder Passwort falsch."},
   /* T_W_LOGINLOCK */      {"Demasiados intentos: espera %d min.", "Too many attempts: wait %d min.", "Zu viele Versuche: %d min warten."},
@@ -1749,6 +1766,7 @@ void loadCfg() {
   if (prefs.isKey("wpass"))  prefs.getString("wpass", webPass, sizeof webPass);
   if (prefs.isKey("iid"))    prefs.getString("iid", iid, sizeof iid);
   statsOn  = prefs.getBool("stats", false);
+  apAuto   = prefs.getBool("apau", true);
   if (prefs.isKey("runs2") && prefs.getBytesLength("runs2") == sizeof runs) prefs.getBytes("runs2", runs, sizeof runs);
   else if (prefs.isKey("runs") && prefs.getBytesLength("runs") == sizeof(RunV1) * RUNS) {   // de la 0.2.16: al formato nuevo
     RunV1* old = new RunV1[RUNS];
@@ -1933,6 +1951,9 @@ int cfgSet(String k, String v, String& err) {
       statsLast = 0;
       addLog(tr(T_LOG_IID));
     }
+  } else if (k == "apauto") {                     // ocultar la Wi-Fi propia estando en la red con internet: 1 / 0
+    bool on = v == "1" || v == "true";
+    if (on != apAuto) { apAuto = on; prefs.putBool("apau", apAuto); }
   } else if (k == "stats") {                      // enviar las estadísticas de esta placa: 1 / 0
     bool on = v == "1" || v == "true";
     if (on != statsOn) { statsOn = on; prefs.putBool("stats", statsOn); statsLast = 0; }
@@ -1952,7 +1973,7 @@ int cfgSet(String k, String v, String& err) {
 // Ajustes que admite el formulario de configuración de la web (en este orden)
 const char* CFG_KEYS[] = {"lang", "name", "appass", "pin", "wifimode", "ssid", "pass", "tgtok", "tgchat", "minvolt",
                           "oled", "disp", "led", "toff", "warm", "otaauto",
-                          "webuser", "webpass", "iid", "stats"};
+                          "webuser", "webpass", "iid", "stats", "apauto"};
 
 // ¿Sigue la Wi-Fi propia con la clave de fábrica? Entonces cualquiera cerca puede entrar: la web obliga a cambiarla
 bool apDefault() { return strcmp(cfgApPass, AP_PASS_DEFAULT) == 0; }
@@ -1977,6 +1998,7 @@ String cfgJson(bool withPin) {
   j += ",\"webdef\":"; j += webDefault() ? "true" : "false";     // usuario y clave de fábrica
   j += ",\"iid\":";   j += js(String(iid));                      // código de instalación
   j += ",\"stats\":"; j += statsOn ? 1 : 0;                       // enviar las estadísticas de esta placa
+  j += ",\"apauto\":"; j += apAuto ? 1 : 0;                       // ocultar la Wi-Fi propia en la red con internet (0.2.20+)
   j += ",\"nruns\":"; j += runSeq; j += ",\"rack\":"; j += runAck;   // encendidos apuntados y ya enviados
   j += ",\"stok\":"; if (statsOkAt) j += (millis() - statsOkAt) / 1000; else j += "-1";   // s desde el último envío
   j += ",\"oled\":";   j += (int)oledType;
@@ -2046,7 +2068,8 @@ void printMotd() {
   Serial.println("================================================================");
   Serial.printf("  Bluetooth (app WTTC) .. nombre \"%s\" · PIN %06u\n", cfgName, (unsigned)blePin);
   Serial.printf("  Wi-Fi propia .......... red \"%s\" · clave \"%s\"%s\n", cfgName, cfgApPass, apDef ? "  <- DE FÁBRICA: cámbiala" : "");
-  Serial.printf("                          web http://192.168.4.1 · %s\n", WM[wifiMode <= WM_DEMAND ? wifiMode : 0]);
+  Serial.printf("                          web http://192.168.4.1 · %s%s\n", WM[wifiMode <= WM_DEMAND ? wifiMode : 0],
+                apAuto ? " · se oculta estando en la red con internet" : "");
   if (staSsid[0])
     Serial.printf("  Red con internet ...... \"%s\" · %s\n", staSsid,
                   WiFi.status() == WL_CONNECTED ? (String("conectada, http://") + WiFi.localIP().toString()).c_str() : "conectando…");
@@ -2057,10 +2080,42 @@ void printMotd() {
   Serial.printf("  Mis estadísticas ...... código %s · %s\n", iid, statsOn ? "se envían" : "no se envían");
   Serial.printf("                          https://wttc.favala.es/mi.php#%s\n", iid);
   Serial.printf("  Piezas opcionales ..... pantalla %s · termómetro %s\n", oledOk ? "sí" : "no", snName()[0] ? snName() : "no");
+  Serial.printf("  Este arranque ......... %s · memoria libre %u KB\n", resetText(bootWhy), (unsigned)(ESP.getFreeHeap() / 1024));
   Serial.printf("  Actualizaciones ....... %s\n", otaAuto == OA_OFF ? "no se buscan" : otaAuto == OA_NOTIFY ? "buscar y avisar" : "buscar e instalar sola");
   Serial.println("----------------------------------------------------------------");
   Serial.println("  Órdenes: on [min] [°C] | off | status | info | errores | cfg | set clave=valor | wifi | forget | reboot | gasreset");
   Serial.println("================================================================");
+}
+
+// Cada vuelta de loop(), con la Wi-Fi encendida: reintentos de la red con internet y ocultar/mostrar la Wi-Fi propia
+void staTick() {
+  if (!wifiActive || !staSsid[0]) return;
+  uint32_t now = millis();
+  bool up = WiFi.status() == WL_CONNECTED;
+  if (up) { staDownSince = 0; if (!staUpSince) staUpSince = now; }
+  else { staUpSince = 0; if (!staDownSince) staDownSince = now; }
+  // Sin la red: reintentar cada 20 s los primeros 5 min y luego cada 5 min (lejos de casa no la va a encontrar)
+  if (!up && now - staTryAt > (now - staDownSince < 300000 ? 20000UL : 300000UL)) {
+    staTryAt = now;
+    WiFi.disconnect(false);
+    WiFi.begin(staSsid, staPass);
+  }
+  if (!apAuto) { if (!apOn) apShow(); return; }
+  // Ocultar la propia: 2 min estable en la red, pasados los 10 min de rescate del arranque y sin nadie conectado a ella
+  if (up && apOn && now - staUpSince > 120000 && now > WIFI_BOOT_MS && WiFi.softAPgetStationNum() == 0 && netUse == 0) {
+    if (dnsOn) { dns.stop(); dnsOn = false; }
+    WiFi.softAPdisconnect(true);
+    WiFi.mode(WIFI_STA);
+    apOn = false;
+    addLog(trf(T_LOG_AP_OFF, staSsid));
+  }
+  // Volverla a mostrar: 1 min sin la red con internet
+  if (!up && !apOn && now - staDownSince > 60000) { apShow(); addLog(trf(T_LOG_AP_ON, staSsid)); }
+}
+void apShow() {
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAP(cfgName, cfgApPass);
+  apOn = true;
 }
 
 // Enciende la red propia, se une a la red externa (si la hay) y arranca el servidor web y wttc.local
@@ -2072,8 +2127,11 @@ void wifiStart() {
   // hay internet pidiendo una página suya; les llega la de la placa y la abren solos (ver onNotFound en setup())
   dns.setErrorReplyCode(DNSReplyCode::NoError);
   dnsOn = dns.start(53, "*", WiFi.softAPIP());
-  if (staSsid[0]) WiFi.begin(staSsid, staPass);
-  WiFi.setAutoReconnect(true);
+  apOn = true; staUpSince = staDownSince = 0;
+  // La red con internet se reintenta a mano (staTick), con calma: la reconexión automática del núcleo la buscaría sin
+  // parar y la Wi-Fi propia iría a trompicones mientras tanto (una sola radio)
+  WiFi.setAutoReconnect(false);
+  if (staSsid[0]) { WiFi.begin(staSsid, staPass); staTryAt = millis(); }
   MDNS.begin(HOSTNAME);
   MDNS.addService("http", "tcp", 80);
   server.begin();
@@ -2089,7 +2147,7 @@ void wifiStop() {
   WiFi.softAPdisconnect(true);
   if (dnsOn) { dns.stop(); dnsOn = false; }
   WiFi.mode(WIFI_OFF);
-  wifiActive = false;
+  wifiActive = false; apOn = false;
   lastWeb = 0;
   addLog(tr(T_LOG_WIFI_OFF));
 }
@@ -2406,6 +2464,10 @@ void handleState() {
   j += ",\"apdef\":";  j += apDefault() ? "true" : "false";     // primer uso: la web pide la clave nueva
   j += ",\"op\":";     j += otaProg;                             // actualización por internet en curso (0–100)
   j += ",\"upd\":";    j += updating() ? 1 : 0;                  // actualizando: la web lo bloquea todo
+  // Diagnóstico: tiempo encendida, motivo del último arranque, memoria libre ahora y la más baja (KB)
+  j += ",\"up\":";     j += (uint32_t)(millis() / 1000);
+  j += ",\"rr\":";     j += js(String(resetText(bootWhy)));
+  j += ",\"heap\":[";  j += ESP.getFreeHeap() / 1024; j += ","; j += heapMin / 1024; j += "]";
   j += ",\"om\":";     j += js(lastWebMsg);                      // último resultado de buscar o actualizar
   j += ",\"onew\":";   j += (otaNetNew && !otaNetBusy) ? "true" : "false";   // ese resultado es «hay versión nueva»
   j += ",\"nv\":";     j += js(String(otaAvail));                // versión nueva que ha visto la placa ("" = ninguna)
@@ -2681,6 +2743,21 @@ void netBegin() { netUse++; for (int i = 0; i < 20 && dnsOn; i++) vTaskDelay(pdM
 void netEnd() { int n = netUse.load(); while (n > 0 && !netUse.compare_exchange_weak(n, n - 1)) {} }
 
 // Memoria libre, para los mensajes de error: « · memoria 123 KB (bloque 60 KB, PSRAM 8000 KB)»
+// Por qué arrancó la placa esta vez (lo da el chip): para saber si se cuelga o si la desenchufan
+enum { RR_POWER, RR_SW, RR_CRASH, RR_WDT, RR_BROWN, RR_RST, RR_OTHER };
+uint8_t resetReason() {
+  switch (esp_reset_reason()) {
+    case ESP_RST_POWERON: return RR_POWER;
+    case ESP_RST_SW: return RR_SW;
+    case ESP_RST_PANIC: return RR_CRASH;
+    case ESP_RST_INT_WDT: case ESP_RST_TASK_WDT: case ESP_RST_WDT: return RR_WDT;
+    case ESP_RST_BROWNOUT: return RR_BROWN;
+    case ESP_RST_EXT: return RR_RST;
+    default: return RR_OTHER;
+  }
+}
+const char* resetText(uint8_t r) { static const int T[] = {T_RR_POWER, T_RR_SW, T_RR_CRASH, T_RR_WDT, T_RR_BROWN, T_RR_RST, T_RR_OTHER}; return tr(T[r < 7 ? r : 6]); }
+
 String memInfo() {
   return " · memoria " + String(ESP.getFreeHeap() / 1024) + " KB (bloque " + String(ESP.getMaxAllocHeap() / 1024) + " KB, PSRAM "
          + String(ESP.getFreePsram() / 1024) + " KB)";
@@ -3010,6 +3087,11 @@ void setup() {
   wifiStart();
 
   addLog(trf(T_LOG_BOOT, FW_VERSION));
+  // Motivo del arranque: al registro y, si se colgó, se bloqueó o le faltó tensión, también por Telegram (sale al tener red)
+  bootWhy = resetReason();
+  addLog(trf(T_LOG_RESET, resetText(bootWhy)));
+  if (bootWhy == RR_CRASH || bootWhy == RR_WDT || bootWhy == RR_BROWN) notify(trf(T_TG_RESET, resetText(bootWhy)));
+  heapMin = ESP.getFreeHeap();
   // Pantalla y termómetro (opcionales) en el bus I2C; botón BOOT para encender la pantalla
   Wire.begin(I2C_SDA, I2C_SCL, (uint32_t)400000);
   pinMode(BTN_PIN, INPUT_PULLUP);
@@ -3028,7 +3110,7 @@ void loop() {
   // Portal cautivo: en pausa mientras una tarea sale a internet; luego vuelve (si no arranca, se reintenta a los 5 s)
   static uint32_t dnsTry = 0;
   if (dnsOn && netUse > 0) { dns.stop(); dnsOn = false; }
-  else if (!dnsOn && wifiActive && netUse == 0 && millis() - dnsTry > 5000) { dnsTry = millis(); dnsOn = dns.start(53, "*", WiFi.softAPIP()); }
+  else if (!dnsOn && wifiActive && apOn && netUse == 0 && millis() - dnsTry > 5000) { dnsTry = millis(); dnsOn = dns.start(53, "*", WiFi.softAPIP()); }
   if (dnsOn) dns.processNextRequest();            // preguntas de nombres en la red propia
   serialCli();                                    // órdenes de la consola serie
   // En la consola, al unirse o perderse la red con internet: su dirección, para entrar a la web desde esa red
@@ -3099,4 +3181,6 @@ void loop() {
   otaConfirm();                                   // tras una actualización: confirmarla al minuto de funcionar
   otaNetPoll();                                   // ¿ha terminado una búsqueda o descarga por internet?
   statsPoll();                                    // estadísticas de esta placa (si están activadas)
+  staTick();                                      // red con internet y Wi-Fi propia (ocultarla estando en casa)
+  { uint32_t h = ESP.getFreeHeap(); if (h < heapMin) heapMin = h; }   // para ver si hay una fuga de memoria
 }

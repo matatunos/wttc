@@ -6,6 +6,14 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.2.20 — 2026-10-09
+
+Versión de prueba (sin probar con una Webasto real).
+
+- **La Wi-Fi propia se oculta estando en casa.** La Wi-Fi propia y la red con internet comparten la única radio del ESP32: con las dos a la vez, la propia cambia de canal y va a trompicones mientras se busca la otra (la «Wi-Fi que se apaga sola» después de un rato). Ahora, con 2 minutos estable en la red con internet y nadie conectado a la propia, la placa la apaga (se entra por wttc.local o por Bluetooth), y la vuelve a encender sola tras 1 minuto sin esa red. Los 10 primeros minutos tras arrancar sigue siempre visible. Se puede desactivar en Configuración (web y app): «Ocultarla cuando esté conectada a la red con internet».
+- **La red con internet se busca con calma:** si no está, cada 20 s los primeros 5 minutos y luego cada 5 minutos, en vez de sin parar (que estorbaba a la Wi-Fi propia lejos de casa).
+- **Por qué arrancó la placa:** el registro apunta en cada arranque el motivo (se enchufó, reinicio pedido, se colgó, la reinició el vigilante, le bajó la tensión, botón RST). Si se colgó o le faltó tensión, avisa por Telegram. En Diagnóstico se ve cuánto lleva encendida, el motivo del último arranque y la memoria libre (ahora y la más baja), y también en el resumen de la consola.
+
 ## 0.2.19 — 2026-10-09
 
 Versión de prueba (sin probar con una Webasto real).
