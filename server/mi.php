@@ -1,6 +1,7 @@
 <?php
 // wttc/mi.php — Estadísticas de UNA placa, con su código de instalación (https://wttc.favala.es/mi.php#XXXX-XXXX-XXXX-XXXX).
 // Código generado íntegramente con Claude (Anthropic).
+// Selector de periodo y fechas concretas: el común del portal (TCharts.rangePicker de /charts.js).
 // La página no lleva datos: el código va en el «#» de la dirección (el navegador no lo manda al servidor) o se escribe,
 // y la página pide los datos a api/mi.php por POST. Gráficas con Chart.js servido desde /vendor/.
 require_once __DIR__ . '/api/db.php';
@@ -53,6 +54,10 @@ wttc_visit('mi');
   .periods button{background:var(--bg-card);border:1px solid var(--border);color:var(--muted);border-radius:9px;padding:.35rem .7rem;font-size:.82rem;
     font-weight:700;cursor:pointer;font-family:inherit}
   .periods button.act{background:var(--acc);border-color:var(--acc);color:#fff}
+  .rangebox{display:flex;gap:.35rem;align-items:center;flex-wrap:wrap}
+  .rangebox input[type=date]{background:var(--bg-card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:.3rem .5rem;font-size:.8rem;font-family:inherit;color-scheme:dark}
+  .rangebox button{background:var(--acc);border:none;color:#fff;border-radius:8px;padding:.36rem .8rem;font-size:.8rem;font-weight:800;cursor:pointer;font-family:inherit}
+  .rangebox.act input[type=date]{border-color:var(--acc)}
   /* Cifras */
   .kpis{display:grid;grid-template-columns:1.6fr repeat(3,1fr);gap:12px;margin-top:16px}
   @media (max-width:820px){.kpis{grid-template-columns:1fr 1fr}.kpis .hero{grid-column:1/-1}}
@@ -111,7 +116,13 @@ wttc_visit('mi');
   <div id="main" hidden>
     <div class="top">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="code" id="shownCode"></span><span class="muted" id="seen"></span></div>
-      <div class="periods" id="periods"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <div class="periods" id="periods"></div>
+        <div class="rangebox">
+          <input type="date" id="rfrom" aria-label="Desde"><span class="muted">→</span>
+          <input type="date" id="rto" aria-label="Hasta"><button id="rapply">Aplicar</button>
+        </div>
+      </div>
     </div>
     <div class="kpis" id="kpis"></div>
     <div class="empty card" id="noRuns" hidden>Aún no ha llegado ningún encendido. La placa los envía a los pocos minutos de apagarse
@@ -158,6 +169,7 @@ wttc_visit('mi');
 </div>
 
 <script src="/vendor/chartjs/4.4.1/chart.umd.min.js"></script>
+<script src="/charts.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -173,7 +185,7 @@ const END = ['Se acabó el tiempo', 'Apagada a mano', 'Llegó a la temperatura',
 const ENDC = ['#5bc0eb', '#7a84a8', '#3ecf8e', '#ffcc4d', '#ff5d5d', '#ff8f9a', '#ff8a3d'];
 const WD = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-let data = null, period = '90d', charts = {};
+let data = null, period = '90d', custom = null, charts = {};
 
 // ---------- código ----------
 const norm = s => { const c = String(s).toUpperCase().replace(/[^0-9A-Z]/g, ''); return c.length === 16 ? c.match(/.{4}/g).join('-') : null; };
@@ -227,11 +239,15 @@ $('del').onclick = async () => {
   try { await api({ c: data.iid, borrar: true }); store.set('wttc_iid', null); alert('Borrado.'); $('other').onclick(); } catch (e) { alert(e.message); }
 };
 
-// ---------- periodo ----------
+// ---------- periodo (selector común del portal, con fechas concretas) ----------
 const PERIODS = [['30d', '30 días', 30], ['90d', '90 días', 90], ['1y', '1 año', 365], ['all', 'Todo', 0]];
-$('periods').innerHTML = PERIODS.map(([k, l]) => `<button data-p="${k}">${l}</button>`).join('');
-$('periods').onclick = e => { const p = e.target.dataset.p; if (p) { period = p; store.set('wttc_period', p); render(); } };
-period = store.get('wttc_period') || period;
+period = PERIODS.some(p => p[0] === store.get('wttc_period')) ? store.get('wttc_period') : period;
+TCharts.rangePicker({
+  periods: PERIODS.map(p => [p[0], p[1]]),
+  initialPeriod: period,
+  onChange: (p, c) => { period = p; custom = c; if (!c) store.set('wttc_period', p); if (data) render(); },
+  onError: m => alert(m),
+});
 
 // ---------- dibujo ----------
 Chart.defaults.color = css('--muted');
@@ -257,12 +273,14 @@ const fdate = t => { const d = new Date(t * 1000); return d.getDate() + ' ' + ME
 const dayKey = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 
 function render() {
-  document.querySelectorAll('#periods button').forEach(b => b.classList.toggle('act', b.dataset.p === period));
   const B = data.board, all = data.runs.map(r => ({ seq: r[0], t0: r[1], dur: r[2], ml: r[3], cab0: r[4], cab1: r[5],
     cmax: r[6] ? r[6] - 50 : null, vmin: r[7] ? r[7] / 10 : null, src: r[8] & 0x7f, th: !!(r[8] & 0x80), end: r[9], err: r[10] }));
-  const days = (PERIODS.find(p => p[0] === period) || PERIODS[1])[2];
-  const since = days ? Date.now() / 1000 - days * 86400 : 0;
-  const R = all.filter(r => !days || (r.t0 && r.t0 >= since));      // sin hora: solo cuentan en «Todo»
+  // Rango: fechas concretas (de 00:00 a 23:59) o los últimos N días; sin hora, solo cuentan en «Todo»
+  let since = 0, until = Infinity, days = 0;
+  if (custom) { since = new Date(custom.from + 'T00:00').getTime() / 1000; until = new Date(custom.to + 'T23:59:59').getTime() / 1000;
+    days = Math.max(1, Math.round((until - since) / 86400)); }
+  else { days = (PERIODS.find(p => p[0] === period) || PERIODS[1])[2]; since = days ? Date.now() / 1000 - days * 86400 : 0; }
+  const R = all.filter(r => !(custom || days) || (r.t0 && r.t0 >= since && r.t0 <= until));
   const T = R.filter(r => r.t0);
   $('seen').textContent = 'Firmware ' + (B.fw || '?') + ' · último envío ' + B.last.split('-').reverse().join('/');
 
@@ -272,7 +290,8 @@ function render() {
   const withCab = R.filter(r => r.cab0 > -128 && r.cab1 > -128 && r.dur >= 300);
   const gain = withCab.length ? withCab.reduce((a, r) => a + (r.cab1 - r.cab0), 0) / withCab.length : null;
   const reached = R.filter(r => r.th).length ? R.filter(r => r.th && r.end === 2).length / R.filter(r => r.th).length : null;
-  const per = period === 'all' ? 'desde que se envían' : 'en ' + PERIODS.find(p => p[0] === period)[1];
+  const fd = d => d.split('-').reverse().join('/');
+  const per = custom ? 'del ' + fd(custom.from) + ' al ' + fd(custom.to) : period === 'all' ? 'desde que se envían' : 'en ' + PERIODS.find(p => p[0] === period)[1];
   const k = (l, v, s, cls) => `<div class="kpi${cls ? ' ' + cls : ''}"><div class="l">${l}</div><div class="v">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
   $('kpis').innerHTML =
     k('Calefacción ' + per, sec >= 3600 ? nf(sec / 3600, 1) + ' h' : Math.round(sec / 60) + ' min',
@@ -299,7 +318,8 @@ function render() {
 
   // Por día, apilado por quién la enciende
   const nd = days || Math.min(365, Math.max(30, Math.ceil((Date.now() / 1000 - Math.min(...T.map(r => r.t0), Date.now() / 1000)) / 86400) + 1));
-  const axis = []; for (let i = nd - 1; i >= 0; i--) axis.push(dayKey(new Date(Date.now() - i * 86400000)));
+  const end = custom ? until * 1000 : Date.now();
+  const axis = []; for (let i = nd - 1; i >= 0; i--) axis.push(dayKey(new Date(end - i * 86400000)));
   const idx = Object.fromEntries(axis.map((d, i) => [d, i]));
   const per_src = SRC.map(() => axis.map(() => 0));
   for (const r of T) { const i = idx[dayKey(new Date(r.t0 * 1000))]; if (i != null) per_src[Math.min(r.src, 5)][i]++; }
