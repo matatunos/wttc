@@ -15,6 +15,7 @@ Versión de prueba (sin probar con una Webasto real). La 0.2.12 fue la primera a
 - Los errores al buscar o grabar dicen cuánto se ha descargado y cuánta memoria queda.
 - Las actualizaciones se descargan de wttc.favala.es (copia exacta de la Release, firmada igual) en vez de directamente de GitHub, cuyas descargas redirigen a otro servidor. Esto ya vale también para las placas con versiones anteriores.
 - En la web pública, la actualización (.ota) se puede descargar desde «Descargas», para subirla a mano desde la web de la placa.
+- **App en pantallas anchas** (tablets, radios de coche, televisores como el Fire TV): dos columnas, con el estado y el botón a la izquierda y los programas y la configuración a la derecha, en vez de una columna estrecha en el centro. Se recoloca al girar la pantalla.
 
 ## 0.2.12 — 2026-10-07
 

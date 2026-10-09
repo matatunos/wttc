@@ -119,6 +119,12 @@ class MainActivity : Activity(), BleLink.Listener {
     private lateinit var tPair: TextView
     // Todo lo que manda órdenes a la placa: se desactiva (y se atenúa) mientras no hay conexión
     private lateinit var controls: LinearLayout
+    // Pantallas anchas (tablets, radios, televisores): dos columnas dentro de «controls». splitAt = primera vista de la
+    // columna derecha (el título de «Programas»); colL/colR solo se usan en modo ancho
+    private lateinit var rootCol: LinearLayout
+    private var splitAt = 0
+    private var colL: LinearLayout? = null
+    private var colR: LinearLayout? = null
     // Estado de la calefacción
     private lateinit var tTemp: TextView
     private lateinit var tPhase: TextView
@@ -170,6 +176,42 @@ class MainActivity : Activity(), BleLink.Listener {
 
     // ---------- ciclo de vida ----------
     // Al crear la pantalla: enlace, interfaz, canal de notificaciones y, la primera vez, la pregunta de las estadísticas
+    // Al girar la pantalla o cambiar de tamaño (la actividad no se recrea): se recolocan las columnas
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        arrange()
+    }
+
+    // Una columna (móvil) o dos (840 dp de ancho o más: tablets, radios de coche, televisores). Mueve las vistas de
+    // «controls» entre las dos columnas sin crearlas de nuevo, así que no se pierde nada de lo que hay escrito
+    private fun arrange() {
+        val wDp = resources.configuration.screenWidthDp
+        val wide = wDp >= 840
+        val views = mutableListOf<View>()
+        val l = colL; val r = colR
+        if (l != null && r != null) {
+            for (c in listOf(l, r)) { for (i in 0 until c.childCount) views += c.getChildAt(i); c.removeAllViews() }
+            controls.removeAllViews(); colL = null; colR = null
+        } else { for (i in 0 until controls.childCount) views += controls.getChildAt(i); controls.removeAllViews() }
+        if (wide) {
+            controls.orientation = LinearLayout.HORIZONTAL
+            val nl = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            val nr = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            views.forEachIndexed { i, v -> (if (i < splitAt) nl else nr).addView(v) }
+            controls.addView(nl, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            controls.addView(nr, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(28) })
+            colL = nl; colR = nr
+        } else {
+            controls.orientation = LinearLayout.VERTICAL
+            views.forEach { controls.addView(it) }
+        }
+        rootCol.layoutParams = (rootCol.layoutParams as FrameLayout.LayoutParams).apply {
+            width = minOf(resources.displayMetrics.widthPixels, dp(if (wide) 1320 else 640))
+        }
+        rootCol.requestLayout()
+        setEnabledDeep(controls, link.state == BleLink.State.CONNECTED || link.demo)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         link = BleLink(this, this)
@@ -461,7 +503,8 @@ class MainActivity : Activity(), BleLink.Listener {
         val scroll = ScrollView(this).apply { setBackgroundColor(cBg); isFillViewport = true }
         val frame = FrameLayout(this)
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(14), dp(16), dp(28)) }
-        // En pantallas anchas (radios de coche, tablets) la columna no pasa de 640 dp
+        rootCol = root
+        // Una columna de 640 dp como mucho; en pantallas anchas, dos (ver arrange())
         frame.addView(root, FrameLayout.LayoutParams(
             minOf(resources.displayMetrics.widthPixels, dp(640)), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL))
         scroll.addView(frame)
@@ -558,6 +601,7 @@ class MainActivity : Activity(), BleLink.Listener {
         controls.addView(card().apply { addView(row(bDepTime, bDep)); addView(tDep, lp(top = 8)) }, lp(top = 12))
 
         // Programas
+        splitAt = controls.childCount                  // de aquí en adelante, la columna derecha en pantallas anchas
         section(controls, getString(R.string.sec_programs), getString(R.string.sec_programs_sub))
         swAuto = Switch(this).apply { text = getString(R.string.programs_active); setTextColor(cInk); textSize = 16f }
         swAuto.setOnCheckedChangeListener { _: CompoundButton, c: Boolean -> if (c != progsAuto) { progsAuto = c; touchProgs() } }
@@ -690,6 +734,7 @@ class MainActivity : Activity(), BleLink.Listener {
         }, lp(top = 20))
 
         setEnabledDeep(controls, false)
+        arrange()
     }
 
     // Pinta los botones de duración, con la elegida resaltada
