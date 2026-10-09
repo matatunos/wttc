@@ -1,0 +1,4 @@
+# Instalación de WTTC desde el navegador (wttc.favala.es/instalar.php): copia de la Release de GitHub las piezas de
+# cada placa cuando sale una versión nueva. Si ya están, sale al momento. 2026-10-05
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+7,22,37,52 * * * * root /usr/local/bin/wttc-instalador.sh >> /var/log/wttc-instalador.log 2>&1

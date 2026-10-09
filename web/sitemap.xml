@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url><loc>https://wttc.favala.es/</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://wttc.favala.es/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://wttc.favala.es/en/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://wttc.favala.es/de/"/></url>
+  <url><loc>https://wttc.favala.es/en/</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://wttc.favala.es/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://wttc.favala.es/en/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://wttc.favala.es/de/"/></url>
+  <url><loc>https://wttc.favala.es/de/</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://wttc.favala.es/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://wttc.favala.es/en/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://wttc.favala.es/de/"/></url>
+  <url><loc>https://wttc.favala.es/averias.php</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://wttc.favala.es/averias.php"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://wttc.favala.es/en/fault-codes.php"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://wttc.favala.es/de/fehlercodes.php"/></url>
+  <url><loc>https://wttc.favala.es/en/fault-codes.php</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://wttc.favala.es/averias.php"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://wttc.favala.es/en/fault-codes.php"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://wttc.favala.es/de/fehlercodes.php"/></url>
+  <url><loc>https://wttc.favala.es/de/fehlercodes.php</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://wttc.favala.es/averias.php"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://wttc.favala.es/en/fault-codes.php"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://wttc.favala.es/de/fehlercodes.php"/></url>
+  <url><loc>https://wttc.favala.es/instalar.php</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://wttc.favala.es/instalar.php"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://wttc.favala.es/en/install.php"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://wttc.favala.es/de/installieren.php"/></url>
+  <url><loc>https://wttc.favala.es/en/install.php</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://wttc.favala.es/instalar.php"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://wttc.favala.es/en/install.php"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://wttc.favala.es/de/installieren.php"/></url>
+  <url><loc>https://wttc.favala.es/de/installieren.php</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://wttc.favala.es/instalar.php"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://wttc.favala.es/en/install.php"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://wttc.favala.es/de/installieren.php"/></url>
+  <url><loc>https://wttc.favala.es/estadisticas.php</loc></url>
+</urlset>

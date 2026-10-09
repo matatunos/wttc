@@ -18,3 +18,19 @@ Código tal cual se ejecuta en https://wttc.favala.es (PHP 8 + SQLite), publicad
 Qué envía la app: identificador aleatorio de instalación, versión de la app y del firmware, versión de Android, tipo de
 dispositivo (móvil, tablet o radio), país según el idioma del sistema, encendidos (desde la app y por programa), veces
 que se apagó sola y sus códigos de avería. Ver `android/app/src/main/java/es/favala/wttc/Stats.kt`.
+
+## Dónde vive cada cosa y cómo se despliega
+
+Todo el código de la web está en este repo; en producción no se edita nada a mano.
+
+- `web/`: la web pública (portada en es/en/de con su simulador, `i18n/` con los textos, códigos de avería, instalación
+  desde el navegador, `informe.js` para los informes PDF del simulador, iconos, `robots.txt`, `sitemap.xml`).
+- `server/`: estadísticas (`estadisticas.php`, `mi.php`, `api/`) y la vista privada `privado/wttc-stats/` (con login del portal).
+- `server/scripts/`:
+  - `deploy-web.sh` copia todo lo anterior a producción, e instala los scripts, el cron y el hook.
+  - `wttc-publicar.sh` genera `movil.php` (la web del firmware para el simulador, desde `firmware/WTTC/web.h`) y
+    `descargas/` (firmware, versión, notas, textos, `ota.json`).
+  - `wttc-instalador.sh` (cron cada 15 min, `cron.d-wttc-instalador`) prepara el instalador web y la copia del `.ota`.
+  - `post-commit` es el hook local: en cada commit en `main` lanza `deploy-web.sh` y luego `wttc-publicar.sh`.
+- Fuera del repo, en producción, solo hay lo **generado** (`movil.php`, `descargas/`) y librerías de terceros
+  (`vendor/`: jsPDF 2.5.1 y ESP Web Tools 10.4.0). Chart.js y `charts.js` son los comunes del portal.

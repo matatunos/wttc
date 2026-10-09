@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /api/
+Disallow: /i18n/
+Disallow: /movil.php
+Sitemap: https://wttc.favala.es/sitemap.xml

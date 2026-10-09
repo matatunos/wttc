@@ -1,0 +1,7 @@
+#!/bin/sh
+# Hook post-commit del repo local (git no lo copia: lo instala server/scripts/deploy-web.sh).
+# Tras cada commit o fusión en main: despliega la web desde el repo y publica el firmware y el simulador.
+# En otras ramas no hace nada: lo que se prueba en una rama no debe llegar a la web pública.
+[ "$(git rev-parse --abbrev-ref HEAD)" = "main" ] || exit 0
+/root/wttc/server/scripts/deploy-web.sh >/dev/null 2>&1 || echo "deploy-web.sh falló" >&2
+/usr/local/bin/wttc-publicar.sh >/dev/null 2>&1 || echo "wttc-publicar.sh falló" >&2
