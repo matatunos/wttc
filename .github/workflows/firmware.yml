@@ -36,7 +36,7 @@ jobs:
         board:
         # chip/family/boot: para instalar desde el navegador (nombre del paquete, chipFamily de ESP Web Tools y
         # dirección del cargador de arranque: 0x0 en el S3)
-          - { name: 'ESP32-S3', fqbn: 'esp32:esp32:esp32s3:FlashSize=16M,PartitionScheme=huge_app', suffix: '-s3', chip: 'esp32s3', family: 'ESP32-S3', boot: 0 }
+          - { name: 'ESP32-S3', fqbn: 'esp32:esp32:esp32s3:FlashSize=16M,PSRAM=opi,PartitionScheme=huge_app', suffix: '-s3', chip: 'esp32s3', family: 'ESP32-S3', boot: 0 }
     steps:
       - uses: actions/checkout@v5
       - name: Versión del firmware igual a VERSION

@@ -6,6 +6,16 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.2.13 — 2026-10-09
+
+Versión de prueba (sin probar con una Webasto real). La 0.2.12 fue la primera actualización sin cable hecha en una placa real (subiendo el .ota desde su web).
+
+- **«Buscar actualizaciones» ya no se queda sin memoria**: la tarea que busca y descarga no liberaba su conexión segura al terminar (unos 40 KB por búsqueda); tras un par de intentos la descarga fallaba con «Error al grabar la actualización» y luego ni empezaba.
+- **Se usa la PSRAM** de la placa (8 MB en la N16R8, «OPI PSRAM» al compilar): más margen para las conexiones seguras con Bluetooth y Wi-Fi a la vez.
+- Los errores al buscar o grabar dicen cuánto se ha descargado y cuánta memoria queda.
+- Las actualizaciones se descargan de wttc.favala.es (copia exacta de la Release, firmada igual) en vez de directamente de GitHub, cuyas descargas redirigen a otro servidor. Esto ya vale también para las placas con versiones anteriores.
+- En la web pública, la actualización (.ota) se puede descargar desde «Descargas», para subirla a mano desde la web de la placa.
+
 ## 0.2.12 — 2026-10-07
 
 Versión de prueba (sin probar con una Webasto real).

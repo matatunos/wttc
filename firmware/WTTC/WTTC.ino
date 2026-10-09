@@ -36,10 +36,11 @@
 
   Compilar
   --------
-    Arduino IDE:  placa "ESP32S3 Dev Module" (Flash Size 16MB), núcleo ESP32 2.x o 3.x.
+    Arduino IDE:  placa "ESP32S3 Dev Module" (Flash Size 16MB, PSRAM «OPI PSRAM»), núcleo ESP32 2.x o 3.x.
+                  La PSRAM (8 MB en la N16R8) da margen a las conexiones seguras con Bluetooth y Wi-Fi a la vez.
                   Sin librerías externas. Esquema de partición: "Huge APP" (solo para el límite de tamaño del IDE:
                   la tabla que se graba es partitions.csv, con dos huecos para las actualizaciones sin cable).
-    arduino-cli:  --fqbn esp32:esp32:esp32s3:FlashSize=16M,PartitionScheme=huge_app
+    arduino-cli:  --fqbn esp32:esp32:esp32s3:FlashSize=16M,PSRAM=opi,PartitionScheme=huge_app
     La carpeta debe llamarse WTTC y contener WTTC.ino y web.h (la página web que sirve la placa).
 
   Cómo se maneja
@@ -149,7 +150,7 @@ const float    TH_STALL_C   = 0.5;    // °C (si hace demasiado frío fuera o el
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.2.12"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.2.13"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -2277,16 +2278,27 @@ void otaNetDone(bool ok, const String& msg) { if (otaNetHeld) { netEnd(); otaNet
 void netBegin() { netUse++; for (int i = 0; i < 20 && dnsOn; i++) vTaskDelay(pdMS_TO_TICKS(25)); }
 void netEnd() { int n = netUse.load(); while (n > 0 && !netUse.compare_exchange_weak(n, n - 1)) {} }
 
+// Memoria libre, para los mensajes de error: « · memoria 123 KB (bloque 60 KB, PSRAM 8000 KB)»
+String memInfo() {
+  return " · memoria " + String(ESP.getFreeHeap() / 1024) + " KB (bloque " + String(ESP.getMaxAllocHeap() / 1024) + " KB, PSRAM "
+         + String(ESP.getFreePsram() / 1024) + " KB)";
+}
+
 // Por qué no llega al servidor de actualizaciones, en datos (para el mensaje de error)
 String netDiag(int code) {
   IPAddress ip;
   bool ok = WiFi.hostByName("wttc.favala.es", ip) == 1;
-  return trf(T_OTA_NETERR, code, ok ? ip.toString().c_str() : "?", WiFi.dnsIP(0).toString().c_str(), WiFi.gatewayIP().toString().c_str());
+  return trf(T_OTA_NETERR, code, ok ? ip.toString().c_str() : "?", WiFi.dnsIP(0).toString().c_str(), WiFi.gatewayIP().toString().c_str())
+         + memInfo();
 }
 
-void otaNetTask(void*) {
+// El trabajo de la tarea, en su propia función: al volver se destruyen la conexión segura (WiFiClientSecure, unos
+// 40 KB), el cliente HTTP y los textos. Hasta la 0.2.12 la tarea se cerraba dentro de este mismo código, y cerrar una
+// tarea así no llama a los destructores: cada búsqueda perdía esa memoria y, tras un par de ellas, ya no quedaba ni
+// para arrancar la siguiente («Error al grabar la actualización» nada más pulsar)
+void otaNetWork() {
   bool install = otaNetInstall;
-  if (!otaNetWait()) { otaNetDone(false, trf(T_OTA_NOSTA, staSsid)); vTaskDelete(nullptr); return; }
+  if (!otaNetWait()) { otaNetDone(false, trf(T_OTA_NOSTA, staSsid)); return; }
   WiFiClientSecure cli; cli.setInsecure();
   HTTPClient http; http.setConnectTimeout(10000); http.setTimeout(15000);
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
@@ -2297,16 +2309,16 @@ void otaNetTask(void*) {
   if (http.begin(cli, OTA_MANIFEST)) { mcode = http.GET(); if (mcode == 200) body = http.getString(); http.end(); }
   String ver = jsonStr(body, "version"), url = jsonStr(body, OTA_KEY);
   otaNetNotes = jsonStr(body, "notas");                   // novedades de esa versión (del CHANGELOG)
-  if (!ver.length() || !url.startsWith("https://") || ver.length() > 16) { String d = netDiag(mcode); otaNetDone(false, d); vTaskDelete(nullptr); return; }
+  if (!ver.length() || !url.startsWith("https://") || ver.length() > 16) { String d = netDiag(mcode); otaNetDone(false, d); return; }
   strlcpy(otaNetVer, ver.c_str(), sizeof otaNetVer);
-  if (verCmp(otaNetVer, FW_VERSION) <= 0) { otaNetDone(true, trf(T_OTA_LATEST, FW_VERSION)); vTaskDelete(nullptr); return; }
+  if (verCmp(otaNetVer, FW_VERSION) <= 0) { otaNetDone(true, trf(T_OTA_LATEST, FW_VERSION)); return; }
   otaNetNew = true;
-  if (!install) { otaNetDone(true, trf(T_OTA_NEW, otaNetVer, FW_VERSION) + (otaNetNotes.length() ? " " + otaNetNotes : String(""))); vTaskDelete(nullptr); return; }
+  if (!install) { otaNetDone(true, trf(T_OTA_NEW, otaNetVer, FW_VERSION) + (otaNetNotes.length() ? " " + otaNetNotes : String(""))); return; }
   // 2) descargar e instalar
-  if (heaterOn) { otaNetDone(false, tr(T_OTA_HEAT)); vTaskDelete(nullptr); return; }
+  if (heaterOn) { otaNetDone(false, tr(T_OTA_HEAT)); return; }
   int code = -1;
   if (http.begin(cli, url)) code = http.GET();
-  if (code != 200) { http.end(); otaNetDone(false, code == 404 ? trf(T_OTA_NOTYET, otaNetVer) : String(tr(T_OTA_NONET))); vTaskDelete(nullptr); return; }
+  if (code != 200) { http.end(); otaNetDone(false, code == 404 ? trf(T_OTA_NOTYET, otaNetVer) : String(tr(T_OTA_NONET))); return; }
   int total = http.getSize(), got = 0;
   WiFiClient* st = http.getStreamPtr();
   if (ota.mdOn) mbedtls_md_free(&ota.md);
@@ -2326,7 +2338,11 @@ void otaNetTask(void*) {
   if (!ota.failed) otaFinish();
   if (ota.done && heaterOn) { ota.done = false; esp_ota_set_boot_partition(esp_ota_get_running_partition()); otaFail(T_OTA_HEAT); }
   ota.active = false;
-  otaNetDone(ota.done, ota.done ? trf(T_OTA_OK, otaNetVer) : String(ota.err ? ota.err : tr(T_OTA_WRITE)));
+  otaNetDone(ota.done, ota.done ? trf(T_OTA_OK, otaNetVer) : String(ota.err ? ota.err : tr(T_OTA_WRITE)) + " (" + String(got) + "/" + String(total) + " B" + memInfo() + ")");
+}
+
+void otaNetTask(void*) {
+  otaNetWork();
   vTaskDelete(nullptr);
 }
 
@@ -2339,7 +2355,7 @@ String otaNetStart(bool install, bool autoCheck) {
   if (!autoCheck && (int32_t)(wifiUntil - (millis() + 120000)) < 0) wifiUntil = millis() + 120000;   // Wi-Fi encendida mientras dura
   otaNetBusy = true; otaNetEnd = false; otaNetInstall = install; otaNetAuto = autoCheck; otaNetNew = false; otaNetNotes = "";
   if (!autoCheck) lastWebMsg = "";                    // la web espera a que aparezca el resultado nuevo
-  if (xTaskCreatePinnedToCore(otaNetTask, "ota", 12288, nullptr, 1, nullptr, 0) != pdPASS) { otaNetBusy = false; return tr(T_OTA_WRITE); }
+  if (xTaskCreatePinnedToCore(otaNetTask, "ota", 12288, nullptr, 1, nullptr, 0) != pdPASS) { otaNetBusy = false; return String(tr(T_OTA_WRITE)) + " (" + memInfo() + ")"; }
   return "";
 }
 

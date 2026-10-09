@@ -105,15 +105,15 @@ dice que algunas Thermo Top C antiguas usan otro protocolo. La primera prueba po
 
 ## Instalar el firmware
 1. Arduino IDE 2 (o arduino-cli) con el núcleo **esp32 de Espressif** (2.x o 3.x). Sin librerías externas.
-2. Placa **ESP32S3 Dev Module** con **Flash Size 16MB** y esquema de partición
+2. Placa **ESP32S3 Dev Module** con **Flash Size 16MB**, **PSRAM «OPI PSRAM»** y esquema de partición
    **Huge APP**. Ese esquema solo fija el límite de tamaño del IDE: la tabla que se graba es `partitions.csv` de la
    carpeta, con dos huecos para las actualizaciones sin cable.
 3. Abre `firmware/WTTC/WTTC.ino` (la carpeta entera: lleva también `web.h`, `partitions.csv` y `rollback.cpp`) y
    súbelo. En el ESP32-S3, por el USB marcado **UART** o **COM**. En el monitor serie (115200) aparece el **PIN Bluetooth**.
 
 ```sh
-arduino-cli compile --fqbn esp32:esp32:esp32s3:FlashSize=16M,PartitionScheme=huge_app firmware/WTTC
-arduino-cli upload  --fqbn esp32:esp32:esp32s3:FlashSize=16M,PartitionScheme=huge_app -p /dev/ttyUSB0 firmware/WTTC
+arduino-cli compile --fqbn esp32:esp32:esp32s3:FlashSize=16M,PSRAM=opi,PartitionScheme=huge_app firmware/WTTC
+arduino-cli upload  --fqbn esp32:esp32:esp32s3:FlashSize=16M,PSRAM=opi,PartitionScheme=huge_app -p /dev/ttyUSB0 firmware/WTTC
 ```
 
 Después, las versiones nuevas se instalan sin cable: app o web de la placa → **Buscar actualizaciones**.
