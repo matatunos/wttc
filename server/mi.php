@@ -19,6 +19,13 @@ wttc_visit('mi');
 <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<!-- Instalable como app (PWA): Android «Instalar app» / iPhone Compartir → «Añadir a pantalla de inicio» -->
+<link rel="manifest" href="/mi-manifest.json">
+<meta name="theme-color" content="#0f1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WTTC">
 <style>
   :root{
     --bg-page:#0f1117; --bg-card:#1a1d27; --bg-inner:#13151f;
@@ -316,15 +323,24 @@ function render() {
     { type: 'line', label: 'Litros', data: mk.map(m => +months[m].l.toFixed(2)), borderColor: css('--ice'), backgroundColor: css('--ice'), tension: .35, yAxisID: 'y1' }] },
     options: { scales: { y: { beginAtZero: true, title: { display: true, text: 'h' } }, y1: { beginAtZero: true, position: 'right', grid: { display: false }, title: { display: true, text: 'L' } } } } });
 
-  // Por día, apilado por quién la enciende
-  const nd = days || Math.min(365, Math.max(30, Math.ceil((Date.now() / 1000 - Math.min(...T.map(r => r.t0), Date.now() / 1000)) / 86400) + 1));
+  // Encendidos en el tiempo, apilados por quién la enciende. Agrupación según el rango (norma «Charts UI»):
+  // por días hasta 120 días, por semanas (lunes) hasta 2 años y por meses a partir de ahí. «Todo» = desde el primero
   const end = custom ? until * 1000 : Date.now();
-  const axis = []; for (let i = nd - 1; i >= 0; i--) axis.push(dayKey(new Date(end - i * 86400000)));
+  const first = custom ? since * 1000 : days ? end - days * 86400000 : Math.min(...T.map(r => r.t0 * 1000), end);
+  const span = Math.max(1, Math.ceil((end - first) / 86400000));
+  const unit = span <= 120 ? 'day' : span <= 730 ? 'week' : 'month';
+  const keyOf = t => { const d = new Date(t); d.setHours(12, 0, 0, 0);
+    if (unit === 'week') d.setDate(d.getDate() - (d.getDay() + 6) % 7);
+    if (unit === 'month') d.setDate(1);
+    return dayKey(d); };
+  const axis = [];
+  for (let t = first; t <= end; t += 86400000) { const k = keyOf(t); if (axis[axis.length - 1] !== k && !axis.includes(k)) axis.push(k); }
   const idx = Object.fromEntries(axis.map((d, i) => [d, i]));
   const per_src = SRC.map(() => axis.map(() => 0));
-  for (const r of T) { const i = idx[dayKey(new Date(r.t0 * 1000))]; if (i != null) per_src[Math.min(r.src, 5)][i]++; }
-  $('hDay').textContent = 'Encendidos por día';
-  chart('chDay', { type: 'bar', data: { labels: axis.map(d => +d.slice(8) + ' ' + MES[+d.slice(5, 7) - 1]),
+  for (const r of T) { const i = idx[keyOf(r.t0 * 1000)]; if (i != null) per_src[Math.min(r.src, 5)][i]++; }
+  $('hDay').textContent = 'Encendidos por ' + { day: 'día', week: 'semana', month: 'mes' }[unit];
+  const axLabel = d => unit === 'month' ? MES[+d.slice(5, 7) - 1] + ' ' + d.slice(2, 4) : (unit === 'week' ? 'sem. ' : '') + +d.slice(8) + ' ' + MES[+d.slice(5, 7) - 1];
+  chart('chDay', { type: 'bar', data: { labels: axis.map(axLabel),
     datasets: SRC.map((l, s) => ({ label: l, data: per_src[s], backgroundColor: SRCC[s], borderRadius: 3, stack: 'a' })).filter(d => d.data.some(v => v)) },
     options: { scales: { x: { stacked: true, ticks: { maxTicksLimit: 10 } }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } } } });
 
@@ -381,6 +397,8 @@ function render() {
 // Arranque: el código del «#» de la dirección, o el recordado
 const start = norm(decodeURIComponent(location.hash.slice(1))) || norm(store.get('wttc_iid') || '');
 if (start) { $('code').value = start; openCode(start); } else $('code').focus();
+// PWA: service worker mínimo (solo para poder instalarla), limitado a esta página
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/mi-sw.js', { scope: '/mi.php' }).catch(() => {});
 window.addEventListener('hashchange', () => { const c = norm(decodeURIComponent(location.hash.slice(1))); if (c && (!data || data.iid !== c)) openCode(c); });
 </script>
 </body>
