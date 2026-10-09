@@ -234,8 +234,10 @@ const store = { get: k => { try { return localStorage.getItem(k) } catch (e) { r
 // Quién la encendió (bit 7: con termostato) y por qué se apagó: como RS_* y RE_* en WTTC.ino
 const SRC = ['Web de la placa', 'App', 'Programa', 'Consola', 'Hora de salida', 'Otro'];
 const SRCC = ['#5bc0eb', '#3a8ee0', '#a78bfa', '#7a84a8', '#ff8a3d', '#4b5275'];
-const END = ['Se acabó el tiempo', 'Apagada a mano', 'Llegó a la temperatura', 'Batería baja', 'Se apagó sola (avería)', 'Sin comunicación', 'Dentro no subía'];
-const ENDC = ['#5bc0eb', '#7a84a8', '#3ecf8e', '#ffcc4d', '#ff5d5d', '#ff8f9a', '#ff8a3d'];
+// El último (7) no es un apagado: el arranque falló porque la Webasto no contestó por el W-Bus (firmware 0.2.19+)
+const END = ['Se acabó el tiempo', 'Apagada a mano', 'Llegó a la temperatura', 'Batería baja', 'Se apagó sola (avería)', 'Sin comunicación', 'Dentro no subía', 'No respondió (W-Bus)'];
+const ENDC = ['#5bc0eb', '#7a84a8', '#3ecf8e', '#ffcc4d', '#ff5d5d', '#ff8f9a', '#ff8a3d', '#c2185b'];
+const NOWBUS = 7;
 const WD = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 let data = null, period = '90d', custom = null, charts = {};
@@ -278,6 +280,7 @@ $('demo').onclick = () => {
     const src = [0, 1, 1, 2, 2, 4][Math.floor(rnd() * 6)];
     let end = th ? (rnd() < .9 ? 2 : 6) : [0, 0, 1][Math.floor(rnd() * 3)], err = 0;
     if (s === 41) { end = 4; err = 3; }
+    if (s === 55 || s === 56) { runs.push([s, Math.floor(day / 1000) - 120, 0, 0, c0, c0, 0, 124, src, NOWBUS, 0, 255, 255, 0, 255, 0, 124, 255]); continue; }
     const h0 = Math.round(65 + rnd() * 25), v0 = Math.round(124 + rnd() * 6);
     runs.push([s, Math.floor(day / 1000), dur, Math.round(dur / 3600 * (330 + rnd() * 60)), c0, c0 + Math.round(5 + rnd() * 10),
       Math.round(55 + rnd() * 25) + 50, v0 - Math.round(2 + rnd() * 5), src | (th ? 0x80 : 0), end, err,
@@ -347,17 +350,21 @@ const fdate = t => { const d = new Date(t * 1000); return d.getDate() + ' ' + ME
 const dayKey = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 
 function render() {
-  const B = data.board, all = data.runs.map(r => ({ seq: r[0], t0: r[1], dur: r[2], ml: r[3], cab0: r[4], cab1: r[5],
+  const nd = v => v == null || v === 255 ? null : v;   // 255 = sin dato (como lo manda la placa)
+  const B = data.board, every = data.runs.map(r => ({ seq: r[0], t0: r[1], dur: r[2], ml: r[3], cab0: r[4], cab1: r[5],
     cmax: r[6] ? r[6] - 50 : null, vmin: r[7] ? r[7] / 10 : null, src: r[8] & 0x7f, th: !!(r[8] & 0x80), end: r[9], err: r[10],
     // Desde el firmware 0.2.17 (null = sin dato o placa más antigua)
-    hum0: r[11] ?? null, hum1: r[12] ?? null, tgt: r[13] || null, treach: r[14] ?? null,
-    c0: r[15] ? r[15] - 50 : null, v0: r[16] ? r[16] / 10 : null, pw: r[17] != null ? r[17] * 25 : null }));
+    hum0: nd(r[11]), hum1: nd(r[12]), tgt: r[13] || null, treach: nd(r[14]),
+    c0: r[15] ? r[15] - 50 : null, v0: r[16] ? r[16] / 10 : null, pw: nd(r[17]) != null ? r[17] * 25 : null }));
   // Rango: fechas concretas (de 00:00 a 23:59) o los últimos N días; sin hora, solo cuentan en «Todo»
   let since = 0, until = Infinity, days = 0;
   if (custom) { since = new Date(custom.from + 'T00:00').getTime() / 1000; until = new Date(custom.to + 'T23:59:59').getTime() / 1000;
     days = Math.max(1, Math.round((until - since) / 86400)); }
   else { days = (PERIODS.find(p => p[0] === period) || PERIODS[1])[2]; since = days ? Date.now() / 1000 - days * 86400 : 0; }
-  const R = all.filter(r => !(custom || days) || (r.t0 && r.t0 >= since && r.t0 <= until));
+  const inRange = r => !(custom || days) || (r.t0 && r.t0 >= since && r.t0 <= until);
+  // Los arranques fallidos (la Webasto no contestó) van aparte: no son encendidos y no deben bajar las medias
+  const all = every.filter(r => r.end !== NOWBUS), F = every.filter(r => r.end === NOWBUS && inRange(r));
+  const R = all.filter(inRange);
   const T = R.filter(r => r.t0);
   $('seen').textContent = 'Firmware ' + (B.fw || '?') + ' · último envío ' + B.last.split('-').reverse().join('/');
 
@@ -379,7 +386,8 @@ function render() {
   $('kpis').innerHTML =
     k('Calefacción ' + per, sec >= 3600 ? nf(sec / 3600, 1) + ' h' : Math.round(sec / 60) + ' min',
       'En total la placa lleva ' + nf(B.hsec / 3600, 1) + ' h y ' + nf(B.nruns) + ' encendidos' + vs(sec, sumP), 'hero') +
-    k('Encendidos', nf(R.length), (R.length ? 'media de ' + hm(sec / R.length) : '') + vs(R.length, P.length)) +
+    k('Encendidos', nf(R.length), (R.length ? 'media de ' + hm(sec / R.length) : '') + vs(R.length, P.length) +
+      (F.length ? ` · <span class="up">${F.length} sin respuesta de la Webasto</span>` : '')) +
     k('Gasoil estimado', nf(lit, 2) + ' L', `≈ ${nf(lit * price, 2)} € a <input id="price" type="number" step="0.01" min="0.5" max="5" value="${price}"> €/L` + vs(lit, litP)) +
     k('Dentro sube', gain == null ? '—' : (gain >= 0 ? '+' : '') + nf(gain, 1) + ' °C', gain == null ? 'hace falta el termómetro' :
       'de media por encendido' + (reached != null ? ' · llega al objetivo el ' + Math.round(reached * 100) + ' %' : ''));
@@ -435,6 +443,7 @@ function render() {
   for (const r of R) { cs[Math.min(r.src, 5)]++; if (r.end < END.length) ce[r.end]++; if (r.th) thN++; }
   bars('bSrc', SRC.map((l, i) => [l, cs[i], SRCC[i]]).sort((a, b) => b[1] - a[1]));
   if (thN) $('bSrc').insertAdjacentHTML('beforeend', `<p class="muted" style="margin:10px 0 0">${nf(thN)} con «calentar hasta» (termostato).</p>`);
+  ce[NOWBUS] = F.length;
   bars('bEnd', END.map((l, i) => [l, ce[i], ENDC[i]]).sort((a, b) => b[1] - a[1]));
 
   // Temperaturas por encendido (los últimos 60 del periodo)
@@ -606,6 +615,8 @@ function render() {
   if (stalls >= 2 && stalls / Math.max(1, thR.length) >= .15)
     tip('🧊', `<b>${stalls}</b> veces el termostato se rindió porque dentro no subía. Puede ser mucho frío, una ventana abierta o el objetivo demasiado alto para esa noche.`);
   // 5. Batería
+  if (F.length) tip('🔌', `<b>${F.length}</b> ${F.length === 1 ? 'vez' : 'veces'} la Webasto no contestó al intentar encenderla${F.length >= 2 ? '' : ' (' + (F[0].t0 ? fdate(F[0].t0) : 'sin hora') + ')'}. ` +
+    'Si se repite, revisa el cable del W-Bus (el hilo que va al mando), el fusible de la Webasto y que el conector esté bien encajado; en Diagnóstico, «Leer averías» dice si al menos contesta.');
   if (lowB) tip('🔋', `La batería bajó de 11,8 V en <b>${lowB}</b> encendidos. Si arrancas el motor con dificultad, sube la «batería mínima» en Configuración o calienta menos rato.`);
   else if (drops.length >= 5 && drops.reduce((a, d) => a + d, 0) / drops.length > .8) tip('🔋', 'La batería baja más de 0,8 V de media mientras calienta: puede estar cansada. Vale la pena medirla.');
   // 6. Humedad que se queda alta
@@ -627,12 +638,12 @@ function render() {
   $('tips').innerHTML = tips.join('') || '<li><span class="i">👍</span><span>Nada que mejorar con los datos de este periodo.</span></li>';
 
   // Tabla
-  const last = R.slice(-25).reverse();
+  const last = R.concat(F).sort((a, b) => a.seq - b.seq).slice(-25).reverse();   // con los arranques fallidos
   $('tbl').innerHTML = '<tr><th>Cuándo</th><th>Duración</th><th>Gasoil</th><th>Dentro</th><th>Agua</th><th>Potencia</th><th>Quién</th><th>Final</th></tr>' +
-    last.map(r => `<tr><td>${r.t0 ? fdate(r.t0) : 'sin hora'}</td><td>${hm(r.dur)}</td><td>${nf(r.ml / 1000, 2)} L</td>` +
+    last.map(r => `<tr><td>${r.t0 ? fdate(r.t0) : 'sin hora'}</td><td>${r.end === NOWBUS ? '—' : hm(r.dur)}</td><td>${nf(r.ml / 1000, 2)} L</td>` +
       `<td>${r.cab0 > -128 ? r.cab0 + ' → ' + (r.cab1 > -128 ? r.cab1 : '?') + ' °C' : '—'}</td><td>${r.cmax != null ? r.cmax + ' °C' : '—'}</td><td>${r.pw != null ? nf(r.pw / 1000, 1) + ' kW' : '—'}</td>` +
       `<td>${SRC[Math.min(r.src, 5)]}${r.th ? ' · termostato' : ''}</td>` +
-      `<td><span class="tag ${r.end === 4 || r.end === 5 ? 'bad' : r.end === 2 ? 'ok' : ''}">${END[r.end] || '?'}${r.err ? ' 0x' + r.err.toString(16).toUpperCase().padStart(2, '0') : ''}</span></td></tr>`).join('');
+      `<td><span class="tag ${r.end === 4 || r.end === 5 || r.end === NOWBUS ? 'bad' : r.end === 2 ? 'ok' : ''}">${END[r.end] || '?'}${r.err ? ' 0x' + r.err.toString(16).toUpperCase().padStart(2, '0') : ''}</span></td></tr>`).join('');
 }
 
 // Arranque: el código del «#» de la dirección, o el recordado

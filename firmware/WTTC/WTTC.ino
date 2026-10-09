@@ -150,7 +150,7 @@ const float    TH_STALL_C   = 0.5;    // °C (si hace demasiado frío fuera o el
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.2.18"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.2.19"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -306,7 +306,7 @@ uint32_t loginLockUntil = 0;
 // (clave "runs2"; hasta la 0.2.16 eran 20 bytes en "runs", y al arrancar se pasan al formato nuevo).
 // seq numera los encendidos desde 1; los ya enviados al servidor llegan hasta runAck.
 #define RUNS 48
-enum { RE_TIME, RE_USER, RE_TARGET, RE_BATT, RE_FAULT, RE_NOCOMM, RE_STALL };   // por qué se apagó
+enum { RE_TIME, RE_USER, RE_TARGET, RE_BATT, RE_FAULT, RE_NOCOMM, RE_STALL, RE_NOWBUS };   // por qué se apagó (RE_NOWBUS: ni arrancó, la Webasto no contestó)
 enum { RS_WEB, RS_APP, RS_PROG, RS_CONSOLE, RS_DEP, RS_OTHER };         // quién la encendió (+0x80: con termostato)
 struct Run {
   uint32_t seq, t0;                   // número de encendido y hora de inicio (segundos UNIX; 0 = sin hora)
@@ -856,14 +856,26 @@ uint8_t firstFault() {
   return 0;
 }
 
-// Al apagarse: apunta el encendido en el anillo y lo guarda (con el total de horas)
-void runSave() {
+// Al empezar un encendido (o al intentarlo): lo que hay ahora, quién lo pide y cómo
+void runBegin(const char* src) {
+  runT0 = timeValid() ? (uint32_t)time(nullptr) : 0; runCab0 = cabT; runCmax = tempC; runVmin = volt > 5 ? volt : 99;
+  runHum0 = cabH; runReach = 255; runPwSum = runPwN = 0;
+  runC0 = tempC > -50 ? (uint8_t)constrain(tempC + 50, 1, 255) : 0;
+  runV0 = volt > 5 ? (uint8_t)constrain((int)lroundf(volt * 10), 1, 255) : 0;
+  runSrc = runDep ? RS_DEP : !strcmp(src, "app") ? RS_APP : !strcmp(src, "programa") ? RS_PROG
+         : !strcmp(src, "consola") ? RS_CONSOLE : !strcmp(src, "manual") ? RS_WEB : RS_OTHER;
+  if (thActive) runSrc |= 0x80;
+  runEnd = RE_USER; runErr = 0;
+}
+
+// Al apagarse (o al fallar el arranque): apunta el encendido en el anillo y lo guarda (con el total de horas).
+// d = segundos que ha durado; liters = gasoil estimado
+void runSave(uint32_t d, float liters) {
   Run& x = runs[runSeq % RUNS];
   x.seq = ++runSeq;
   x.t0 = runT0;
-  uint32_t d = (millis() - heatStart) / 1000;
   x.dur = d > 65535 ? 65535 : d;
-  float ml = gasCur * 1000; x.ml = ml < 0 ? 0 : ml > 65535 ? 65535 : (uint16_t)ml;
+  float ml = liters * 1000; x.ml = ml < 0 ? 0 : ml > 65535 ? 65535 : (uint16_t)ml;
   auto c8 = [](float t) -> int8_t { return isnan(t) ? -128 : (int8_t)constrain((int)lroundf(t), -60, 90); };
   x.cab0 = c8(runCab0); x.cab1 = c8(cabT);
   x.cmax = runCmax > -50 ? (uint8_t)constrain(runCmax + 50, 1, 255) : 0;     // +50, como en el W-Bus; 0 = sin dato
@@ -990,15 +1002,7 @@ bool startHeater(uint16_t minutes, const char* src) {
       stopNote = "";                              // se borra el aviso de un apagado anterior
       gasCur = 0; gasRate = 0; lastGasT = 0;      // gasoil de este encendido desde cero
       onSrc = src;
-      // Datos del registro de este encendido (se guarda al apagarse, ver runSave)
-      runT0 = timeValid() ? (uint32_t)time(nullptr) : 0; runCab0 = cabT; runCmax = tempC; runVmin = volt > 5 ? volt : 99;
-      runHum0 = cabH; runReach = 255; runPwSum = runPwN = 0;
-      runC0 = tempC > -50 ? (uint8_t)constrain(tempC + 50, 1, 255) : 0;
-      runV0 = volt > 5 ? (uint8_t)constrain((int)lroundf(volt * 10), 1, 255) : 0;
-      runSrc = runDep ? RS_DEP : !strcmp(src, "app") ? RS_APP : !strcmp(src, "programa") ? RS_PROG
-             : !strcmp(src, "consola") ? RS_CONSOLE : !strcmp(src, "manual") ? RS_WEB : RS_OTHER;
-      if (thActive) runSrc |= 0x80;
-      runEnd = RE_USER; runErr = 0;
+      runBegin(src);                              // datos del registro de este encendido (se guarda al apagarse)
       heatStart = millis(); warmSent = false; lowBatt = 0;   // mínimo del termostato, aviso del agua y batería
       heatWarm = tempC >= TH_WARM_C && lastSensorOk && millis() - lastSensorOk < 120000;
       thBest = cabT; thBestAt = millis();         // para ver si dentro sube (termostato)
@@ -1011,6 +1015,11 @@ bool startHeater(uint16_t minutes, const char* src) {
   }
   addLog(tr(T_LOG_ON_FAIL));
   notify(trf(T_TG_ON_FAIL, srcName(src)));
+  // También queda en las estadísticas: un «encendido» de 0 s que no llegó a arrancar porque la Webasto no contestó
+  runBegin(src);
+  runEnd = RE_NOWBUS;
+  runSave(0, 0);
+  runEnd = RE_USER;
   return false;
 }
 
@@ -1022,7 +1031,7 @@ bool stopHeater(const char* why, bool tell) {
   bool was = heaterOn;                            // ¿estaba encendida? (se puede pedir apagar estando ya apagada)
   for (int i = 0; i < 3 && !ok; i++) { ok = wbusCmd(0x10, nullptr, 0, r, n); if (!ok) delay(300); }
   // Cierra la cuenta del gasoil de este encendido y la guarda
-  if (was) { gasTick(); gasRate = 0; lastGasT = 0; gasLast = gasCur; gasSave(); runSave(); }
+  if (was) { gasTick(); gasRate = 0; lastGasT = 0; gasLast = gasCur; gasSave(); runSave((millis() - heatStart) / 1000, gasCur); }
   runEnd = RE_USER; runErr = 0;
   heaterOn = false;
   phase = PH_OFF;
