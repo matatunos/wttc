@@ -6,6 +6,12 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.2.14 — 2026-10-09
+
+Versión de prueba (sin probar con una Webasto real).
+
+- **La Wi-Fi de la placa viene siempre encendida por defecto** (antes, solo mientras calentaba y 10 minutos después): la web de la placa y `wttc.local` responden siempre. Gasta algo más con la furgo parada (≈ 40–60 mA, 1–1,5 Ah al día): si va a estar parada días, mejor «Solo mientras calienta» en Configuración. Las placas en las que ya se eligió un modo lo conservan.
+
 ## 0.2.13 — 2026-10-09
 
 Versión de prueba (sin probar con una Webasto real). La 0.2.12 fue la primera actualización sin cable hecha en una placa real (subiendo el .ota desde su web).

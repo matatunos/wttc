@@ -150,7 +150,7 @@ const float    TH_STALL_C   = 0.5;    // °C (si hace demasiado frío fuera o el
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.2.13"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.2.14"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -166,7 +166,7 @@ char cfgName[30]   = "WTTC";          // nombre de la red Wi-Fi propia y del dis
 #define AP_PASS_DEFAULT "calefaccion"    // clave de fábrica de la red propia: pública (sale en la documentación)
 char cfgApPass[64] = AP_PASS_DEFAULT;    // clave de la red propia (WPA2 exige 8 caracteres como mínimo)
 uint32_t blePin    = 0;               // PIN Bluetooth de 6 cifras; 0 = generar uno al azar en el primer arranque
-uint8_t wifiMode   = WM_HEAT;         // por defecto: Wi-Fi solo mientras calienta (y 10 min después)
+uint8_t wifiMode   = WM_ALWAYS;       // por defecto: Wi-Fi siempre encendida (desde la 0.2.14; antes, solo mientras calienta)
 float minVolt      = 12.0;            // V: con la batería por debajo, los programas no arrancan
 char staSsid[33]   = "", staPass[64] = "";   // red con internet a la que unirse (opcional), y su contraseña
 // Pantalla, LED y termómetro (opcionales)
@@ -1512,7 +1512,7 @@ void loadCfg() {
   gasMonth = prefs.getFloat("gmon", 0);
   gasTotal = prefs.getFloat("gtot", 0);
   gasMonthKey = prefs.getUInt("gkey", 0);
-  wifiMode = prefs.getUChar("wmode", WM_HEAT);
+  wifiMode = prefs.getUChar("wmode", WM_ALWAYS);   // si nunca se ha elegido: siempre encendida
   minVolt  = prefs.getFloat("minv", 12.0);
   lang     = prefs.getUChar("lang", L_ES);
   oledType = prefs.getUChar("oled", OLED_SH1106);
@@ -1528,7 +1528,7 @@ void loadCfg() {
   if (ledLvl > 3) ledLvl = 1;
   if (isnan(tOff) || tOff < -5 || tOff > 5) tOff = 0;
   if (lang >= L_N) lang = L_ES;
-  if (wifiMode > WM_DEMAND) wifiMode = WM_HEAT;   // valor imposible: el de por defecto
+  if (wifiMode > WM_DEMAND) wifiMode = WM_ALWAYS; // valor imposible: el de por defecto
   if (blePin < 100000 || blePin > 999999) {       // primer arranque: PIN al azar, distinto en cada placa
     blePin = 100000 + esp_random() % 900000;      // esp_random() usa el generador de números aleatorios por hardware
     prefs.begin("webasto", false);
