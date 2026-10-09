@@ -168,6 +168,7 @@ details h3{font-size:15px;margin:18px 0 0}
 <div class="acts" style="margin-top:10px"><button class="btn" id="forget" data-t="forget">Borrar emparejamientos</button><button class="btn" id="tsync" data-t="setClock">Poner en hora</button></div>
 <h3 data-t="updTitle">Actualizar firmware</h3>
 <p class="sub" data-t="updHelp2">Con la placa unida a una red con internet, «Buscar actualizaciones» lo hace todo: busca, te pregunta y la descarga e instala sola.</p>
+<label class="f"><span data-t="fOtaAuto">Actualizaciones automáticas (al arrancar y una vez al día, con red con internet)</span><select id="c_otaa"><option value="0" data-t="otaa0">No buscar</option><option value="1" data-t="otaa1">Buscar y avisar</option><option value="2" data-t="otaa2">Buscar e instalar sola (nunca calentando)</option></select></label>
 <p class="sub" data-t="updHelp">Descarga el fichero .ota de la última versión (github.com/matatunos/wttc/releases) y súbelo aquí. Solo se instalan actualizaciones oficiales (con firma) y nunca mientras calienta; si la nueva no arranca bien, la placa vuelve sola a la anterior.</p>
 <label class="f"><span data-t="updFile">Fichero .ota</span><input id="u_file" type="file" accept=".ota"></label>
 <div class="acts" style="margin-top:10px"><button class="btn" id="u_go" data-t="updBtn">Actualizar</button><button class="btn pri" id="u_check" data-t="updCheck">Buscar actualizaciones</button></div>
@@ -192,7 +193,7 @@ function ask(msg,yesNo){return new Promise(res=>{$('dlgT').textContent=String(ms
 const say=m=>{ask(m,false)};
 // ---- Idioma: el de la placa (ajuste «lang»); hasta saberlo, el del navegador. Textos en es, en y de ----
 const I18N={
-es:{loc:'es-ES',scanBtn:'Buscar redes',scanning:'Buscando redes… (unos segundos)',scanNone:'No se ve ninguna red.',scanFail:'La placa no ha terminado de buscar. Prueba otra vez.',scanPick:'Toca una para usarla:',cabin:'Dentro: {0}',hum:' · humedad {0} %',tgtL:'Hasta',tgtNone:'Sin límite de temperatura',waiting:'En espera',tgtOn:'Hasta {0} · margen {1}',
+es:{loc:'es-ES',fOtaAuto:'Actualizaciones automáticas (al arrancar y una vez al día, con red con internet)',otaa0:'No buscar',otaa1:'Buscar y avisar',otaa2:'Buscar e instalar sola (nunca calentando)',nvAvail:'Hay una versión nueva del firmware: {0}.',nvGo:'Actualizar',scanBtn:'Buscar redes',scanning:'Buscando redes… (unos segundos)',scanNone:'No se ve ninguna red.',scanFail:'La placa no ha terminado de buscar. Prueba otra vez.',scanPick:'Toca una para usarla:',cabin:'Dentro: {0}',hum:' · humedad {0} %',tgtL:'Hasta',tgtNone:'Sin límite de temperatura',waiting:'En espera',tgtOn:'Hasta {0} · margen {1}',
  warmOk:' · agua caliente',turnOnTgt:'Encender hasta {0} (máx. {1})',depL:'Salgo a las',depGo:'Programar',depCancel:'Cancelar',
  depSet:'Salida: {0} a las {1}{2}. Enciende antes, según el frío que haga.',depTgt:' (hasta {0})',mStart:'Encender a esta hora',mDep:'Salgo a esta hora',
  sTgt:'Sin termostato',nextDep:'Próxima salida: {0} a las {1}.',minvHelp:'Calentando, se apaga sola si la batería baja medio voltio por debajo de esta.',
@@ -222,7 +223,7 @@ es:{loc:'es-ES',scanBtn:'Buscar redes',scanning:'Buscando redes… (unos segundo
  ver:'Firmware WTTC {0} · código generado íntegramente con Claude (Anthropic) · github.com/matatunos/wttc',
  askGas:'¿Poner a cero el gasoil estimado (último encendido, mes y total)?',askForget:'¿Borrar todos los dispositivos emparejados? Habrá que volver a emparejar la app con el PIN.',
  days:['L','M','X','J','V','S','D'],daysL:['el lunes','el martes','el miércoles','el jueves','el viernes','el sábado','el domingo']},
-en:{loc:'en-GB',scanBtn:'Find networks',scanning:'Looking for networks… (a few seconds)',scanNone:'No network in sight.',scanFail:'The board did not finish searching. Try again.',scanPick:'Tap one to use it:',cabin:'Inside: {0}',hum:' · humidity {0} %',tgtL:'Up to',tgtNone:'No temperature limit',waiting:'Waiting',tgtOn:'Up to {0} · window {1}',
+en:{loc:'en-GB',fOtaAuto:'Automatic updates (at boot and once a day, with a network with internet)',otaa0:'Do not check',otaa1:'Check and notify',otaa2:'Check and install by itself (never while heating)',nvAvail:'There is a new firmware version: {0}.',nvGo:'Update',scanBtn:'Find networks',scanning:'Looking for networks… (a few seconds)',scanNone:'No network in sight.',scanFail:'The board did not finish searching. Try again.',scanPick:'Tap one to use it:',cabin:'Inside: {0}',hum:' · humidity {0} %',tgtL:'Up to',tgtNone:'No temperature limit',waiting:'Waiting',tgtOn:'Up to {0} · window {1}',
  warmOk:' · water is warm',turnOnTgt:'Heat up to {0} (max {1})',depL:'I leave at',depGo:'Set',depCancel:'Cancel',
  depSet:'Departure: {0} at {1}{2}. It switches on earlier, depending on how cold it is.',depTgt:' (up to {0})',mStart:'Switch on at this time',mDep:'I leave at this time',
  sTgt:'No thermostat',nextDep:'Next departure: {0} at {1}.',minvHelp:'While heating, it switches itself off if the battery drops half a volt below this.',
@@ -252,7 +253,7 @@ en:{loc:'en-GB',scanBtn:'Find networks',scanning:'Looking for networks… (a few
  ver:'WTTC firmware {0} · code generated entirely with Claude (Anthropic) · github.com/matatunos/wttc',
  askGas:'Reset the diesel estimate (last run, month and total)?',askForget:'Delete all paired devices? The app will have to be paired again with the PIN.',
  days:['M','T','W','T','F','S','S'],daysL:['on Monday','on Tuesday','on Wednesday','on Thursday','on Friday','on Saturday','on Sunday']},
-de:{loc:'de-DE',scanBtn:'Netze suchen',scanning:'Suche Netze… (ein paar Sekunden)',scanNone:'Kein Netz in Reichweite.',scanFail:'Die Platine ist mit der Suche nicht fertig geworden. Nochmal versuchen.',scanPick:'Eines antippen, um es zu nutzen:',cabin:'Innen: {0}',hum:' · Feuchte {0} %',tgtL:'Bis',tgtNone:'Ohne Temperaturgrenze',waiting:'Wartet',tgtOn:'Bis {0} · Zeitfenster {1}',
+de:{loc:'de-DE',fOtaAuto:'Automatische Updates (beim Start und einmal am Tag, mit Netz mit Internet)',otaa0:'Nicht suchen',otaa1:'Suchen und melden',otaa2:'Suchen und selbst installieren (nie beim Heizen)',nvAvail:'Es gibt eine neue Firmware-Version: {0}.',nvGo:'Aktualisieren',scanBtn:'Netze suchen',scanning:'Suche Netze… (ein paar Sekunden)',scanNone:'Kein Netz in Reichweite.',scanFail:'Die Platine ist mit der Suche nicht fertig geworden. Nochmal versuchen.',scanPick:'Eines antippen, um es zu nutzen:',cabin:'Innen: {0}',hum:' · Feuchte {0} %',tgtL:'Bis',tgtNone:'Ohne Temperaturgrenze',waiting:'Wartet',tgtOn:'Bis {0} · Zeitfenster {1}',
  warmOk:' · Wasser ist warm',turnOnTgt:'Heizen bis {0} (max. {1})',depL:'Abfahrt um',depGo:'Einstellen',depCancel:'Löschen',
  depSet:'Abfahrt: {0} um {1}{2}. Schaltet je nach Kälte früher ein.',depTgt:' (bis {0})',mStart:'Zu dieser Zeit einschalten',mDep:'Abfahrt zu dieser Zeit',
  sTgt:'Ohne Thermostat',nextDep:'Nächste Abfahrt: {0} um {1}.',minvHelp:'Während des Heizens schaltet sie sich ab, wenn die Batterie ein halbes Volt darunter fällt.',
@@ -357,6 +358,9 @@ function render(){if(!st)return;
  if(!st.on&&st.note)w+='<div class="warn">'+esc(st.note)+'</div>';
  if(st.bus===0)w+='<div class="warn">'+T('busWarn')+'</div>';
  if(!st.tv)w+='<div class="warn">'+T('clockWarn')+'</div>';
+ // Versión nueva vista por la placa (búsqueda automática o a mano), con botón; y el progreso si está instalando
+ if(st.op>=0)w+='<div class="warn">'+T('updDownloading',st.op)+'</div>';
+ else if(st.nv)w+='<div class="warn">'+T('nvAvail',esc(st.nv))+' <button class="btn pri" id="nvGo" style="margin-left:6px;padding:6px 12px">'+T('nvGo')+'</button></div>';
  $('warn').innerHTML=w;
  $('setup').hidden=st.apdef!==true;
  if(!busy){$('big').disabled=st.apdef===true;$('big').textContent=st.on||th?T('turnOff'):tgt?T('turnOnTgt',deg(tgt,0),fmtDur(dur)):T('turnOn')+' '+fmtDur(dur)}
@@ -410,6 +414,7 @@ $('errs').onclick=async()=>{$('errout').textContent=T('reading');try{const r=awa
 async function loadCfg(){try{const c=await api('/api/cfg');
  $('c_name').value=c.name;$('c_pin').value=c.pin||'';$('c_wm').value=c.wifimode;$('c_ssid').value=c.ssid;$('c_chat').value=c.tgchat;$('c_mv').value=c.minvolt;$('c_lang').value=c.lang||lang;
  $('hwBox').hidden=!c.th;$('lb_oled').hidden=$('lb_disp').hidden=!c.scr;$('lb_toff').hidden=!c.sens;
+ $('c_otaa').value=c.otaauto!=null?c.otaauto:1;$('c_otaa').disabled=c.otaauto==null;
  if(c.th){$('c_oled').value=c.oled;$('c_disp').value=c.disp;$('c_led').value=c.led;$('c_toff').value=c.toff;$('c_warm').value=c.warm;
   const h=[c.sens,c.scr?T('scr'):''].filter(x=>x).join(', ');$('hw').textContent=h?T('hwDet',h):T('hwNone')}
  $('c_tok').value='';$('c_ap').value='';$('c_pass').value='';$('c_tok').placeholder=T(c.tg?'stored':'notSet');
@@ -421,6 +426,7 @@ $('cfgd').ontoggle=()=>{if($('cfgd').open)loadCfg()};
 // El idioma va primero: así la respuesta de la placa ya sale en el nuevo
 $('csave').onclick=async()=>{const b={lang:$('c_lang').value,name:$('c_name').value.trim(),wifimode:$('c_wm').value,ssid:$('c_ssid').value.trim(),tgchat:$('c_chat').value.trim(),minvolt:$('c_mv').value,
   oled:$('c_oled').value,disp:$('c_disp').value,led:$('c_led').value,toff:$('c_toff').value||0,warm:$('c_warm').value||0};
+ if(!$('c_otaa').disabled)b.otaauto=$('c_otaa').value;
  if($('c_pin').value.trim())b.pin=$('c_pin').value.trim();if($('c_ap').value)b.appass=$('c_ap').value;if($('c_pass').value)b.pass=$('c_pass').value;if($('c_tok').value.trim())b.tgtok=$('c_tok').value.trim();
  try{setLang(b.lang);say(await api('/api/cfg',b));loadCfg();poll()}catch(e){say(e.message)}};
 // Primer uso: guardar la clave nueva de la Wi-Fi (la placa se reinicia para aplicarla)
@@ -435,6 +441,10 @@ $('u_go').onclick=()=>{if(inSim())return say(T('updSim'));const f=$('u_file').fi
  x.onload=()=>{$('u_go').disabled=false;$('u_st').textContent=x.responseText;say(x.responseText)};
  x.onerror=()=>{$('u_go').disabled=false;$('u_st').textContent=T('updNet')};
  x.open('POST','/api/update');x.send(fd)};
+// Botón «Actualizar» del aviso de versión nueva: pregunta y la placa la descarga e instala (como «Buscar actualizaciones»)
+$('warn').addEventListener('click',async e=>{if(e.target.id!=='nvGo')return;if(inSim())return say(T('updSim'));
+ if(!await ask(T('nvAvail',st.nv)+'\n\n'+T('updAsk'),true))return;
+ try{await api('/api/otaupdate',{});const r=await otaWait();if(r)say(r)}catch(err){say(err.message)}});
 // Buscar actualizaciones por internet: la placa mira la última versión; si hay una nueva, pregunta y, si se acepta,
 // la placa la descarga, comprueba la firma, la instala y se reinicia. El progreso llega en el estado (op, om, onew)
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));

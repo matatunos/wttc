@@ -187,6 +187,8 @@
     <string name="app_upd_btn">Check for a new app version</string>
     <string name="app_upd_auto">Notify when there is a new app version</string>
     <string name="app_upd_help">At most once a day, when opened, the app checks the latest version at wttc.favala.es (it sends nothing about you).</string>
+    <string name="f_otaauto">Automatic board updates (at boot and once a day, with a network with internet)</string>
+    <string name="board_nv_msg">The board found a new firmware version: %1$s (it has %2$s).\n\nThe board downloads it, checks that it is official, installs it and restarts by itself. The heater must be off.</string>
     <string name="quick_title">Quick access</string>
     <string name="quick_help">“Webasto” button in Android\'s quick settings (pull them down and edit them to add it) and a home screen widget. Tapping it connects to the board and switches on for this long, or off if it is already on.</string>
     <string name="quick_dur">Quick access duration</string>
@@ -234,6 +236,11 @@
         <item>Low</item>
         <item>Medium</item>
         <item>High</item>
+    </string-array>
+    <string-array name="ota_auto_modes">
+        <item>Do not check</item>
+        <item>Check and notify</item>
+        <item>Check and install by itself (never while heating)</item>
     </string-array>
     <string-array name="prog_modes">
         <item>Switch on at this time</item>

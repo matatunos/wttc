@@ -150,7 +150,7 @@ const float    TH_STALL_C   = 0.5;    // °C (si hace demasiado frío fuera o el
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.2.14"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.2.15"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -203,7 +203,12 @@ String otaNetNotes;                   // novedades de la versión nueva (de ota.
 String lastWebMsg;                    // último resultado para la web (estado «om»)
 bool otaNetOk = false, otaNetInstall = false, otaNetAuto = false, otaNetNew = false;
 char otaNetVer[17] = "";              // versión encontrada
-uint32_t otaAutoLast = 0;             // última búsqueda automática (una al día, para avisar por Telegram)
+uint32_t otaAutoLast = 0;             // última búsqueda automática (al arrancar y luego una al día)
+// Actualizaciones automáticas: 0 = no buscar, 1 = buscar y avisar (web, app y Telegram), 2 = buscar e instalar sola
+// (nunca calentando ni con el termostato en marcha). otaAvail = versión nueva encontrada ("" = ninguna)
+enum { OA_OFF, OA_NOTIFY, OA_INSTALL };
+uint8_t otaAuto = OA_NOTIFY;
+char otaAvail[17] = "";
 
 // ---------- objetos globales ----------
 const uint8_t MAX_SCHED = 8;          // número máximo de programas semanales
@@ -312,7 +317,7 @@ enum Txt {
   T_OTA_NONET, T_OTA_LATEST, T_OTA_NEW, T_OTA_NOTYET, T_OTA_BUSY, T_OTA_DL, T_TG_OTA_NEW,
   T_LOG_HW, T_LOG_TH_ON, T_LOG_TH_WAIT, T_LOG_TH_END, T_LOG_TH_NOSENS, T_TG_TH_REACHED, T_WHY_TARGET,
   T_E_NOSENS, T_E_TARGET, T_WHY_BATT, T_NOTE_BATT, T_TG_WARM, T_LOG_DEP, T_LOG_DEP_SET, T_LOG_DEP_OFF, T_E_DEP,
-  T_E_WARM, T_E_TOFF, T_E_VALUE, T_TG_TH_STALL, T_OTA_NOSTA, T_OTA_NETERR,
+  T_E_WARM, T_E_TOFF, T_E_VALUE, T_TG_TH_STALL, T_OTA_NOSTA, T_OTA_NETERR, T_LOG_OTA_AUTO, T_LOG_OTA_FAIL,
   T_D_OFF, T_D_START, T_D_HEAT, T_D_PAUSE, T_D_LOST, T_D_WAIT, T_D_WATER, T_D_IN, T_D_NEXT, T_D_DEP, T_D_UNTIL,
   T_D_DAYS, T_D_NOTE,
   T_COUNT
@@ -444,6 +449,8 @@ const char* const TXT[T_COUNT][L_N] = {
   /* T_OTA_NETERR */       {"La placa está en la red pero no llega a wttc.favala.es (código %d · ese nombre le da %s · DNS %s · router %s).",
                             "The board is on the network but cannot reach wttc.favala.es (code %d · that name gives %s · DNS %s · router %s).",
                             "Die Platine ist im Netz, erreicht aber wttc.favala.es nicht (Code %d · der Name ergibt %s · DNS %s · Router %s)."},
+  /* T_LOG_OTA_AUTO */     {"Instalando sola la versión %s (actualizaciones automáticas)", "Installing version %s by itself (automatic updates)", "Installiert Version %s selbst (automatische Updates)"},
+  /* T_LOG_OTA_FAIL */     {"La actualización automática falló: %s", "The automatic update failed: %s", "Das automatische Update ist fehlgeschlagen: %s"},
   /* T_D_OFF */            {"Apagada", "Off", "Aus"},
   /* T_D_START */          {"Arrancando", "Starting", "Startet"},
   /* T_D_HEAT */           {"Calentando", "Heating", "Heizt"},
@@ -1520,12 +1527,14 @@ void loadCfg() {
   ledLvl   = prefs.getUChar("led", 1);
   tOff     = prefs.getFloat("toff", 0);
   warmC    = prefs.getUChar("warm", 0);
+  otaAuto  = prefs.getUChar("otaa", OA_NOTIFY);
   depOnce  = prefs.getUInt("dep", 0);
   depOnceT = prefs.getUChar("dept", 0);
   prefs.end();
   if (oledType > OLED_SSD1327) oledType = OLED_SH1106;
   if (dispMode > DISP_ALWAYS) dispMode = DISP_AUTO;
   if (ledLvl > 3) ledLvl = 1;
+  if (otaAuto > OA_INSTALL) otaAuto = OA_NOTIFY;
   if (isnan(tOff) || tOff < -5 || tOff > 5) tOff = 0;
   if (lang >= L_N) lang = L_ES;
   if (wifiMode > WM_DEMAND) wifiMode = WM_ALWAYS; // valor imposible: el de por defecto
@@ -1648,6 +1657,10 @@ int cfgSet(String k, String v, String& err) {
     float f = v.toFloat();
     if (!v.length() || f < -5 || f > 5) { err = tr(T_E_TOFF); r = 0; }
     else { if (!isnan(cabT)) cabT += f - tOff; tOff = f; prefs.putFloat("toff", tOff); }
+  } else if (k == "otaauto") {                    // actualizaciones automáticas: 0 no, 1 avisar, 2 instalar sola
+    int m = v.toInt();
+    if (!v.length() || m < OA_OFF || m > OA_INSTALL) { err = trf(T_E_VALUE, k.c_str()); r = 0; }
+    else if (m != otaAuto) { otaAuto = m; prefs.putUChar("otaa", otaAuto); }
   } else if (k == "warm") {                       // aviso de agua caliente (°C; 0 = sin aviso)
     int w = v.toInt();
     if (!v.length() || (w != 0 && (w < 30 || w > 80))) { err = tr(T_E_WARM); r = 0; }
@@ -1659,7 +1672,7 @@ int cfgSet(String k, String v, String& err) {
 
 // Ajustes que admite el formulario de configuración de la web (en este orden)
 const char* CFG_KEYS[] = {"lang", "name", "appass", "pin", "wifimode", "ssid", "pass", "tgtok", "tgchat", "minvolt",
-                          "oled", "disp", "led", "toff", "warm"};
+                          "oled", "disp", "led", "toff", "warm", "otaauto"};
 
 // ¿Sigue la Wi-Fi propia con la clave de fábrica? Entonces cualquiera cerca puede entrar: la web obliga a cambiarla
 bool apDefault() { return strcmp(cfgApPass, AP_PASS_DEFAULT) == 0; }
@@ -1679,6 +1692,7 @@ String cfgJson(bool withPin) {
   j += ",\"lang\":\"";  j += LANG_CODES[lang]; j += "\"";     // idioma de la placa (la app lo iguala al del móvil)
   j += ",\"ota\":1";                                            // sabe buscar y actualizar por internet
   j += ",\"th\":1";                                             // sabe termostato y hora de salida (0.2.0+)
+  j += ",\"otaauto\":"; j += (int)otaAuto;                      // actualizaciones automáticas (0.2.15+)
   j += ",\"oled\":";   j += (int)oledType;
   j += ",\"disp\":";   j += (int)dispMode;
   j += ",\"led\":";    j += (int)ledLvl;
@@ -1831,6 +1845,7 @@ String stateJson() {
   j += ",\"gas\":[";  j += String(gasCur, 2); j += ","; j += String(gasLast, 2); j += ",";
   j += String(gasMonth, 2); j += ","; j += String(gasTotal, 2); j += "]";   // con 2 decimales, como el encendido: si no, el total redondeado podía salir menor
   j += ",\"op\":";   j += otaProg;                // actualización por internet: 0–100 %, -1 = ninguna
+  j += ",\"nv\":";   j += js(String(otaAvail));   // versión nueva encontrada ("" = ninguna)
   j += ",\"ct\":";   j += isnan(cabT) ? -999 : (int)lround(cabT * 10);   // °C × 10 de dentro (-999 = sin termómetro)
   j += ",\"ch\":";   j += isnan(cabH) ? -1 : (int)lround(cabH);          // humedad (%)
   j += ",\"tg\":";   j += thActive ? (int)thTarget : 0;                   // termostato: objetivo (0 = sin él)
@@ -2062,6 +2077,7 @@ void handleState() {
   j += ",\"op\":";     j += otaProg;                             // actualización por internet en curso (0–100)
   j += ",\"om\":";     j += js(lastWebMsg);                      // último resultado de buscar o actualizar
   j += ",\"onew\":";   j += (otaNetNew && !otaNetBusy) ? "true" : "false";   // ese resultado es «hay versión nueva»
+  j += ",\"nv\":";     j += js(String(otaAvail));                // versión nueva que ha visto la placa ("" = ninguna)
   j += ",\"ct\":";     j += isnan(cabT) ? String("null") : String(cabT, 1);   // dentro (°C); null = sin termómetro
   j += ",\"ch\":";     j += isnan(cabH) ? String("null") : String((int)lround(cabH));
   j += ",\"tgt\":";    j += thActive ? (int)thTarget : 0;                     // termostato: objetivo y segundos que quedan
@@ -2352,7 +2368,8 @@ String otaNetStart(bool install, bool autoCheck) {
   if (otaNetBusy) return tr(T_OTA_BUSY);
   if (install && heaterOn) return tr(T_OTA_HEAT);
   if (!staSsid[0]) return tr(T_OTA_NONET);
-  if (!autoCheck && (int32_t)(wifiUntil - (millis() + 120000)) < 0) wifiUntil = millis() + 120000;   // Wi-Fi encendida mientras dura
+  // Wi-Fi encendida mientras dura (la búsqueda automática solo corre con ella ya encendida, pero instalar puede tardar)
+  if ((!autoCheck || install) && (int32_t)(wifiUntil - (millis() + 120000)) < 0) wifiUntil = millis() + 120000;
   otaNetBusy = true; otaNetEnd = false; otaNetInstall = install; otaNetAuto = autoCheck; otaNetNew = false; otaNetNotes = "";
   if (!autoCheck) lastWebMsg = "";                    // la web espera a que aparezca el resultado nuevo
   if (xTaskCreatePinnedToCore(otaNetTask, "ota", 12288, nullptr, 1, nullptr, 0) != pdPASS) { otaNetBusy = false; return String(tr(T_OTA_WRITE)) + " (" + memInfo() + ")"; }
@@ -2361,25 +2378,42 @@ String otaNetStart(bool install, bool autoCheck) {
 
 // En loop(): cuando la tarea termina, se apunta, se responde a la app y, si se instaló, se reinicia
 void otaNetPoll() {
-  // Búsqueda diaria: con Telegram configurado y la Wi-Fi ya conectada; la primera, 5 min después de arrancar
-  if (!otaNetBusy && tgToken[0] && tgChat[0] && WiFi.status() == WL_CONNECTED && !heaterOn
-      && (otaAutoLast ? millis() - otaAutoLast > 86400000UL : millis() > 300000)) {
+  // Búsqueda automática (ajuste «otaauto»): con la red con internet ya conectada, a los 2 min de arrancar (ya confirmada
+  // la versión que corre, ver otaConfirm) y luego una vez al día. Nunca calentando
+  if (otaAuto != OA_OFF && !otaNetBusy && WiFi.status() == WL_CONNECTED && !heaterOn && !thActive
+      && (otaAutoLast ? millis() - otaAutoLast > 86400000UL : millis() > 120000)) {
     otaAutoLast = millis();
     otaNetStart(false, true);
   }
   if (!otaNetEnd) return;
   otaNetEnd = false; otaNetBusy = false;
-  if (otaNetAuto) {                                       // aviso por Telegram, una sola vez por versión
-    if (otaNetOk && otaNetNew) {
-      prefs.begin("webasto", false);
-      String last = prefs.isKey("otanv") ? prefs.getString("otanv") : String("");
-      if (last != otaNetVer) {
-        notify(trf(T_TG_OTA_NEW, otaNetVer, otaNetNotes.length() ? otaNetNotes.c_str() : "-"));
-        prefs.putString("otanv", otaNetVer);
-      }
-      prefs.end();
+  if (otaNetAuto) {
+    if (otaNetInstall) {                                  // instalación automática: reiniciar si salió bien
+      if (otaNetOk) { addLog(trf(T_LOG_OTA, otaNetVer)); rebootPending = true; }
+      else addLog(trf(T_LOG_OTA_FAIL, otaNetMsg.c_str()));
+      lastWebMsg = otaNetMsg;
+      return;
+    }
+    if (!otaNetOk) return;                                // sin red, servidor caído…: ya se probará mañana
+    if (!otaNetNew) { otaAvail[0] = 0; return; }
+    strlcpy(otaAvail, otaNetVer, sizeof otaAvail);        // la web y la app lo enseñan con un botón «Actualizar»
+    // Aviso por Telegram, una sola vez por versión
+    prefs.begin("webasto", false);
+    String last = prefs.isKey("otanv") ? prefs.getString("otanv") : String("");
+    if (last != otaNetVer) {
+      notify(trf(T_TG_OTA_NEW, otaNetVer, otaNetNotes.length() ? otaNetNotes.c_str() : "-"));
+      prefs.putString("otanv", otaNetVer);
+    }
+    prefs.end();
+    // Instalar sola: nunca calentando ni con el termostato en marcha (si no, se intenta en la próxima búsqueda)
+    if (otaAuto == OA_INSTALL && !heaterOn && !thActive) {
+      addLog(trf(T_LOG_OTA_AUTO, otaNetVer));
+      otaNetStart(true, true);
     }
     return;
+  }
+  if (otaNetOk && !otaNetInstall) {                       // búsqueda a mano: también se apunta lo encontrado
+    if (otaNetNew) strlcpy(otaAvail, otaNetVer, sizeof otaAvail); else otaAvail[0] = 0;
   }
   if (otaNetOk && otaNetInstall) { addLog(trf(T_LOG_OTA, otaNetVer)); rebootPending = true; }
   bleSet(chResp, String(otaNetInstall ? "update:" : "otacheck:") + (otaNetOk ? "" : "err ") + otaNetMsg);

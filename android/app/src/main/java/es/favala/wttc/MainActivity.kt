@@ -170,6 +170,9 @@ class MainActivity : Activity(), BleLink.Listener {
     private var fwVer = ""                             // versión del firmware de la placa (de «cfg»)
     private var fwOta = false                          // ¿sabe actualizarse sola por internet? (firmware 0.1.5+)
     private var fwTh = false                           // ¿sabe termostato, hora de salida y pantalla? (firmware 0.2.0+)
+    private lateinit var spOtaAuto: Spinner            // actualizaciones automáticas de la placa (firmware 0.2.15+)
+    private var hasOtaAuto = false
+    private var nvAsked = ""                           // versión nueva de la placa por la que ya se ha preguntado
     private var hasSensor = false                      // ¿tiene la placa termómetro? (sin él no se ofrece «Hasta X °C»)
     // Interruptor de las estadísticas anónimas (en «Ajustes de la app»)
     private lateinit var swStats: Switch
@@ -426,6 +429,17 @@ class MainActivity : Activity(), BleLink.Listener {
             if (wa && !lastWa) notifyUser(getString(R.string.notif_warm), getString(R.string.notif_warm_body, j.optInt("t")))
         }
         lastWa = wa
+        // La placa ha visto una versión nueva (búsqueda automática): se pregunta una vez por versión
+        val nv = j.optString("nv")
+        if (nv.isNotEmpty() && nv != nvAsked && !link.demo && j.optInt("op", -1) < 0) {
+            nvAsked = nv
+            AlertDialog.Builder(this)
+                .setTitle(getString(R.string.upd_new_title, nv))
+                .setMessage(getString(R.string.board_nv_msg, nv, fwVer.ifEmpty { "?" }))
+                .setPositiveButton(getString(R.string.upd_yes)) { _, _ -> link.send("update") }
+                .setNegativeButton(getString(R.string.later), null)
+                .show()
+        }
         haveState = true
         lastOn = on
         lastNote = note
@@ -672,6 +686,14 @@ class MainActivity : Activity(), BleLink.Listener {
         cfg.addView(row(button(getString(R.string.btn_wifi15)) { link.send("wifi") }, button(getString(R.string.btn_reboot)) { confirmReboot() }), lp(top = 10))
         // Actualizaciones del firmware: la app consulta la última versión y, si hay una nueva, la placa la descarga e instala
         cfg.addView(button(getString(R.string.upd_check)) { checkUpdates() }, lp(top = 10))
+        val otaAutoBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+        otaAutoBox.addView(text(getString(R.string.f_otaauto), 13f, cMut), lp(top = 10))
+        spOtaAuto = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, resources.getStringArray(R.array.ota_auto_modes).toList())
+            background = rounded(cSf2, 10); tag = otaAutoBox
+        }
+        otaAutoBox.addView(spOtaAuto, lp(top = 4))
+        cfg.addView(otaAutoBox)
         pUpd = android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100; visibility = View.GONE
             progressTintList = android.content.res.ColorStateList.valueOf(cFl)
@@ -1125,6 +1147,9 @@ class MainActivity : Activity(), BleLink.Listener {
         eTok.hint = getString(if (c.optBoolean("tg")) R.string.hint_token_saved else R.string.hint_not_set)
         eAp.setText(""); ePass.setText(""); eTok.setText("")
         fwVer = c.optString("ver"); fwOta = c.optInt("ota") == 1
+        hasOtaAuto = c.has("otaauto")
+        (spOtaAuto.tag as View).visibility = if (hasOtaAuto) View.VISIBLE else View.GONE
+        if (hasOtaAuto) spOtaAuto.setSelection(c.optInt("otaauto", 1).coerceIn(0, 2))
         val th = c.optInt("th") == 1
         if (th != fwTh) { fwTh = th; drawProgs() }
         hwBox.visibility = if (fwTh) View.VISIBLE else View.GONE
@@ -1156,6 +1181,7 @@ class MainActivity : Activity(), BleLink.Listener {
             "tgchat" to eChat.text.toString().trim(),
             "minvolt" to eMinV.text.toString().trim().replace(',', '.'),
         )
+        if (hasOtaAuto) sets += "otaauto" to spOtaAuto.selectedItemPosition.toString()
         if (fwTh) {
             sets += "warm" to eWarm.text.toString().trim().ifEmpty { "0" }
             sets += "oled" to spOled.selectedItemPosition.toString()
