@@ -18,7 +18,8 @@ wttc_visit('mi');
 <meta name="robots" content="noindex">
 <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<!-- iPhone: icono opaco de 180 px (iOS redondea las esquinas; con transparencia puede no salir) -->
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <!-- Instalable como app (PWA): Android «Instalar app» / iPhone Compartir → «Añadir a pantalla de inicio» -->
 <link rel="manifest" href="/mi-manifest.json">
 <meta name="theme-color" content="#0f1117">
