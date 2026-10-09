@@ -209,6 +209,7 @@
     <string name="upd_lock_installing">Installing…</string>
     <string name="upd_lock_rebooting">Restarting with the new version…</string>
     <string name="sw_apauto">Hide the own Wi-Fi while connected to the network with internet</string>
+    <string name="sw_diag">Diagnostic mode (log, technical data and crash report)</string>
     <string name="quick_title">Quick access</string>
     <string name="quick_help">“Webasto” button in Android\'s quick settings (pull them down and edit them to add it) and a home screen widget. Tapping it connects to the board and switches on for this long, or off if it is already on.</string>
     <string name="quick_dur">Quick access duration</string>

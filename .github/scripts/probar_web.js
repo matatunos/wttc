@@ -62,5 +62,11 @@ for (const lang of ['es', 'en', 'de']) {
   el('updLock').hidden = true; cur = state({ lang: 'es', on: false, op: -1, upd: 1 }); W.st = cur; W.render();
   assert.ok(!el('updLock').hidden, 'instalando: falta el bloqueo de la página');
   console.log('bloqueo al actualizar: OK (' + el('updLockMsg').textContent + ')');
+  // Modo diagnóstico: apagado, el registro no se ve; encendido, sí
+  cur = state({ lang: 'es', on: false, dg: 0 }); W.st = cur; W.render();
+  assert.ok(el('diagAdv').hidden && !el('diagOff').hidden, 'sin modo diagnóstico se ve el registro');
+  cur = state({ lang: 'es', on: false, dg: 1 }); W.st = cur; W.render();
+  assert.ok(!el('diagAdv').hidden && el('diagOff').hidden, 'con modo diagnóstico no se ve el registro');
+  console.log('modo diagnóstico: OK');
   console.log('Web de la placa: OK');
 })().catch(e => { console.error(e); process.exit(1); });

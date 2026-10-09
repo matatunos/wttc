@@ -111,6 +111,17 @@
 #include <sys/time.h>           // settimeofday(): poner en hora desde el móvil
 #include <Wire.h>               // bus I2C: pantalla y termómetro opcionales
 #include <math.h>               // NAN / isnan(): «sin dato» del termómetro
+#include <esp_attr.h>           // RTC_NOINIT_ATTR: memoria que sobrevive a los reinicios (no a los cortes de corriente)
+#include <esp_idf_version.h>
+// Informe de cuelgues: el ESP32 guarda en la partición «coredump» qué falló (tarea y direcciones del programa). Solo con
+// el núcleo 3.x de Arduino (ESP-IDF 5) y si su configuración lo guarda en la flash; si no, el resto funciona igual
+#if ESP_IDF_VERSION_MAJOR >= 5 && defined(CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH) && defined(CONFIG_ESP_COREDUMP_DATA_FORMAT_ELF)
+#include <esp_core_dump.h>
+#define WTTC_COREDUMP 1
+#pragma message "WTTC: informe de cuelgues (coredump en flash) disponible"
+#else
+#pragma message "WTTC: este nucleo no guarda el informe de cuelgues en flash"
+#endif
 #if !defined(CONFIG_IDF_TARGET_ESP32S3)
 #error "WTTC necesita un ESP32-S3: en el IDE, placa ESP32S3 Dev Module (Flash Size 16MB). El ESP32 clásico no está soportado desde la 0.2.0."
 #endif
@@ -209,6 +220,10 @@ volatile int otaProg = -1;            // progreso de la descarga (0–100); -1 =
 // Wi-Fi propia y red con internet comparten la única radio: con las dos, la propia cambia de canal y va a trompicones
 // mientras se busca la otra. apAuto = ocultar la propia cuando la placa está estable en la red con internet
 bool apAuto = true, apOn = false;
+// Modo diagnóstico (Configuración): enseña el registro, las tramas del W-Bus, la memoria y el informe de cuelgues, y
+// manda ese informe por Telegram. Apagado, la web y la app solo dejan lo útil para cualquiera (averías, gasoil a cero).
+// El registro y el informe se guardan siempre: al activarlo se ve también lo de antes
+bool diagOn = false;
 uint32_t staUpSince = 0, staDownSince = 0, staTryAt = 0;
 uint8_t bootWhy = 0;                  // motivo del último arranque (RR_*, ver resetReason())
 uint32_t heapMin = 0;                 // memoria libre más baja vista desde que arrancó (bytes)
@@ -344,9 +359,18 @@ uint32_t statsLast = 0, statsOkAt = 0;  // último intento y último envío corr
 uint8_t gb[8192], gbPrev[8192];       // imagen de la SSD1327 (dos píxeles por byte) y la última enviada
 uint8_t oledAddr = 0x3C;              // dirección I2C de la pantalla (0x3C o 0x3D, según el módulo)
 
-// Registro de los 20 últimos eventos (en RAM: se pierde al reiniciar)
-String logBuf[20];
+// Registro de los LOG_N últimos eventos. Se guarda en la flash (NVS, clave "log2"): sobrevive a reinicios, cuelgues y
+// cortes de corriente. Las líneas aún sin guardar (se guarda como mucho cada 2 s, ver logSaveTick) van también a la
+// memoria RTC, que aguanta un cuelgue: así no se pierde lo que pasó justo antes
+#define LOG_N 40
+String logBuf[LOG_N];
 int logN = 0;
+bool logDirty = false;
+uint32_t logSaveAt = 0;
+#define RTCLOG_N 12
+#define RTCLOG_MAGIC 0x57544C47       // "WTLG"
+struct RtcLog { uint32_t magic; uint8_t n; char l[RTCLOG_N][100]; };
+RTC_NOINIT_ATTR RtcLog rtcLog;        // sin inicializar a propósito: conserva lo que había antes del reinicio
 
 // ============================================================================================================
 // Idioma: español, inglés o alemán (ajuste "lang"; la app pone el del móvil al conectar, la web lo deja elegir)
@@ -374,7 +398,7 @@ enum Txt {
   T_LOG_HW, T_LOG_TH_ON, T_LOG_TH_WAIT, T_LOG_TH_END, T_LOG_TH_NOSENS, T_TG_TH_REACHED, T_WHY_TARGET,
   T_E_NOSENS, T_E_TARGET, T_WHY_BATT, T_NOTE_BATT, T_TG_WARM, T_LOG_DEP, T_LOG_DEP_SET, T_LOG_DEP_OFF, T_E_DEP,
   T_E_WARM, T_E_TOFF, T_E_VALUE, T_TG_TH_STALL, T_OTA_NOSTA, T_OTA_NETERR, T_LOG_OTA_AUTO, T_LOG_OTA_FAIL,
-  T_LOG_AP_OFF, T_LOG_AP_ON, T_W_UPDATING, T_RR_POWER, T_RR_SW, T_RR_CRASH, T_RR_WDT, T_RR_BROWN, T_RR_RST, T_RR_OTHER, T_LOG_RESET, T_TG_RESET,
+  T_LOG_AP_OFF, T_LOG_AP_ON, T_LOG_CRASH, T_W_UPDATING, T_RR_POWER, T_RR_SW, T_RR_CRASH, T_RR_WDT, T_RR_BROWN, T_RR_RST, T_RR_OTHER, T_LOG_RESET, T_TG_RESET,
   T_W_LOGIN, T_W_LOGINBAD, T_W_LOGINLOCK, T_W_SETUPWEB, T_E_WEBUSER, T_E_WEBPASS, T_E_WEBDEF, T_LOG_LOGIN,
   T_E_IID, T_TG_IID, T_E_NOTG, T_LOG_IID,
   T_D_OFF, T_D_START, T_D_HEAT, T_D_PAUSE, T_D_LOST, T_D_WAIT, T_D_WATER, T_D_IN, T_D_NEXT, T_D_DEP, T_D_UNTIL,
@@ -512,6 +536,7 @@ const char* const TXT[T_COUNT][L_N] = {
   /* T_LOG_OTA_FAIL */     {"La actualización automática falló: %s", "The automatic update failed: %s", "Das automatische Update ist fehlgeschlagen: %s"},
   /* T_LOG_AP_OFF */       {"Wi-Fi propia oculta: la placa está en la red «%s» (vuelve sola si se pierde)", "Own Wi-Fi hidden: the board is on the network “%s” (it comes back if that is lost)", "Eigenes WLAN versteckt: die Platine ist im Netz „%s“ (kommt zurück, wenn es wegfällt)"},
   /* T_LOG_AP_ON */        {"Wi-Fi propia visible otra vez: sin la red «%s»", "Own Wi-Fi visible again: the network “%s” is gone", "Eigenes WLAN wieder sichtbar: Netz „%s“ weg"},
+  /* T_LOG_CRASH */        {"Informe del cuelgue (firmware %s): %s", "Crash report (firmware %s): %s", "Absturzbericht (Firmware %s): %s"},
   /* T_W_UPDATING */       {"La placa se está actualizando: espera a que termine y se reinicie.", "The board is updating: wait until it finishes and restarts.", "Die Platine wird aktualisiert: warten, bis sie fertig ist und neu startet."},
   /* T_RR_POWER */         {"se enchufó o volvió la corriente", "it was plugged in or power came back", "eingesteckt oder Strom kam zurück"},
   /* T_RR_SW */            {"reinicio pedido (actualización, ajustes o la orden reboot)", "requested restart (update, settings or the reboot command)", "angeforderter Neustart (Update, Einstellungen oder reboot)"},
@@ -612,8 +637,70 @@ void addLog(const String& m) {
   }
   String e = String(ts) + "  " + m;
   Serial.println(e);
-  if (logN < 20) logBuf[logN++] = e;  // aún hay hueco
-  else { for (int i = 1; i < 20; i++) logBuf[i - 1] = logBuf[i]; logBuf[19] = e; }   // lleno: se desplaza y se pierde el más viejo
+  logPush(e);
+  // Copia en la memoria RTC hasta que se guarde en la flash (si se cuelga antes, se recupera al arrancar)
+  if (rtcLog.magic != RTCLOG_MAGIC || rtcLog.n > RTCLOG_N) { rtcLog.magic = RTCLOG_MAGIC; rtcLog.n = 0; }
+  if (rtcLog.n == RTCLOG_N) { memmove(rtcLog.l[0], rtcLog.l[1], sizeof rtcLog.l[0] * (RTCLOG_N - 1)); rtcLog.n--; }
+  strlcpy(rtcLog.l[rtcLog.n++], e.c_str(), sizeof rtcLog.l[0]);
+  logDirty = true;
+}
+void logPush(const String& e) {
+  if (logN < LOG_N) logBuf[logN++] = e;  // aún hay hueco
+  else { for (int i = 1; i < LOG_N; i++) logBuf[i - 1] = logBuf[i]; logBuf[LOG_N - 1] = e; }   // lleno: se pierde el más viejo
+}
+
+// Desde loop() (Preferences no es seguro desde varias tareas): guarda el registro en la flash, como mucho cada 2 s
+void logSaveTick() {
+  if (!logDirty || millis() - logSaveAt < 2000) return;
+  logSaveAt = millis(); logDirty = false;
+  String all;
+  for (int i = 0; i < logN; i++) { if (i) all += '\n'; all += logBuf[i]; }
+  if (all.length() > 3600) all = all.substring(all.length() - 3600);   // por si las líneas son muy largas
+  prefs.begin("webasto", false);
+  prefs.putBytes("log2", all.c_str(), all.length());
+  prefs.end();
+  rtcLog.n = 0;                                   // ya está en la flash
+}
+
+// Al arrancar: el registro guardado y, si se colgó antes de guardar, las últimas líneas de la memoria RTC
+void logLoad() {
+  prefs.begin("webasto", true);
+  size_t n = prefs.isKey("log2") ? prefs.getBytesLength("log2") : 0;
+  if (n) {
+    char* b = (char*)malloc(n + 1);
+    if (b) {
+      prefs.getBytes("log2", b, n); b[n] = 0;
+      for (char* p = b; *p; ) { char* q = strchr(p, '\n'); if (q) *q = 0; if (*p) logPush(String(p)); if (!q) break; p = q + 1; }
+      free(b);
+    }
+  }
+  prefs.end();
+  bool rtcOk = rtcLog.magic == RTCLOG_MAGIC && rtcLog.n <= RTCLOG_N;
+  if (rtcOk) for (int i = 0; i < rtcLog.n; i++) { rtcLog.l[i][sizeof rtcLog.l[0] - 1] = 0; logPush(String(rtcLog.l[i])); }
+  rtcLog.magic = RTCLOG_MAGIC; rtcLog.n = 0;
+  if (logN) logPush("· · · · · · · · · · · · · · · · · · · ·");   // separa lo de antes de este arranque
+  logDirty = logN > 0;
+}
+
+// Informe del último cuelgue, de la partición coredump ("" si no hay o este núcleo no lo guarda). Se borra al leerlo
+String crashReport() {
+#ifdef WTTC_COREDUMP
+  if (esp_core_dump_image_check() != ESP_OK) return "";
+  esp_core_dump_summary_t* sm = (esp_core_dump_summary_t*)malloc(sizeof(esp_core_dump_summary_t));
+  String r;
+  if (sm && esp_core_dump_get_summary(sm) == ESP_OK) {
+    char b[200];
+    int k = snprintf(b, sizeof b, "tarea «%s», PC 0x%08lx, pila", sm->exc_task, (unsigned long)sm->exc_pc);
+    for (uint32_t i = 0; i < sm->exc_bt_info.depth && i < 8 && k < (int)sizeof b - 12; i++)
+      k += snprintf(b + k, sizeof b - k, " 0x%08lx", (unsigned long)sm->exc_bt_info.bt[i]);
+    r = b;
+  }
+  free(sm);
+  esp_core_dump_image_erase();
+  return r;
+#else
+  return "";
+#endif
 }
 
 // Hora actual como "07:42 " (con espacio al final) o vacío si la placa no está en hora
@@ -1767,6 +1854,7 @@ void loadCfg() {
   if (prefs.isKey("iid"))    prefs.getString("iid", iid, sizeof iid);
   statsOn  = prefs.getBool("stats", false);
   apAuto   = prefs.getBool("apau", true);
+  diagOn   = prefs.getBool("diag", false);
   if (prefs.isKey("runs2") && prefs.getBytesLength("runs2") == sizeof runs) prefs.getBytes("runs2", runs, sizeof runs);
   else if (prefs.isKey("runs") && prefs.getBytesLength("runs") == sizeof(RunV1) * RUNS) {   // de la 0.2.16: al formato nuevo
     RunV1* old = new RunV1[RUNS];
@@ -1951,6 +2039,9 @@ int cfgSet(String k, String v, String& err) {
       statsLast = 0;
       addLog(tr(T_LOG_IID));
     }
+  } else if (k == "diag") {                      // modo diagnóstico: 1 / 0
+    bool on = v == "1" || v == "true";
+    if (on != diagOn) { diagOn = on; prefs.putBool("diag", diagOn); }
   } else if (k == "apauto") {                     // ocultar la Wi-Fi propia estando en la red con internet: 1 / 0
     bool on = v == "1" || v == "true";
     if (on != apAuto) { apAuto = on; prefs.putBool("apau", apAuto); }
@@ -1973,7 +2064,7 @@ int cfgSet(String k, String v, String& err) {
 // Ajustes que admite el formulario de configuración de la web (en este orden)
 const char* CFG_KEYS[] = {"lang", "name", "appass", "pin", "wifimode", "ssid", "pass", "tgtok", "tgchat", "minvolt",
                           "oled", "disp", "led", "toff", "warm", "otaauto",
-                          "webuser", "webpass", "iid", "stats", "apauto"};
+                          "webuser", "webpass", "iid", "stats", "apauto", "diag"};
 
 // ¿Sigue la Wi-Fi propia con la clave de fábrica? Entonces cualquiera cerca puede entrar: la web obliga a cambiarla
 bool apDefault() { return strcmp(cfgApPass, AP_PASS_DEFAULT) == 0; }
@@ -1999,6 +2090,7 @@ String cfgJson(bool withPin) {
   j += ",\"iid\":";   j += js(String(iid));                      // código de instalación
   j += ",\"stats\":"; j += statsOn ? 1 : 0;                       // enviar las estadísticas de esta placa
   j += ",\"apauto\":"; j += apAuto ? 1 : 0;                       // ocultar la Wi-Fi propia en la red con internet (0.2.20+)
+  j += ",\"diag\":";  j += diagOn ? 1 : 0;                        // modo diagnóstico (0.2.20+)
   j += ",\"nruns\":"; j += runSeq; j += ",\"rack\":"; j += runAck;   // encendidos apuntados y ya enviados
   j += ",\"stok\":"; if (statsOkAt) j += (millis() - statsOkAt) / 1000; else j += "-1";   // s desde el último envío
   j += ",\"oled\":";   j += (int)oledType;
@@ -2219,6 +2311,7 @@ String stateJson() {
   j += String(gasMonth, 2); j += ","; j += String(gasTotal, 2); j += "]";   // con 2 decimales, como el encendido: si no, el total redondeado podía salir menor
   j += ",\"op\":";   j += otaProg;                // actualización por internet: 0–100 %, -1 = ninguna
   j += ",\"upd\":";  j += updating() ? 1 : 0;     // actualizando: la app lo bloquea todo
+  j += ",\"dg\":";   j += diagOn ? 1 : 0;         // modo diagnóstico: la app enseña «Ver registro»
   j += ",\"nv\":";   j += js(String(otaAvail));   // versión nueva encontrada ("" = ninguna)
   j += ",\"up\":";   j += (uint32_t)(millis() / 1000);   // segundos encendida (la app nota así los reinicios)
   j += ",\"ct\":";   j += isnan(cabT) ? -999 : (int)lround(cabT * 10);   // °C × 10 de dentro (-999 = sin termómetro)
@@ -2464,6 +2557,7 @@ void handleState() {
   j += ",\"apdef\":";  j += apDefault() ? "true" : "false";     // primer uso: la web pide la clave nueva
   j += ",\"op\":";     j += otaProg;                             // actualización por internet en curso (0–100)
   j += ",\"upd\":";    j += updating() ? 1 : 0;                  // actualizando: la web lo bloquea todo
+  j += ",\"dg\":";     j += diagOn ? 1 : 0;                      // modo diagnóstico: la web enseña el registro y demás
   // Diagnóstico: tiempo encendida, motivo del último arranque, memoria libre ahora y la más baja (KB)
   j += ",\"up\":";     j += (uint32_t)(millis() / 1000);
   j += ",\"rr\":";     j += js(String(resetText(bootWhy)));
@@ -3037,6 +3131,7 @@ void setup() {
   setCpuFrequencyMhz(80);             // suficiente para W-Bus, web y Bluetooth; gasta menos que a 240 MHz
   wbus.begin(2400, SERIAL_8E1, WBUS_RX, WBUS_TX);
   loadCfg();
+  logLoad();                                      // el registro guardado (y lo de justo antes, si se colgó)
   tgQueue = xQueueCreate(6, sizeof(Msg));         // hasta 6 avisos en espera
   bleQueue = xQueueCreate(4, sizeof(BleCmd));     // hasta 4 órdenes de la app en espera
   // Tarea de Telegram en el núcleo 0 (el del Wi-Fi); loop() corre en el núcleo 1
@@ -3091,6 +3186,10 @@ void setup() {
   bootWhy = resetReason();
   addLog(trf(T_LOG_RESET, resetText(bootWhy)));
   if (bootWhy == RR_CRASH || bootWhy == RR_WDT || bootWhy == RR_BROWN) notify(trf(T_TG_RESET, resetText(bootWhy)));
+  if (bootWhy == RR_CRASH || bootWhy == RR_WDT) {   // qué falló: tarea y direcciones (con el .elf de la Release, líneas)
+    String c = crashReport();
+    if (c.length()) { addLog(trf(T_LOG_CRASH, FW_VERSION, c.c_str())); if (diagOn) notify(trf(T_LOG_CRASH, FW_VERSION, c.c_str())); }
+  }
   heapMin = ESP.getFreeHeap();
   // Pantalla y termómetro (opcionales) en el bus I2C; botón BOOT para encender la pantalla
   Wire.begin(I2C_SDA, I2C_SCL, (uint32_t)400000);
@@ -3182,5 +3281,6 @@ void loop() {
   otaNetPoll();                                   // ¿ha terminado una búsqueda o descarga por internet?
   statsPoll();                                    // estadísticas de esta placa (si están activadas)
   staTick();                                      // red con internet y Wi-Fi propia (ocultarla estando en casa)
+  logSaveTick();                                  // el registro, a la flash (como mucho cada 2 s)
   { uint32_t h = ESP.getFreeHeap(); if (h < heapMin) heapMin = h; }   // para ver si hay una fuga de memoria
 }

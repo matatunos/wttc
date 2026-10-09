@@ -208,6 +208,7 @@
     <string name="upd_lock_installing">Installiere…</string>
     <string name="upd_lock_rebooting">Neustart mit der neuen Version…</string>
     <string name="sw_apauto">Eigenes WLAN ausblenden, solange es mit dem Netz mit Internet verbunden ist</string>
+    <string name="sw_diag">Diagnosemodus (Protokoll, technische Daten und Absturzbericht)</string>
     <string name="quick_title">Schnellzugriff</string>
     <string name="quick_help">„Webasto“-Schalter in den Schnelleinstellungen von Android (herunterziehen und bearbeiten, um ihn hinzuzufügen) und ein Widget für den Startbildschirm. Ein Tippen verbindet mit der Platine und schaltet für diese Dauer ein, oder aus, wenn sie schon läuft.</string>
     <string name="quick_dur">Dauer des Schnellzugriffs</string>

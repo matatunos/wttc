@@ -89,6 +89,9 @@ jobs:
           python3 .github/scripts/firmar_ota.py build/WTTC.ino.bin "$v" "$k" "$o"
           rm -f "$k"
           echo "WTTC_OTA=$o" >> "$GITHUB_ENV"; echo "WTTC_VER=$v" >> "$GITHUB_ENV"
+          # El .elf de este mismo programa: con él se traducen a líneas de código las direcciones del informe de un
+          # cuelgue (el que la placa lee de su partición coredump y apunta en el registro)
+          e="build/WTTC-$v${{ matrix.board.suffix }}.elf"; cp build/WTTC.ino.elf "$e"; echo "WTTC_ELF=$e" >> "$GITHUB_ENV"
       # Piezas para instalar desde el navegador (wttc.favala.es/instalar.php, con ESP Web Tools): cargador de arranque,
       # tabla de particiones, boot_app0 y programa, más placa.json con el chip y la dirección del cargador. La zona de
       # configuración (NVS) no va: reinstalar así no borra la configuración ni el PIN.
@@ -114,6 +117,7 @@ jobs:
             build/WTTC.ino.*bin
             build/*.ota
             build/WTTC-*-instalar-*.zip
+            build/WTTC-*.elf
       # Adjuntar el .ota y el paquete de instalación a la Release solo si esa versión se publicó desde este mismo commit
       # (la crea android.yml): así nunca se cuelga en una Release el programa de un commit posterior con la etiqueta
       # de una versión anterior
@@ -130,7 +134,7 @@ jobs:
           git fetch -q --tags origin
           [ "$(git rev-list -n1 "$tag")" = "$GITHUB_SHA" ] || { echo "::notice::$tag es de otro commit: no se adjunta"; exit 0; }
           have=$(gh release view "$tag" --json assets -q '.assets[].name')
-          for p in $WTTC_OTA $WTTC_FLASH; do
+          for p in $WTTC_OTA $WTTC_FLASH $WTTC_ELF; do
             f=$(basename "$p")
             if grep -qx "$f" <<< "$have"; then echo "::notice::La Release ya tiene $f"; continue; fi
             gh release upload "$tag" "$p" && echo "::notice title=Publicado::$f en $tag"

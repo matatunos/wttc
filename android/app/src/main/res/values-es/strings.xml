@@ -208,6 +208,7 @@
     <string name="upd_lock_installing">Instalando…</string>
     <string name="upd_lock_rebooting">Reiniciando con la versión nueva…</string>
     <string name="sw_apauto">Ocultar la Wi-Fi propia cuando esté conectada a la red con internet</string>
+    <string name="sw_diag">Modo diagnóstico (registro, datos técnicos e informe de cuelgues)</string>
     <string name="quick_title">Acceso rápido</string>
     <string name="quick_help">Botón «Webasto» en los ajustes rápidos de Android (despliégalos y edítalos para añadirlo) y widget para la pantalla de inicio. Al pulsarlo se conecta a la placa y enciende con esta duración, o apaga si ya está encendida.</string>
     <string name="quick_dur">Duración del acceso rápido</string>

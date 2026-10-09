@@ -176,6 +176,8 @@ class MainActivity : Activity(), BleLink.Listener {
     private var hasOtaAuto = false
     private var nvAsked = ""                           // versión nueva de la placa por la que ya se ha preguntado
     // Acceso web desde otra red y «Mis estadísticas» (firmware 0.2.16+)
+    private lateinit var swDiag: Switch                 // modo diagnóstico (0.2.20+)
+    private lateinit var bLog: View                     // «Ver registro»: solo en modo diagnóstico
     private lateinit var swApAuto: Switch               // ocultar la Wi-Fi propia en la red con internet (0.2.20+)
     private lateinit var webBox: LinearLayout
     private lateinit var eWuser: EditText
@@ -431,6 +433,8 @@ class MainActivity : Activity(), BleLink.Listener {
             fun l(i: Int): String { val v = g.optDouble(i, 0.0); return (if (v < 10) String.format(numLocale, "%.2f", v) else String.format(numLocale, "%.1f", v)) + " l" }
             tGas.text = if (on) getString(R.string.gas_on, l(0), l(2), l(3)) else getString(R.string.gas_off, l(1), l(2), l(3))
         }
+        // «Ver registro» solo en modo diagnóstico (placas sin el ajuste: siempre, como antes)
+        bLog.visibility = if (!j.has("dg") || j.optInt("dg") == 1) View.VISIBLE else View.INVISIBLE
         val op = j.optInt("op", -1)
         if (op >= 0) { tUpd.visibility = View.VISIBLE; tUpd.text = getString(R.string.upd_progress, op); pUpd.visibility = View.VISIBLE; pUpd.progress = op }
         else pUpd.visibility = View.GONE
@@ -666,8 +670,8 @@ class MainActivity : Activity(), BleLink.Listener {
         // Diagnóstico
         section(controls, getString(R.string.sec_diag))
         tDiag = text("", 13f, cMut).apply { setTextIsSelectable(true) }
-        controls.addView(row(button(getString(R.string.btn_read_faults)) { tDiag.text = getString(R.string.reading); link.send("errors") },
-            button(getString(R.string.btn_view_log)) { tDiag.text = getString(R.string.reading); link.send("log") }), lp(top = 10))
+        bLog = button(getString(R.string.btn_view_log)) { tDiag.text = getString(R.string.reading); link.send("log") }
+        controls.addView(row(button(getString(R.string.btn_read_faults)) { tDiag.text = getString(R.string.reading); link.send("errors") }, bLog), lp(top = 10))
         controls.addView(button(getString(R.string.btn_gas_reset)) { confirmGasReset() }, lp(top = 10))
         controls.addView(tDiag, lp(top = 10))
 
@@ -687,6 +691,7 @@ class MainActivity : Activity(), BleLink.Listener {
         cfg.addView(spWm, lp(top = 4))
         swApAuto = Switch(this).apply { text = getString(R.string.sw_apauto); setTextColor(cInk); textSize = 15f; visibility = View.GONE }
         cfg.addView(swApAuto, lp(top = 10))
+        swDiag = Switch(this).apply { text = getString(R.string.sw_diag); setTextColor(cInk); textSize = 15f; visibility = View.GONE }
         cfg.addView(text(getString(R.string.cfg_inet), 15f, cInk, true), lp(top = 18))
         field(getString(R.string.f_ssid)).let { cfg.addView(it.first); eSsid = it.second }
         // Buscar redes cercanas: la placa busca y se elige una de la lista (rellena el nombre)
@@ -717,6 +722,7 @@ class MainActivity : Activity(), BleLink.Listener {
         myBox.addView(row(button(getString(R.string.btn_iid_tg)) { link.send("iidtg") },
             button(getString(R.string.btn_my_stats)) { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wttc.favala.es/mi.php#$boardIid"))) }), lp(top = 10))
         cfg.addView(myBox)
+        cfg.addView(swDiag, lp(top = 18))
         cfg.addView(text(getString(R.string.cfg_safety), 15f, cInk, true), lp(top = 18))
         field(getString(R.string.f_minv), InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL).let { cfg.addView(it.first); eMinV = it.second }
         hwBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
@@ -1238,6 +1244,8 @@ class MainActivity : Activity(), BleLink.Listener {
         eTok.hint = getString(if (c.optBoolean("tg")) R.string.hint_token_saved else R.string.hint_not_set)
         eAp.setText(""); ePass.setText(""); eTok.setText("")
         fwVer = c.optString("ver"); fwOta = c.optInt("ota") == 1
+        swDiag.visibility = if (c.has("diag")) View.VISIBLE else View.GONE
+        if (c.has("diag")) swDiag.isChecked = c.optInt("diag") == 1
         swApAuto.visibility = if (c.has("apauto")) View.VISIBLE else View.GONE
         if (c.has("apauto")) swApAuto.isChecked = c.optInt("apauto") == 1
         webBox.visibility = if (c.has("webuser")) View.VISIBLE else View.GONE
@@ -1288,6 +1296,7 @@ class MainActivity : Activity(), BleLink.Listener {
             "minvolt" to eMinV.text.toString().trim().replace(',', '.'),
         )
         if (hasOtaAuto) sets += "otaauto" to spOtaAuto.selectedItemPosition.toString()
+        if (swDiag.visibility == View.VISIBLE) sets += "diag" to (if (swDiag.isChecked) "1" else "0")
         if (swApAuto.visibility == View.VISIBLE) sets += "apauto" to (if (swApAuto.isChecked) "1" else "0")
         if (webBox.visibility == View.VISIBLE) {
             sets += "webuser" to eWuser.text.toString().trim()
