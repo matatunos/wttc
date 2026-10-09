@@ -204,6 +204,10 @@
     <string name="iid_sent">Code sent: check Telegram in a few seconds</string>
     <string name="board_stats_title">See your heater\'s statistics?</string>
     <string name="board_stats_msg">The board records every run: hours, fuel, inside temperature and humidity, battery and faults. If you turn this on, you will see it with charts and tips on wttc.favala.es (how early to start depending on the cold, how much you spend a month, whether the battery suffers…).\n\nOnly with your board\'s code; nobody else can see it, and it is deleted whenever you want. It can be changed in Settings → My statistics.</string>
+    <string name="upd_lock_title">Updating the board</string>
+    <string name="upd_lock_msg">Do not unplug it or touch anything: when it finishes it restarts by itself and the app reconnects.</string>
+    <string name="upd_lock_installing">Installing…</string>
+    <string name="upd_lock_rebooting">Restarting with the new version…</string>
     <string name="quick_title">Quick access</string>
     <string name="quick_help">“Webasto” button in Android\'s quick settings (pull them down and edit them to add it) and a home screen widget. Tapping it connects to the board and switches on for this long, or off if it is already on.</string>
     <string name="quick_dur">Quick access duration</string>

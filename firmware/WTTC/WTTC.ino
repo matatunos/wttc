@@ -206,6 +206,8 @@ bool rebootPending = false;           // reiniciar en la próxima vuelta de loop
 // ---------- actualización por internet (ver «Buscar e instalar por internet») ----------
 volatile bool otaNetBusy = false;     // hay una búsqueda o descarga en marcha (en otra tarea)
 volatile int otaProg = -1;            // progreso de la descarga (0–100); -1 = ninguna
+volatile bool otaUploading = false;   // se está subiendo un .ota desde la web (Configuración → Actualizar)
+uint32_t otaUploadAt = 0;             // último trozo recibido (si la subida se corta sin aviso, a los 2 min deja de contar)
 volatile bool otaNetEnd = false;      // la tarea ha terminado: loop() responde y, si se instaló, reinicia
 String otaNetMsg;                     // texto del resultado (lo escribe la tarea antes de otaNetEnd)
 String otaNetNotes;                   // novedades de la versión nueva (de ota.json)
@@ -366,6 +368,7 @@ enum Txt {
   T_LOG_HW, T_LOG_TH_ON, T_LOG_TH_WAIT, T_LOG_TH_END, T_LOG_TH_NOSENS, T_TG_TH_REACHED, T_WHY_TARGET,
   T_E_NOSENS, T_E_TARGET, T_WHY_BATT, T_NOTE_BATT, T_TG_WARM, T_LOG_DEP, T_LOG_DEP_SET, T_LOG_DEP_OFF, T_E_DEP,
   T_E_WARM, T_E_TOFF, T_E_VALUE, T_TG_TH_STALL, T_OTA_NOSTA, T_OTA_NETERR, T_LOG_OTA_AUTO, T_LOG_OTA_FAIL,
+  T_W_UPDATING,
   T_W_LOGIN, T_W_LOGINBAD, T_W_LOGINLOCK, T_W_SETUPWEB, T_E_WEBUSER, T_E_WEBPASS, T_E_WEBDEF, T_LOG_LOGIN,
   T_E_IID, T_TG_IID, T_E_NOTG, T_LOG_IID,
   T_D_OFF, T_D_START, T_D_HEAT, T_D_PAUSE, T_D_LOST, T_D_WAIT, T_D_WATER, T_D_IN, T_D_NEXT, T_D_DEP, T_D_UNTIL,
@@ -501,6 +504,7 @@ const char* const TXT[T_COUNT][L_N] = {
                             "Die Platine ist im Netz, erreicht aber wttc.favala.es nicht (Code %d · der Name ergibt %s · DNS %s · Router %s)."},
   /* T_LOG_OTA_AUTO */     {"Instalando sola la versión %s (actualizaciones automáticas)", "Installing version %s by itself (automatic updates)", "Installiert Version %s selbst (automatische Updates)"},
   /* T_LOG_OTA_FAIL */     {"La actualización automática falló: %s", "The automatic update failed: %s", "Das automatische Update ist fehlgeschlagen: %s"},
+  /* T_W_UPDATING */       {"La placa se está actualizando: espera a que termine y se reinicie.", "The board is updating: wait until it finishes and restarts.", "Die Platine wird aktualisiert: warten, bis sie fertig ist und neu startet."},
   /* T_W_LOGIN */          {"Hace falta entrar con usuario y clave.", "You need to log in with user and password.", "Anmeldung mit Benutzer und Passwort nötig."},
   /* T_W_LOGINBAD */       {"Usuario o clave incorrectos.", "Wrong user or password.", "Benutzer oder Passwort falsch."},
   /* T_W_LOGINLOCK */      {"Demasiados intentos: espera %d min.", "Too many attempts: wait %d min.", "Zu viele Versuche: %d min warten."},
@@ -2156,6 +2160,7 @@ String stateJson() {
   j += ",\"gas\":[";  j += String(gasCur, 2); j += ","; j += String(gasLast, 2); j += ",";
   j += String(gasMonth, 2); j += ","; j += String(gasTotal, 2); j += "]";   // con 2 decimales, como el encendido: si no, el total redondeado podía salir menor
   j += ",\"op\":";   j += otaProg;                // actualización por internet: 0–100 %, -1 = ninguna
+  j += ",\"upd\":";  j += updating() ? 1 : 0;     // actualizando: la app lo bloquea todo
   j += ",\"nv\":";   j += js(String(otaAvail));   // versión nueva encontrada ("" = ninguna)
   j += ",\"up\":";   j += (uint32_t)(millis() / 1000);   // segundos encendida (la app nota así los reinicios)
   j += ",\"ct\":";   j += isnan(cabT) ? -999 : (int)lround(cabT * 10);   // °C × 10 de dentro (-999 = sin termómetro)
@@ -2280,6 +2285,9 @@ String runCmd(String c) {
   // k = la orden (primera palabra), a = el resto (argumentos)
   String k = sp < 0 ? c : c.substring(0, sp), a = sp < 0 ? String("") : c.substring(sp + 1);
   k.toLowerCase();
+  // Actualizando: solo apagar y consultar (la app también lo bloquea todo)
+  if (updating() && k != "off" && k != "cfg" && k != "errors" && k != "log" && k != "sched" && k != "report" && k != "runsack" && k != "time")
+    return k + ":err " + tr(T_W_UPDATING);
   if (k == "on") {                                 // on [minutos] [objetivo °C]: con objetivo, termostato
     int m = a.toInt(), b = a.indexOf(' ');
     String e = heatOn(m, b > 0 ? a.substring(b + 1).toInt() : 0, "app");
@@ -2397,6 +2405,7 @@ void handleState() {
   j += ",\"lang\":";   j += js(String(LANG_CODES[lang]));
   j += ",\"apdef\":";  j += apDefault() ? "true" : "false";     // primer uso: la web pide la clave nueva
   j += ",\"op\":";     j += otaProg;                             // actualización por internet en curso (0–100)
+  j += ",\"upd\":";    j += updating() ? 1 : 0;                  // actualizando: la web lo bloquea todo
   j += ",\"om\":";     j += js(lastWebMsg);                      // último resultado de buscar o actualizar
   j += ",\"onew\":";   j += (otaNetNew && !otaNetBusy) ? "true" : "false";   // ese resultado es «hay versión nueva»
   j += ",\"nv\":";     j += js(String(otaAvail));                // versión nueva que ha visto la placa ("" = ninguna)
@@ -2601,22 +2610,26 @@ void handleUpdateUpload() {
   HTTPUpload& u = server.upload();
   lastWeb = millis();                                         // que la Wi-Fi no se apague a mitad
   if (u.status == UPLOAD_FILE_START) {
+    otaUploading = true; otaUploadAt = millis();
     if (otaNetBusy) { ota.active = true; ota.failed = true; ota.err = tr(T_OTA_BUSY); return; }   // ya descarga por internet
     if (ota.mdOn) mbedtls_md_free(&ota.md);
     ota = Ota();
     ota.active = true;
     if (heaterOn) otaFail(T_OTA_HEAT);                        // nunca mientras calienta
   } else if (u.status == UPLOAD_FILE_WRITE) {
+    otaUploadAt = millis();
     if (ota.active && !otaNetBusy) otaFeed(u.buf, u.currentSize);
   } else if (u.status == UPLOAD_FILE_END) {
     if (ota.active && !otaNetBusy) otaFinish();
   } else if (u.status == UPLOAD_FILE_ABORTED) {
     otaFail(T_OTA_WRITE);
+    otaUploading = false;
   }
 }
 
 // Fin de la petición: respuesta y, si se instaló, reinicio
 void handleUpdateDone() {
+  otaUploading = false;                           // si salió bien, reinicia enseguida (rebootPending)
   if (!ota.active) { server.send(400, "text/plain", tr(T_OTA_FORMAT)); return; }
   ota.active = false;
   if (!ota.done) { server.send(400, "text/plain", ota.err ? ota.err : tr(T_OTA_WRITE)); return; }
@@ -2737,6 +2750,16 @@ void otaNetTask(void*) {
 
 // Lanza la búsqueda (install = false) o la actualización completa (install = true). Devuelve el error, o "" si arranca
 // autoCheck = búsqueda diaria para avisar por Telegram: solo si la Wi-Fi ya está conectada (no la enciende).
+// ¿Se está instalando una actualización (descarga por internet o subida desde la web)? Mientras tanto la placa no
+// admite órdenes (salvo apagar y consultar): la web y la app bloquean todo, y esto lo asegura aunque alguien las mande
+bool updating() { return (otaNetBusy && otaNetInstall) || (otaUploading && millis() - otaUploadAt < 120000); }
+// Para las rutas web que cambian algo: 409 y el aviso si se está actualizando
+bool notUpdating() {
+  if (!updating()) return true;
+  server.send(409, "text/plain", tr(T_W_UPDATING));
+  return false;
+}
+
 String otaNetStart(bool install, bool autoCheck) {
   if (otaNetBusy) return tr(T_OTA_BUSY);
   if (install && heaterOn) return tr(T_OTA_HEAT);
@@ -2950,28 +2973,28 @@ void setup() {
   server.on("/", HTTP_GET, [] { if (foreignHost()) { toPortal(); return; } server.send_P(200, "text/html", INDEX_HTML); });
   server.on("/api/state", HTTP_GET, [] { if (authed()) handleState(); });
   // Las órdenes (POST) solo se aceptan desde la propia web de la placa (ver sameOrigin)
-  server.on("/api/on", HTTP_POST, [] { if (authed() && sameOrigin() && setupDone()) handleOn(); });
+  server.on("/api/on", HTTP_POST, [] { if (authed() && sameOrigin() && setupDone() && notUpdating()) handleOn(); });
   server.on("/api/off", HTTP_POST, [] { if (authed() && sameOrigin() && setupDone()) handleOff(); });
-  server.on("/api/sched", HTTP_POST, [] { if (authed() && sameOrigin() && setupDone()) handleSched(); });
-  server.on("/api/dep", HTTP_POST, [] { if (authed() && sameOrigin() && setupDone()) handleDep(); });
+  server.on("/api/sched", HTTP_POST, [] { if (authed() && sameOrigin() && setupDone() && notUpdating()) handleSched(); });
+  server.on("/api/dep", HTTP_POST, [] { if (authed() && sameOrigin() && setupDone() && notUpdating()) handleDep(); });
   server.on("/api/time", HTTP_POST, [] { if (authed() && sameOrigin()) handleTime(); });
   // Redes Wi-Fi cercanas: {"run":true} mientras busca; {"nets":[…]} al acabar (solo lectura: no hace falta el origen)
   server.on("/api/scan", HTTP_GET, [] { if (!authed()) return; String r = scanNets(); server.send(200, "application/json", r.length() ? "{\"nets\":" + r + "}" : String("{\"run\":true}")); });
   server.on("/api/errors", HTTP_GET, [] { if (authed()) server.send(200, "application/json", errorsJson()); });
   server.on("/api/cfg", HTTP_GET, [] { if (authed()) server.send(200, "application/json", cfgJson(!apDefault())); });
-  server.on("/api/cfg", HTTP_POST, [] { if (authed() && sameOrigin()) handleCfgPost(); });
-  server.on("/api/tgtest", HTTP_POST, [] { if (authed() && sameOrigin() && setupDone()) handleTgTest(); });
-  server.on("/api/gasreset", HTTP_POST, [] { if (!authed() || !sameOrigin() || !setupDone()) return; runCmd("gasreset"); server.send(200, "text/plain", tr(T_W_GASRESET)); });
-  server.on("/api/forget", HTTP_POST, [] { if (!authed() || !sameOrigin() || !setupDone()) return; int n = bleForgetAll(); server.send(200, "text/plain", trf(T_W_FORGOT, n)); });
+  server.on("/api/cfg", HTTP_POST, [] { if (authed() && sameOrigin() && notUpdating()) handleCfgPost(); });
+  server.on("/api/tgtest", HTTP_POST, [] { if (authed() && sameOrigin() && setupDone() && notUpdating()) handleTgTest(); });
+  server.on("/api/gasreset", HTTP_POST, [] { if (!authed() || !sameOrigin() || !setupDone() || !notUpdating()) return; runCmd("gasreset"); server.send(200, "text/plain", tr(T_W_GASRESET)); });
+  server.on("/api/forget", HTTP_POST, [] { if (!authed() || !sameOrigin() || !setupDone() || !notUpdating()) return; int n = bleForgetAll(); server.send(200, "text/plain", trf(T_W_FORGOT, n)); });
   // Actualización sin cable: misma protección que las órdenes; el primer manejador responde, el segundo recibe el fichero
   server.on("/api/update", HTTP_POST, [] { if (authed() && sameOrigin() && setupDone()) handleUpdateDone(); },
             [] { if (originOk() && !apDefault() && loggedIn() && (viaAp() || !webDefault())) handleUpdateUpload(); });
-  server.on("/api/otacheck", HTTP_POST, [] { if (!authed() || !sameOrigin() || !setupDone()) return; String e = otaNetStart(false, false);
+  server.on("/api/otacheck", HTTP_POST, [] { if (!authed() || !sameOrigin() || !setupDone() || !notUpdating()) return; String e = otaNetStart(false, false);
     server.send(e.length() ? 400 : 202, "text/plain", e.length() ? e : String("")); });
   server.on("/api/otaupdate", HTTP_POST, [] { if (!authed() || !sameOrigin() || !setupDone()) return; String e = otaNetStart(true, false);
     server.send(e.length() ? 400 : 202, "text/plain", e.length() ? e : String("")); });
   // Código de instalación por Telegram (dos mensajes: explicación y el código solo, para copiarlo)
-  server.on("/api/iidtg", HTTP_POST, [] { if (!authed() || !sameOrigin() || !setupDone()) return; String r = runCmd("iidtg");
+  server.on("/api/iidtg", HTTP_POST, [] { if (!authed() || !sameOrigin() || !setupDone() || !notUpdating()) return; String r = runCmd("iidtg");
     if (r.startsWith("iidtg:err ")) server.send(400, "text/plain", r.substring(10)); else server.send(200, "text/plain", tr(T_W_TG_SENDING)); });
   // Login desde otra red (desde la Wi-Fi propia no hace falta)
   server.on("/api/login", HTTP_POST, [] { if (sameOrigin()) handleLogin(); });

@@ -9,7 +9,7 @@ const h = fs.readFileSync(process.argv[2], 'utf8'), i0 = h.indexOf('<script>') +
 const code = h.slice(i0, h.indexOf('</script>', i0));
 const els = {};
 const el = id => els[id] || (els[id] = { id, textContent: '', innerHTML: '', value: '', checked: false, hidden: false, disabled: false,
-  style: {}, dataset: {}, classList: { toggle() {}, add() {}, remove() {} }, setAttribute() {}, addEventListener() {}, files: [] });
+  style: {}, dataset: {}, classList: { toggle() {}, add() {}, remove() {} }, setAttribute() {}, removeAttribute() {}, addEventListener() {}, files: [] });
 const now = Math.floor(Date.now() / 1000);
 const state = (o) => Object.assign({ on: true, remain: 1320, total: 1800, src: 'programa', temp: 31, volt: 12.4, flame: 1, pw: 5000, bus: 1, time: now, tv: true,
   auto: true, ph: 2, gas: [0.07, 0.3, 1.2, 4.5], note: '', tg: false, tgchat: '', tgl: '', wm: 1, ble: 0, name: 'WTTC', lang: 'es', apdef: false,
@@ -56,5 +56,11 @@ for (const lang of ['es', 'en', 'de']) {
   // Con usuario y clave de fábrica desde otra red: aviso para cambiarlos y botón de encender desactivado
   cur = state({ lang: 'es', on: false, wdef: true, lan: true }); W.st = cur; W.render();
   assert.ok(!el('wsetup').hidden && el('big').disabled && !el('logout').hidden, 'falta el aviso de usuario y clave de fábrica');
+  // Actualizando (descarga por internet o instalando): una capa tapa toda la página
+  el('updLock').hidden = true; cur = state({ lang: 'es', on: false, op: 40 }); W.st = cur; W.render();
+  assert.ok(!el('updLock').hidden && /40/.test(el('updLockMsg').textContent), 'descargando: falta el bloqueo de la página');
+  el('updLock').hidden = true; cur = state({ lang: 'es', on: false, op: -1, upd: 1 }); W.st = cur; W.render();
+  assert.ok(!el('updLock').hidden, 'instalando: falta el bloqueo de la página');
+  console.log('bloqueo al actualizar: OK (' + el('updLockMsg').textContent + ')');
   console.log('Web de la placa: OK');
 })().catch(e => { console.error(e); process.exit(1); });

@@ -11,6 +11,7 @@ ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya pro
 Versión de prueba (sin probar con una Webasto real).
 
 - **Los arranques fallidos también cuentan en «Mis estadísticas».** Cuando la Webasto no contesta por el W-Bus al intentar encenderla («No se pudo encender…»), la placa lo apunta como un intento con su hora, quién lo pidió y la temperatura y batería de ese momento. En https://wttc.favala.es/mi.php sale aparte (no baja las medias de duración y gasoil), en «Por qué se apaga» y en la tabla como «No respondió (W-Bus)», y con un consejo de qué revisar si se repite.
+- **Mientras se actualiza no se puede tocar nada.** La web de la placa y la app tapan toda la pantalla con el progreso («Descargando… 40 %», «Instalando…», «Reiniciando con la versión nueva…») hasta que la placa vuelve. Además, la placa rechaza las órdenes mientras instala (salvo apagar y consultar), por si alguien las manda igualmente.
 
 ## 0.2.18 — 2026-10-09
 

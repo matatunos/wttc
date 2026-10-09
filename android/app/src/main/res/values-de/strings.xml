@@ -203,6 +203,10 @@
     <string name="iid_sent">Code gesendet: in ein paar Sekunden Telegram prüfen</string>
     <string name="board_stats_title">Statistiken deiner Heizung ansehen?</string>
     <string name="board_stats_msg">Die Platine notiert jeden Heizlauf: Stunden, Diesel, Temperatur und Feuchte innen, Batterie und Störungen. Wenn du das einschaltest, siehst du es mit Diagrammen und Tipps auf wttc.favala.es (wie früh je nach Kälte starten, wie viel du im Monat verbrauchst, ob die Batterie leidet…).\n\nNur mit dem Code deiner Platine; niemand sonst kann es sehen, und es wird gelöscht, wann du willst. Änderbar unter Einstellungen → Meine Statistiken.</string>
+    <string name="upd_lock_title">Platine wird aktualisiert</string>
+    <string name="upd_lock_msg">Nicht ausstecken und nichts antippen: danach startet sie selbst neu und die App verbindet sich wieder.</string>
+    <string name="upd_lock_installing">Installiere…</string>
+    <string name="upd_lock_rebooting">Neustart mit der neuen Version…</string>
     <string name="quick_title">Schnellzugriff</string>
     <string name="quick_help">„Webasto“-Schalter in den Schnelleinstellungen von Android (herunterziehen und bearbeiten, um ihn hinzuzufügen) und ein Widget für den Startbildschirm. Ein Tippen verbindet mit der Platine und schaltet für diese Dauer ein, oder aus, wenn sie schon läuft.</string>
     <string name="quick_dur">Dauer des Schnellzugriffs</string>

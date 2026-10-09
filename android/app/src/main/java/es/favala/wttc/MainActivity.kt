@@ -187,6 +187,11 @@ class MainActivity : Activity(), BleLink.Listener {
     private var boardIid = ""
     private var relayRounds = 0                        // informes de la placa llevados al servidor en esta sesión
     private var lastUp = -1L                           // segundos encendida de la placa: si baja, se ha reiniciado
+    // Bloqueo mientras la placa se actualiza: aviso fijo con la barra, sin poder tocar nada (se quita al volver la placa)
+    private var updDlg: AlertDialog? = null
+    private var updDlgBar: android.widget.ProgressBar? = null
+    private var updDlgText: TextView? = null
+    private var lastBusyMs = 0L
     private var hasSensor = false                      // ¿tiene la placa termómetro? (sin él no se ofrece «Hasta X °C»)
     // Interruptor de las estadísticas anónimas (en «Ajustes de la app»)
     private lateinit var swStats: Switch
@@ -301,6 +306,12 @@ class MainActivity : Activity(), BleLink.Listener {
     // ---------- BleLink.Listener ----------
     // El enlace ha cambiado de estado: texto y color de la cabecera, caja de emparejar y controles activos o no
     override fun onLink(state: BleLink.State, detail: String) {
+        // Actualizando y se pierde la conexión: es el reinicio con la versión nueva. Como mucho 90 s de aviso
+        if (updDlg?.isShowing == true && state != BleLink.State.CONNECTED) {
+            updDlgText?.text = getString(R.string.upd_lock_rebooting); updDlgBar?.isIndeterminate = true
+            val d = updDlg
+            window.decorView.postDelayed({ if (updDlg === d) updUnlock() }, 90000)
+        }
         val (txt, col) = when (state) {
             BleLink.State.NO_BLUETOOTH -> getString(R.string.link_no_bt) to cBad
             BleLink.State.NOT_PAIRED -> getString(R.string.link_not_paired) to cMut
@@ -422,6 +433,9 @@ class MainActivity : Activity(), BleLink.Listener {
         val op = j.optInt("op", -1)
         if (op >= 0) { tUpd.visibility = View.VISIBLE; tUpd.text = getString(R.string.upd_progress, op); pUpd.visibility = View.VISIBLE; pUpd.progress = op }
         else pUpd.visibility = View.GONE
+        // Actualizando (descarga o instalación): todo bloqueado. Al acabar, unos segundos más (la placa va a reiniciarse)
+        if (op >= 0 || j.optInt("upd") == 1) updLock(if (op >= 0) getString(R.string.upd_progress, op) else getString(R.string.upd_lock_installing), op)
+        else if (updDlg?.isShowing == true && System.currentTimeMillis() - lastBusyMs > 8000) updUnlock()
         val note = j.optString("note")
         val warn = mutableListOf<String>()
         if (!on && note.isNotEmpty()) warn += note
@@ -880,6 +894,23 @@ class MainActivity : Activity(), BleLink.Listener {
             }
         }
     }
+
+    /** Aviso fijo mientras se actualiza: no se puede cerrar ni tocar nada detrás. p = % (o -1 sin porcentaje) */
+    private fun updLock(msg: String, p: Int) {
+        lastBusyMs = System.currentTimeMillis()
+        if (updDlg?.isShowing != true) {
+            val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(22), dp(8), dp(22), dp(4)) }
+            updDlgText = text(msg, 15f, cInk)
+            updDlgBar = android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+                max = 100; progressTintList = android.content.res.ColorStateList.valueOf(cFl) }
+            box.addView(updDlgText); box.addView(updDlgBar, lp(top = 10)); box.addView(text(getString(R.string.upd_lock_msg), 13f, cMut), lp(top = 10))
+            updDlg = AlertDialog.Builder(this).setTitle(getString(R.string.upd_lock_title)).setView(box).setCancelable(false).show()
+        }
+        updDlgText?.text = msg
+        updDlgBar?.isIndeterminate = p < 0
+        if (p >= 0) updDlgBar?.progress = p
+    }
+    private fun updUnlock() { updDlg?.dismiss(); updDlg = null }
 
     /** «Mis estadísticas» de la placa: se pregunta una vez por placa (por su código). Dos botones iguales. */
     private fun askBoardStats(iid: String) {
