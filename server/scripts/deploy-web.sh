@@ -8,7 +8,7 @@
 #   web/                        → WEB_DIR            (páginas, textos en 3 idiomas, simulador, informes PDF, iconos)
 #   server/*.php, server/api/   → WEB_DIR, WEB_DIR/api (estadísticas públicas, mis estadísticas y sus API)
 #   server/privado/wttc-stats/  → TOOLS_DIR/wttc-stats (vista privada, con login del portal)
-#   server/scripts/*.sh         → /usr/local/bin     (publicación del firmware y del instalador web)
+#   server/scripts/*.sh         → /usr/local/bin     (publicación del firmware y del instalador web, avisos por Telegram)
 #   server/scripts/cron.d-*     → /etc/cron.d/
 #   server/scripts/post-commit  → .git/hooks/        (el hook no viaja con git: se instala desde aquí)
 #
@@ -34,7 +34,7 @@ mkdir -p "$TOOLS_DIR/wttc-stats"
 rsync -a --checksum "$REPO/server/privado/wttc-stats/" "$TOOLS_DIR/wttc-stats/"
 
 # ---------- scripts, cron y hook ----------
-for f in wttc-publicar.sh wttc-instalador.sh; do
+for f in wttc-publicar.sh wttc-instalador.sh wttc-aviso.sh; do
     cmp -s "$REPO/server/scripts/$f" "$BIN_DIR/$f" || install -m 755 "$REPO/server/scripts/$f" "$BIN_DIR/$f"
 done
 cmp -s "$REPO/server/scripts/cron.d-wttc-instalador" "$CRON_DIR/wttc-instalador" \
