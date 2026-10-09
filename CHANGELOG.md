@@ -6,6 +6,18 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.2.17 — 2026-10-09
+
+Versión de prueba (sin probar con una Webasto real).
+
+- **Más datos de cada encendido** para «Mis estadísticas»: humedad dentro al empezar y al acabar, objetivo del termostato y minutos hasta llegar, agua del motor y batería al empezar, y potencia media. Los encendidos que ya tenía apuntados la placa se conservan (pasan solos al formato nuevo).
+- **Mis estadísticas** (https://wttc.favala.es/mi.php), mucho más completa:
+  - **Consejos para ti** sacados de tus datos: cuánto antes encender según el frío, si conviene «calentar hasta», cuánto gastas con y sin termostato, avisos de batería y de humedad, programas que te ahorrarían encenderla a mano, averías que se repiten y el gasto del mes con su previsión.
+  - Comparación con el periodo anterior, récords, calendario de uso con rachas, mapa de día y hora, cuánto tarda en calentar, coste y litros por hora por mes, termostato (objetivos que más usas y tiempo hasta llegar), humedad, agua del motor y batería por separado.
+  - Comparación con la media de las demás placas (cuando envíen al menos 3) y descarga de todo en CSV para Excel.
+  - Agrupa por día, semana o mes según el rango, con fechas concretas, y se instala como app.
+- La app invita una vez a activar «Mis estadísticas» de cada placa (dos botones iguales; se puede cambiar cuando se quiera).
+
 ## 0.2.16 — 2026-10-09
 
 Versión de prueba (sin probar con una Webasto real).

@@ -881,6 +881,19 @@ class MainActivity : Activity(), BleLink.Listener {
         }
     }
 
+    /** «Mis estadísticas» de la placa: se pregunta una vez por placa (por su código). Dos botones iguales. */
+    private fun askBoardStats(iid: String) {
+        val p = getSharedPreferences("wttc", MODE_PRIVATE)
+        if (p.getBoolean("board_stats_asked_$iid", false)) return
+        p.edit().putBoolean("board_stats_asked_$iid", true).apply()
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.board_stats_title))
+            .setMessage(getString(R.string.board_stats_msg))
+            .setPositiveButton(getString(R.string.stats_yes)) { _, _ -> link.send("set stats=1"); link.send("cfg") }
+            .setNegativeButton(getString(R.string.stats_no), null)
+            .show()
+    }
+
     /** Primer inicio: estadísticas anónimas. Dos botones iguales y nada marcado de antemano. */
     private fun askStats() {
         AlertDialog.Builder(this)
@@ -1199,6 +1212,8 @@ class MainActivity : Activity(), BleLink.Listener {
         if (boardIid.isNotEmpty()) {
             eIid.setText(boardIid); swBoardStats.isChecked = c.optInt("stats") == 1
             tRuns.text = getString(R.string.runs_status, c.optInt("nruns"), c.optInt("rack"))
+            // Invitación a «Mis estadísticas», una sola vez por placa, con dos botones iguales (como las anónimas)
+            if (c.optInt("stats") == 0 && !link.demo) askBoardStats(boardIid)
             // La placa tiene encendidos sin enviar: si el móvil tiene internet, la app los lleva al servidor
             if (c.optInt("stats") == 1 && c.optInt("nruns") > c.optInt("rack") && !link.demo && relayRounds < 6) { relayRounds++; link.send("report") }
         }

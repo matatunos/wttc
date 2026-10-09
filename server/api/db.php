@@ -56,6 +56,11 @@ function wttc_db(): PDO {
         CREATE TABLE IF NOT EXISTS referrers (day TEXT NOT NULL, host TEXT NOT NULL, page TEXT NOT NULL,
             n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, host, page));
     ');
+    // Columnas añadidas después (firmware 0.2.17+): humedad, objetivo y minutos hasta llegar, agua y batería al empezar,
+    // potencia media. CREATE TABLE IF NOT EXISTS no las añade a una tabla que ya existía
+    $have = array_column($db->query('PRAGMA table_info(board_runs)')->fetchAll(), 'name');
+    foreach (['hum0', 'hum1', 'tgt', 'treach', 'c0', 'v0', 'pw'] as $c)
+        if (!in_array($c, $have, true)) $db->exec("ALTER TABLE board_runs ADD COLUMN $c INTEGER");
     return $db;
 }
 

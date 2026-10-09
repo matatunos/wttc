@@ -94,6 +94,29 @@ wttc_visit('mi');
   .tag{display:inline-block;padding:1px 7px;border-radius:20px;font-size:.76rem;background:var(--bg-inner);border:1px solid var(--border)}
   .tag.ok{color:var(--ok);border-color:#1f5a40}.tag.bad{color:#ff8f9a;border-color:#6b2a33}
   .empty{text-align:center;padding:30px 10px;color:var(--muted)}
+  /* Récords: baldosas */
+  .recs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .rec{background:var(--bg-inner);border:1px solid var(--border);border-radius:12px;padding:10px 12px}
+  .rec .i{font-size:1.2rem}.rec .v{font-size:1.25rem;font-weight:650;margin-top:2px;font-variant-numeric:tabular-nums}
+  .rec .l{color:var(--muted);font-size:.78rem;margin-top:2px}
+  /* Calendario de uso (horas por día), una columna por semana */
+  .cal{display:grid;grid-template-rows:repeat(7,13px);grid-auto-flow:column;grid-auto-columns:13px;gap:3px;overflow-x:auto;padding-bottom:4px}
+  .cal i{border-radius:3px;background:var(--bg-inner)}
+  .calwrap{display:flex;gap:6px}.calwrap .wd{display:grid;grid-template-rows:repeat(7,13px);gap:3px;font-size:.66rem;color:var(--muted)}
+  .legend{display:flex;gap:4px;align-items:center;font-size:.75rem;color:var(--muted);margin-top:8px}
+  .legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+  /* Mapa día × hora */
+  .hm{display:grid;grid-template-columns:34px repeat(24,1fr);gap:2px;font-size:.66rem;color:var(--muted)}
+  .hm i{aspect-ratio:1;border-radius:3px;background:var(--bg-inner)}
+  .hm span{display:flex;align-items:center}
+  .cmp{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+  .cmp .row{background:var(--bg-inner);border:1px solid var(--border);border-radius:12px;padding:12px}
+  .cmp .row b{font-size:1.2rem}.up{color:var(--warm)}.down{color:var(--ice)}
+  /* Consejos */
+  .tips{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+  .tips li{display:grid;grid-template-columns:28px 1fr;gap:8px;background:var(--bg-inner);border:1px solid var(--border);border-radius:12px;padding:10px 12px;font-size:.92rem}
+  .tips li .i{font-size:1.2rem;line-height:1.3}
+  .tips li b{color:#ffd2b3}
   ul.priv{margin:6px 0 0;padding-left:20px;font-size:.88rem}
   ul.priv li{margin-bottom:4px}
   [hidden]{display:none!important}
@@ -135,6 +158,11 @@ wttc_visit('mi');
     <div class="empty card" id="noRuns" hidden>Aún no ha llegado ningún encendido. La placa los envía a los pocos minutos de apagarse
       (si tiene internet) o la app al conectarse a ella. Las cifras de arriba son los contadores de la placa.</div>
     <div id="charts">
+      <div class="card" id="tipsCard"><h2>Consejos para ti</h2><ul class="tips" id="tips"></ul></div>
+      <div class="card"><h2>Récords</h2><div class="recs" id="recs"></div></div>
+      <div class="card"><h2 id="hCal">Calendario de uso</h2><div class="calwrap"><div class="wd"><span></span><span>L</span><span></span><span>X</span><span></span><span>V</span><span></span></div><div class="cal" id="cal"></div></div>
+        <div class="legend">menos <i style="background:var(--bg-inner)"></i><i style="background:#5a3418"></i><i style="background:#9a5520"></i><i style="background:#d9772c"></i><i style="background:#ffa25a"></i> más horas</div>
+        <div class="muted" id="streak" style="margin-top:8px"></div></div>
       <div class="grid2">
         <div class="card"><h2>Horas y gasoil por mes</h2><div class="chartbox"><canvas id="chMonth" role="img" aria-label="Horas de calefacción y litros de gasoil por mes"></canvas></div></div>
         <div class="card"><h2 id="hDay">Encendidos por día</h2><div class="chartbox"><canvas id="chDay" role="img" aria-label="Encendidos por día, según quién los pidió"></canvas></div></div>
@@ -150,13 +178,30 @@ wttc_visit('mi');
       <div class="grid2">
         <div class="card"><h2>Temperatura dentro: al empezar y al acabar</h2><div class="chartbox"><canvas id="chCab" role="img" aria-label="Temperatura dentro de la furgoneta al empezar y al acabar cada encendido"></canvas></div>
           <div class="muted" id="cabNote" style="margin-top:6px"></div></div>
-        <div class="card"><h2>Agua del motor y batería</h2><div class="chartbox"><canvas id="chEng" role="img" aria-label="Temperatura máxima del agua y tensión mínima de la batería en cada encendido"></canvas></div></div>
+        <div class="card"><h2>Humedad dentro: al empezar y al acabar</h2><div class="chartbox"><canvas id="chHum" role="img" aria-label="Humedad dentro de la furgoneta al empezar y al acabar cada encendido"></canvas></div>
+          <div class="muted" id="humNote" style="margin-top:6px"></div></div>
       </div>
+      <div class="grid2">
+        <div class="card"><h2>Agua del motor</h2><div class="chartbox"><canvas id="chEng" role="img" aria-label="Temperatura del agua del motor al empezar y máxima en cada encendido"></canvas></div></div>
+        <div class="card"><h2>Batería</h2><div class="chartbox"><canvas id="chBatt" role="img" aria-label="Tensión de la batería al empezar y mínima en cada encendido"></canvas></div>
+          <div class="muted" id="battNote" style="margin-top:6px"></div></div>
+      </div>
+      <div class="grid2">
+        <div class="card"><h2>Día y hora</h2><div class="hm" id="hm"></div><div class="muted" style="margin-top:8px">Cuántas veces enciende cada día de la semana a cada hora.</div></div>
+        <div class="card"><h2>Cuánto tarda en calentar</h2><div class="chartbox"><canvas id="chSpeed" role="img" aria-label="Grados que sube dentro cada 10 minutos según la temperatura de dentro al empezar"></canvas></div>
+          <div class="muted" id="speedNote" style="margin-top:6px"></div></div>
+      </div>
+      <div class="grid2">
+        <div class="card"><h2>Coste y consumo por mes</h2><div class="chartbox"><canvas id="chCost" role="img" aria-label="Coste estimado del gasoil y litros por hora en cada mes"></canvas></div></div>
+        <div class="card"><h2>Termostato («calentar hasta»)</h2><div id="thermo"></div></div>
+      </div>
+      <div class="card" id="cmpCard"><h2>Comparado con las demás placas</h2><div id="cmp"></div></div>
       <div class="grid2">
         <div class="card"><h2>Duración de cada encendido</h2><div class="chartbox"><canvas id="chDur" role="img" aria-label="Minutos de cada encendido"></canvas></div></div>
         <div class="card"><h2>Averías</h2><div id="bErr"></div></div>
       </div>
-      <div class="card"><h2>Últimos encendidos</h2><div class="tblwrap"><table class="tbl" id="tbl"></table></div></div>
+      <div class="card"><h2>Últimos encendidos</h2><div class="tblwrap"><table class="tbl" id="tbl"></table></div>
+        <div style="margin-top:12px"><button class="btn ghost" id="csv" type="button">Descargar todos (CSV, para Excel)</button></div></div>
     </div>
     <div class="card">
       <h2>Tus datos</h2>
@@ -232,12 +277,33 @@ $('demo').onclick = () => {
     const src = [0, 1, 1, 2, 2, 4][Math.floor(rnd() * 6)];
     let end = th ? (rnd() < .9 ? 2 : 6) : [0, 0, 1][Math.floor(rnd() * 3)], err = 0;
     if (s === 41) { end = 4; err = 3; }
+    const h0 = Math.round(65 + rnd() * 25), v0 = Math.round(124 + rnd() * 6);
     runs.push([s, Math.floor(day / 1000), dur, Math.round(dur / 3600 * (330 + rnd() * 60)), c0, c0 + Math.round(5 + rnd() * 10),
-      Math.round(55 + rnd() * 25) + 50, Math.round(118 + rnd() * 8), src | (th ? 0x80 : 0), end, err]);
+      Math.round(55 + rnd() * 25) + 50, v0 - Math.round(2 + rnd() * 5), src | (th ? 0x80 : 0), end, err,
+      h0, h0 - Math.round(15 + rnd() * 25), th ? [18, 20, 20, 21, 22][Math.floor(rnd() * 5)] : 0, th ? Math.round(dur / 60 * (.6 + rnd() * .35)) : 255,
+      Math.round(c0 + rnd() * 6) + 50, v0, Math.round(140 + rnd() * 60)]);
   }
   data = { iid: 'EJEMPLO', demo: true, board: { fw: '0.2.16', last: new Date().toISOString().slice(0, 10), gas: 9.8, hsec: 160000, nruns: 70, sens: 1 },
     runs, days: [], errnames: { '03': 'fallo de llama' } };
   $('del').hidden = true; $('gate').hidden = true; $('main').hidden = false; $('shownCode').textContent = 'EJEMPLO · datos inventados'; render();
+};
+// Descarga de todos los encendidos en CSV (con «;» y coma decimal: se abre bien en Excel en español)
+$('csv').onclick = () => {
+  if (!data) return;
+  const n2 = v => String(v).replace('.', ',');
+  const rows = [['n', 'fecha', 'hora', 'minutos', 'gasoil_l', 'dentro_inicio_c', 'dentro_fin_c', 'agua_max_c', 'bateria_min_v', 'quien', 'termostato', 'final', 'averia',
+                 'humedad_inicio', 'humedad_fin', 'objetivo_c', 'min_hasta_objetivo', 'agua_inicio_c', 'bateria_inicio_v', 'potencia_w']];
+  const opt = (v, f) => v == null || v === 255 ? '' : f ? f(v) : v;
+  for (const r of data.runs) {
+    const d = r[1] ? new Date(r[1] * 1000) : null;
+    rows.push([r[0], d ? dayKey(d) : '', d ? String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') : '',
+      n2((r[2] / 60).toFixed(1)), n2((r[3] / 1000).toFixed(3)), r[4] > -128 ? r[4] : '', r[5] > -128 ? r[5] : '', r[6] ? r[6] - 50 : '',
+      r[7] ? n2(r[7] / 10) : '', SRC[Math.min(r[8] & 0x7f, 5)], r[8] & 0x80 ? 'sí' : 'no', END[r[9]] || '', r[10] ? '0x' + r[10].toString(16).toUpperCase().padStart(2, '0') : '',
+      opt(r[11]), opt(r[12]), r[13] || '', opt(r[14]), r[15] ? r[15] - 50 : '', r[16] ? n2(r[16] / 10) : '', opt(r[17], v => v * 25)]);
+  }
+  const blob = new Blob(['\ufeff' + rows.map(r => r.join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'wttc-' + (data.demo ? 'ejemplo' : data.iid) + '.csv'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
 $('other').onclick = () => { data = null; store.set('wttc_iid', null); history.replaceState(null, '', location.pathname); $('code').value = ''; $('main').hidden = true; $('gate').hidden = false; $('code').focus(); };
 $('del').onclick = async () => {
@@ -281,7 +347,10 @@ const dayKey = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2,
 
 function render() {
   const B = data.board, all = data.runs.map(r => ({ seq: r[0], t0: r[1], dur: r[2], ml: r[3], cab0: r[4], cab1: r[5],
-    cmax: r[6] ? r[6] - 50 : null, vmin: r[7] ? r[7] / 10 : null, src: r[8] & 0x7f, th: !!(r[8] & 0x80), end: r[9], err: r[10] }));
+    cmax: r[6] ? r[6] - 50 : null, vmin: r[7] ? r[7] / 10 : null, src: r[8] & 0x7f, th: !!(r[8] & 0x80), end: r[9], err: r[10],
+    // Desde el firmware 0.2.17 (null = sin dato o placa más antigua)
+    hum0: r[11] ?? null, hum1: r[12] ?? null, tgt: r[13] || null, treach: r[14] ?? null,
+    c0: r[15] ? r[15] - 50 : null, v0: r[16] ? r[16] / 10 : null, pw: r[17] != null ? r[17] * 25 : null }));
   // Rango: fechas concretas (de 00:00 a 23:59) o los últimos N días; sin hora, solo cuentan en «Todo»
   let since = 0, until = Infinity, days = 0;
   if (custom) { since = new Date(custom.from + 'T00:00').getTime() / 1000; until = new Date(custom.to + 'T23:59:59').getTime() / 1000;
@@ -299,12 +368,18 @@ function render() {
   const reached = R.filter(r => r.th).length ? R.filter(r => r.th && r.end === 2).length / R.filter(r => r.th).length : null;
   const fd = d => d.split('-').reverse().join('/');
   const per = custom ? 'del ' + fd(custom.from) + ' al ' + fd(custom.to) : period === 'all' ? 'desde que se envían' : 'en ' + PERIODS.find(p => p[0] === period)[1];
+  // Mismo número de días justo antes: «↑ 12 % que los 30 días anteriores» (no en «Todo»)
+  const span = custom || days ? (until === Infinity ? Date.now() / 1000 : until) - since : 0;
+  const P = span ? all.filter(r => r.t0 && r.t0 >= since - span && r.t0 < since) : [];
+  const vs = (now, before) => !span || !before ? '' : (() => { const d = Math.round((now - before) / before * 100);
+    return ` · <span class="${d > 0 ? 'up' : 'down'}">${d > 0 ? '↑' : d < 0 ? '↓' : '='} ${Math.abs(d)} %</span> que el periodo anterior`; })();
+  const sumP = P.reduce((a, r) => a + r.dur, 0), litP = P.reduce((a, r) => a + r.ml, 0) / 1000;
   const k = (l, v, s, cls) => `<div class="kpi${cls ? ' ' + cls : ''}"><div class="l">${l}</div><div class="v">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
   $('kpis').innerHTML =
     k('Calefacción ' + per, sec >= 3600 ? nf(sec / 3600, 1) + ' h' : Math.round(sec / 60) + ' min',
-      'En total la placa lleva ' + nf(B.hsec / 3600, 1) + ' h y ' + nf(B.nruns) + ' encendidos', 'hero') +
-    k('Encendidos', nf(R.length), R.length ? 'media de ' + hm(sec / R.length) : '') +
-    k('Gasoil estimado', nf(lit, 2) + ' L', `≈ ${nf(lit * price, 2)} € a <input id="price" type="number" step="0.01" min="0.5" max="5" value="${price}"> €/L`) +
+      'En total la placa lleva ' + nf(B.hsec / 3600, 1) + ' h y ' + nf(B.nruns) + ' encendidos' + vs(sec, sumP), 'hero') +
+    k('Encendidos', nf(R.length), (R.length ? 'media de ' + hm(sec / R.length) : '') + vs(R.length, P.length)) +
+    k('Gasoil estimado', nf(lit, 2) + ' L', `≈ ${nf(lit * price, 2)} € a <input id="price" type="number" step="0.01" min="0.5" max="5" value="${price}"> €/L` + vs(lit, litP)) +
     k('Dentro sube', gain == null ? '—' : (gain >= 0 ? '+' : '') + nf(gain, 1) + ' °C', gain == null ? 'hace falta el termómetro' :
       'de media por encendido' + (reached != null ? ' · llega al objetivo el ' + Math.round(reached * 100) + ' %' : ''));
   $('price').onchange = e => { store.set('wttc_price', e.target.value); render(); };
@@ -327,8 +402,8 @@ function render() {
   // por días hasta 120 días, por semanas (lunes) hasta 2 años y por meses a partir de ahí. «Todo» = desde el primero
   const end = custom ? until * 1000 : Date.now();
   const first = custom ? since * 1000 : days ? end - days * 86400000 : Math.min(...T.map(r => r.t0 * 1000), end);
-  const span = Math.max(1, Math.ceil((end - first) / 86400000));
-  const unit = span <= 120 ? 'day' : span <= 730 ? 'week' : 'month';
+  const spanDays = Math.max(1, Math.ceil((end - first) / 86400000));
+  const unit = spanDays <= 120 ? 'day' : spanDays <= 730 ? 'week' : 'month';
   const keyOf = t => { const d = new Date(t); d.setHours(12, 0, 0, 0);
     if (unit === 'week') d.setDate(d.getDate() - (d.getDay() + 6) % 7);
     if (unit === 'month') d.setDate(1);
@@ -370,10 +445,24 @@ function render() {
     options: { scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { title: { display: true, text: '°C' } } } } });
   $('cabNote').textContent = cabOk ? 'La zona naranja es lo que ha subido dentro en cada encendido.' : 'Sin termómetro interior (SHT31 o AHT20) no hay temperatura de dentro.';
   chart('chEng', { type: 'line', data: { labels: lab, datasets: [
-    { label: 'Agua máx. (°C)', data: L.map(r => r.cmax), borderColor: css('--hot'), backgroundColor: css('--hot'), tension: .3, spanGaps: true, pointRadius: 2, yAxisID: 'y' },
-    { label: 'Batería mín. (V)', data: L.map(r => r.vmin), borderColor: '#ffcc4d', backgroundColor: '#ffcc4d', tension: .3, spanGaps: true, pointRadius: 2, yAxisID: 'y1' }] },
-    options: { scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { title: { display: true, text: '°C' } },
-      y1: { position: 'right', grid: { display: false }, suggestedMin: 11, suggestedMax: 13.5, title: { display: true, text: 'V' } } } } });
+    { label: 'Al empezar', data: L.map(r => r.c0), borderColor: css('--ice'), backgroundColor: css('--ice'), tension: .3, spanGaps: true, pointRadius: 2 },
+    { label: 'Máxima', data: L.map(r => r.cmax), borderColor: css('--hot'), backgroundColor: css('--hot'), tension: .3, spanGaps: true, pointRadius: 2 }] },
+    options: { scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { title: { display: true, text: '°C' } } } } });
+  chart('chBatt', { type: 'line', data: { labels: lab, datasets: [
+    { label: 'Al empezar', data: L.map(r => r.v0), borderColor: '#3ecf8e', backgroundColor: '#3ecf8e', tension: .3, spanGaps: true, pointRadius: 2 },
+    { label: 'Mínima', data: L.map(r => r.vmin), borderColor: '#ffcc4d', backgroundColor: 'rgba(255,204,77,.15)', fill: '-1', tension: .3, spanGaps: true, pointRadius: 2 }] },
+    options: { scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { suggestedMin: 11, suggestedMax: 13.5, title: { display: true, text: 'V' } } } } });
+  const drops = R.filter(r => r.v0 != null && r.vmin != null).map(r => r.v0 - r.vmin), lowB = R.filter(r => r.vmin != null && r.vmin < 11.8).length;
+  $('battNote').textContent = (drops.length ? `Baja de media ${nf(drops.reduce((a, d) => a + d, 0) / drops.length, 2)} V mientras calienta (la bujía tira al arrancar). ` : '') +
+    (lowB ? `${lowB} encendidos bajaron de 11,8 V.` : R.some(r => r.vmin != null) ? 'Nunca ha bajado de 11,8 V.' : '');
+  const H = L.some(r => r.hum0 != null);
+  chart('chHum', { type: 'line', data: { labels: lab, datasets: [
+    { label: 'Al empezar', data: L.map(r => r.hum0), borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,.15)', tension: .3, spanGaps: true, pointRadius: 2 },
+    { label: 'Al acabar', data: L.map(r => r.hum1), borderColor: css('--ice'), backgroundColor: 'rgba(91,192,235,.18)', fill: '-1', tension: .3, spanGaps: true, pointRadius: 2 }] },
+    options: { scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { min: 0, max: 100, title: { display: true, text: '%' } } } } });
+  const hd = R.filter(r => r.hum0 != null && r.hum1 != null);
+  $('humNote').textContent = hd.length ? `De media pasa del ${Math.round(hd.reduce((a, r) => a + r.hum0, 0) / hd.length)} % al ${Math.round(hd.reduce((a, r) => a + r.hum1, 0) / hd.length)} %: menos humedad, menos vaho en los cristales.`
+    : H ? '' : 'Llega con el firmware 0.2.17 o posterior y un termómetro con humedad (SHT31 o AHT20).';
   chart('chDur', { type: 'bar', data: { labels: lab, datasets: [{ label: 'Minutos', data: L.map(r => +(r.dur / 60).toFixed(1)),
     backgroundColor: L.map(r => ENDC[r.end] || css('--acc')), borderRadius: 3 }] },
     options: { plugins: { legend: { display: false }, tooltip: { callbacks: { afterLabel: c => END[L[c.dataIndex].end] || '' } } },
@@ -385,11 +474,162 @@ function render() {
   bars('bErr', Object.entries(ef).map(([c, n]) => ['0x' + c + (data.errnames[c] ? ' · ' + data.errnames[c] : ''), n, css('--hot')]).sort((a, b) => b[1] - a[1]),
     null, '✅ Ninguna avería en este periodo.');
 
+  // ---------- Récords del periodo ----------
+  const best = (arr, f) => arr.length ? arr.reduce((a, r) => f(r) > f(a) ? r : a) : null;
+  const when = r => r && r.t0 ? fdate(r.t0) : '';
+  const byDay = {};
+  for (const r of T) { const d = dayKey(new Date(r.t0 * 1000)); (byDay[d] = byDay[d] || { n: 0, s: 0 }); byDay[d].n++; byDay[d].s += r.dur; }
+  const topDay = Object.entries(byDay).sort((a, b) => b[1].n - a[1].n)[0];
+  const rLong = best(R, r => r.dur), rCold = best(R.filter(r => r.cab0 > -128), r => -r.cab0),
+        rRise = best(withCab, r => r.cab1 - r.cab0), rHot = best(R.filter(r => r.cmax != null), r => r.cmax),
+        rBatt = best(R.filter(r => r.vmin != null), r => -r.vmin);
+  const tile = (i, v, l, w) => `<div class="rec"><div class="i">${i}</div><div class="v">${v}</div><div class="l">${l}${w ? '<br>' + w : ''}</div></div>`;
+  $('recs').innerHTML = [
+    rLong && tile('⏱️', hm(rLong.dur), 'el encendido más largo', when(rLong)),
+    rCold && tile('🥶', rCold.cab0 + ' °C', 'la mañana más fría dentro', when(rCold)),
+    rRise && tile('📈', '+' + (rRise.cab1 - rRise.cab0) + ' °C', 'lo que más ha subido dentro', when(rRise)),
+    rHot && tile('🌡️', rHot.cmax + ' °C', 'el agua más caliente', when(rHot)),
+    rBatt && tile('🔋', nf(rBatt.vmin, 1) + ' V', 'la batería más baja', when(rBatt)),
+    (() => { const r = best(R.filter(r => r.hum0 != null && r.hum1 != null), r => r.hum0 - r.hum1);
+      return r && r.hum0 - r.hum1 > 0 ? tile('💧', '−' + (r.hum0 - r.hum1) + ' %', 'lo que más ha bajado la humedad', when(r)) : null; })(),
+    topDay && tile('🔥', topDay[1].n + (topDay[1].n === 1 ? ' vez' : ' veces'), 'el día que más se encendió', topDay[0].split('-').reverse().join('/')),
+  ].filter(Boolean).join('') || '<p class="muted">Sin datos en este periodo.</p>';
+
+  // ---------- Calendario de uso (horas por día) y rachas ----------
+  // Del periodo elegido, como mucho el último año; columnas = semanas (de lunes a domingo)
+  const calEnd = new Date(custom ? until * 1000 : Date.now()); calEnd.setHours(12, 0, 0, 0);
+  const calDays = Math.min(371, Math.max(28, span ? Math.ceil(span / 86400) : Math.ceil((calEnd - Math.min(...T.map(r => r.t0 * 1000), calEnd)) / 86400000) + 1));
+  const calStart = new Date(calEnd - (calDays - 1) * 86400000); calStart.setDate(calStart.getDate() - (calStart.getDay() + 6) % 7);
+  const shade = h => h <= 0 ? 'var(--bg-inner)' : h < .4 ? '#5a3418' : h < .8 ? '#9a5520' : h < 1.5 ? '#d9772c' : '#ffa25a';
+  let cells = '';
+  for (let d = new Date(calStart); d <= calEnd; d.setDate(d.getDate() + 1)) {
+    const k2 = dayKey(d), h = byDay[k2] ? byDay[k2].s / 3600 : 0;
+    cells += `<i style="background:${shade(h)}" title="${d.getDate()} ${MES[d.getMonth()]}: ${h ? hm(h * 3600) + ', ' + byDay[k2].n + ' encendidos' : 'sin usar'}"></i>`;
+  }
+  $('cal').innerHTML = cells;
+  $('hCal').textContent = 'Calendario de uso';
+  // Rachas: días seguidos con algún encendido (la actual cuenta si se usó hoy o ayer)
+  const used = Object.keys(byDay).sort();
+  let longest = 0, run = 0, prev = null;
+  for (const d of used) { const t = new Date(d + 'T12:00'); run = prev && (t - prev) / 86400000 === 1 ? run + 1 : 1; longest = Math.max(longest, run); prev = t; }
+  let cur = 0; for (let d = new Date(); ; d.setDate(d.getDate() - 1)) { if (byDay[dayKey(d)]) cur++; else if (cur || dayKey(d) !== dayKey(new Date())) break; }
+  $('streak').innerHTML = `Usada <b>${used.length}</b> días · racha más larga: <b>${longest}</b> días seguidos` + (cur ? ` · racha actual: <b>${cur}</b>` : '');
+
+  // ---------- Día de la semana × hora ----------
+  const grid = WD.map(() => Array(24).fill(0));
+  for (const r of T) { const d = new Date(r.t0 * 1000); grid[(d.getDay() + 6) % 7][d.getHours()]++; }
+  const gmax = Math.max(1, ...grid.flat());
+  $('hm').innerHTML = '<span></span>' + Array.from({ length: 24 }, (_, h) => `<span style="justify-content:center">${h % 3 ? '' : h}</span>`).join('') +
+    WD.map((w, i) => `<span>${w}</span>` + grid[i].map((n, h) => `<i title="${w} ${h}:00 · ${n} encendidos" style="${n ? `background:rgba(255,138,61,${.18 + .82 * n / gmax})` : ''}"></i>`).join('')).join('');
+
+  // ---------- Cuánto tarda en calentar: grados por cada 10 min según el frío de dentro al empezar ----------
+  const sp = withCab.map(r => ({ x: r.cab0, y: +((r.cab1 - r.cab0) / (r.dur / 600)).toFixed(2) }));
+  chart('chSpeed', { type: 'scatter', data: { datasets: [{ label: '°C cada 10 min', data: sp, backgroundColor: 'rgba(255,138,61,.75)', pointRadius: 4 }] },
+    options: { interaction: { mode: 'nearest', intersect: true }, plugins: { legend: { display: false } },
+      scales: { x: { title: { display: true, text: 'dentro al empezar (°C)' } }, y: { beginAtZero: true, title: { display: true, text: '°C cada 10 min' } } } } });
+  if (sp.length) {
+    const avg = sp.reduce((a, p) => a + p.y, 0) / sp.length, cold = sp.filter(p => p.x <= 3), warm = sp.filter(p => p.x > 3);
+    const m = a => a.length ? nf(a.reduce((x, p) => x + p.y, 0) / a.length, 1) : '—';
+    $('speedNote').textContent = `De media sube ${nf(avg, 1)} °C cada 10 minutos (empezando con 3 °C o menos: ${m(cold)}; con más: ${m(warm)}). Para subir 10 °C tarda unos ${Math.round(100 / Math.max(avg, .1))} min.`;
+  } else $('speedNote').textContent = 'Hace falta el termómetro interior (SHT31 o AHT20).';
+
+  // ---------- Coste y consumo por mes ----------
+  chart('chCost', { data: { labels: mk.map(m => MES[+m.slice(5) - 1] + ' ' + m.slice(2, 4)), datasets: [
+    { type: 'bar', label: 'Coste (€)', data: mk.map(m => +(months[m].l * price).toFixed(2)), backgroundColor: '#3ecf8e', borderRadius: 6, yAxisID: 'y' },
+    { type: 'line', label: 'Litros por hora', data: mk.map(m => months[m].h ? +(months[m].l / months[m].h).toFixed(3) : null), borderColor: css('--ice'), backgroundColor: css('--ice'), tension: .35, yAxisID: 'y1' }] },
+    options: { scales: { y: { beginAtZero: true, title: { display: true, text: '€' } }, y1: { beginAtZero: true, position: 'right', grid: { display: false }, title: { display: true, text: 'L/h' } } } } });
+
+  // ---------- Termostato ----------
+  const TH = R.filter(r => r.th);
+  if (!TH.length) $('thermo').innerHTML = '<p class="muted">No se ha usado «calentar hasta» en este periodo (hace falta el termómetro interior).</p>';
+  else {
+    const ok = TH.filter(r => r.end === 2), stall = TH.filter(r => r.end === 6);
+    const row = (l, v) => `<div class="bar" style="grid-template-columns:1fr auto"><span class="bl">${l}</span><span><b>${v}</b></span></div>`;
+    $('thermo').innerHTML = '<div class="bars">' +
+      row('Encendidos con termostato', nf(TH.length) + ' (' + Math.round(TH.length / R.length * 100) + ' %)') +
+      row('Llegó a la temperatura', nf(ok.length) + ' (' + Math.round(ok.length / TH.length * 100) + ' %)') +
+      row('Tiempo medio hasta llegar', (() => { const t = TH.filter(r => r.treach != null && r.treach < 255);
+        return t.length ? Math.round(t.reduce((a, r) => a + r.treach, 0) / t.length) + ' min' : ok.length ? hm(ok.reduce((a, r) => a + r.dur, 0) / ok.length) : '—'; })()) +
+      (() => { const c = {}; for (const r of TH) if (r.tgt) c[r.tgt] = (c[r.tgt] || 0) + 1;
+        const top = Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, 3);
+        return top.length ? row('Objetivos que más usas', top.map(([t, n]) => t + ' °C (' + n + ')').join(' · ')) : ''; })() +
+      row('Se rindió porque dentro no subía', nf(stall.length)) +
+      row('Gasoil por encendido con termostato', nf(TH.reduce((a, r) => a + r.ml, 0) / 1000 / TH.length, 2) + ' L') +
+      row('Gasoil por encendido sin termostato', R.length > TH.length ? nf(R.filter(r => !r.th).reduce((a, r) => a + r.ml, 0) / 1000 / (R.length - TH.length), 2) + ' L' : '—') +
+      '</div>';
+  }
+
+  // ---------- Comparado con las demás placas (medianas de los últimos 90 días, de api/mi.php) ----------
+  const C = data.comunidad || { n: 0 };
+  if (data.demo || C.n < 3) $('cmp').innerHTML = `<p class="muted">${data.demo ? 'En el ejemplo no hay comparación.' :
+    'Hace falta que envíen estadísticas al menos 3 placas para comparar sin que la «media» sea la de otra persona (ahora: ' + C.n + ').'}</p>`;
+  else {
+    const R90 = all.filter(r => r.t0 && r.t0 >= Date.now() / 1000 - 90 * 86400), w = 90 / 7;
+    const mine = { hweek: R90.reduce((a, r) => a + r.dur, 0) / 3600 / w, rweek: R90.length / w,
+      lph: R90.reduce((a, r) => a + r.dur, 0) ? R90.reduce((a, r) => a + r.ml, 0) / 1000 / (R90.reduce((a, r) => a + r.dur, 0) / 3600) : 0,
+      min: R90.length ? R90.reduce((a, r) => a + r.dur, 0) / 60 / R90.length : 0 };
+    const cmpRow = (l, a, b, f) => { const d = b ? Math.round((a - b) / b * 100) : 0;
+      return `<div class="row"><div class="muted">${l}</div><b>${f(a)}</b> <span class="muted">tú · media ${f(b)}</span><div class="${d > 0 ? 'up' : 'down'}" style="font-size:.85rem;margin-top:2px">${d ? (d > 0 ? '↑ ' : '↓ ') + Math.abs(d) + ' % ' + (d > 0 ? 'más' : 'menos') + ' que la media' : 'como la media'}</div></div>`; };
+    $('cmp').innerHTML = '<div class="cmp">' +
+      cmpRow('Horas a la semana', mine.hweek, C.hweek, v => nf(v, 1) + ' h') +
+      cmpRow('Encendidos a la semana', mine.rweek, C.rweek, v => nf(v, 1)) +
+      cmpRow('Duración media', mine.min, C.min, v => Math.round(v) + ' min') +
+      cmpRow('Gasoil por hora', mine.lph, C.lph, v => nf(v, 2) + ' L/h') +
+      `</div><p class="muted" style="margin-top:10px">Medianas de las ${C.n} placas que envían estadísticas, en los últimos 90 días. Nunca se ven datos de otra placa.</p>`;
+  }
+
+  // ---------- Consejos para ti: lo que dicen tus datos, con algo que hacer ----------
+  const tips = [];
+  const tip = (i, html) => tips.push(`<li><span class="i">${i}</span><span>${html}</span></li>`);
+  // 1. Cuánto antes encender según el frío: minutos reales hasta el objetivo (0.2.17+) o, si no, por la velocidad media
+  const reachData = R.filter(r => r.tgt && r.treach != null && r.treach < 255 && r.cab0 > -128);
+  const minsFor = cold => { const a = reachData.filter(r => cold ? r.cab0 <= 3 : r.cab0 > 3); return a.length >= 3 ? Math.round(a.reduce((x, r) => x + r.treach, 0) / a.length) : null; };
+  const mCold = minsFor(true), mWarm = minsFor(false);
+  if (mCold || mWarm) tip('⏰', `Para llegar a tu temperatura tardas <b>${mCold ? mCold + ' min' : '—'}</b> cuando dentro hay 3 °C o menos` +
+    (mWarm ? ` y <b>${mWarm} min</b> si hace menos frío` : '') + '. Con «Salgo a las…» la placa lo calcula sola; en un programa, empieza ese tiempo antes.');
+  else if (sp.length >= 5) { const avg = sp.reduce((a, p) => a + p.y, 0) / sp.length;
+    tip('⏰', `Dentro sube unos <b>${nf(avg, 1)} °C cada 10 min</b>: para pasar de 2 °C a 20 °C necesita unos <b>${Math.round(180 / Math.max(avg, .1))} min</b>. Tenlo en cuenta al programar.`); }
+  // 2. Se acaba el tiempo antes de llegar a una temperatura cómoda: mejor «calentar hasta»
+  const short = R.filter(r => !r.th && r.end === 0 && r.cab1 > -128 && r.cab1 < 16);
+  if (short.length >= 3 && short.length / Math.max(1, R.filter(r => !r.th).length) > .3)
+    tip('🎯', `En <b>${short.length}</b> encendidos se acabó el tiempo con menos de 16 °C dentro. Prueba «calentar hasta» (por ejemplo 20 °C): se apaga al llegar y no se queda corta.`);
+  // 3. Gasto con y sin termostato
+  const thR = R.filter(r => r.th), noR = R.filter(r => !r.th);
+  if (thR.length >= 3 && noR.length >= 3) {
+    const lt = thR.reduce((a, r) => a + r.ml, 0) / thR.length, ln = noR.reduce((a, r) => a + r.ml, 0) / noR.length, d = Math.round((ln - lt) / ln * 100);
+    if (Math.abs(d) >= 5) tip('⛽', d > 0 ? `Con «calentar hasta» gastas un <b>${d} % menos</b> por encendido que con tiempo fijo.`
+      : `Con «calentar hasta» gastas un <b>${-d} % más</b> por encendido: quizá el objetivo es alto; prueba con 1 o 2 °C menos.`);
+  }
+  // 4. Dentro no sube (el termostato se rinde)
+  const stalls = thR.filter(r => r.end === 6).length;
+  if (stalls >= 2 && stalls / Math.max(1, thR.length) >= .15)
+    tip('🧊', `<b>${stalls}</b> veces el termostato se rindió porque dentro no subía. Puede ser mucho frío, una ventana abierta o el objetivo demasiado alto para esa noche.`);
+  // 5. Batería
+  if (lowB) tip('🔋', `La batería bajó de 11,8 V en <b>${lowB}</b> encendidos. Si arrancas el motor con dificultad, sube la «batería mínima» en Configuración o calienta menos rato.`);
+  else if (drops.length >= 5 && drops.reduce((a, d) => a + d, 0) / drops.length > .8) tip('🔋', 'La batería baja más de 0,8 V de media mientras calienta: puede estar cansada. Vale la pena medirla.');
+  // 6. Humedad que se queda alta
+  const wet = R.filter(r => r.hum1 != null && r.hum1 >= 70).length;
+  if (wet >= 3) tip('💧', `En <b>${wet}</b> encendidos la humedad seguía en el 70 % o más al acabar. Ventila un minuto al entrar: se empañan menos los cristales.`);
+  // 7. Siempre a la misma hora a mano: un programa lo haría solo
+  const manual = T.filter(r => r.src === 0 || r.src === 1), hc = {};
+  for (const r of manual) { const h = new Date(r.t0 * 1000).getHours(); hc[h] = (hc[h] || 0) + 1; }
+  const topH = Object.entries(hc).sort((a, b) => b[1] - a[1])[0];
+  if (topH && topH[1] >= 5) tip('📅', `La has encendido a mano <b>${topH[1]} veces</b> sobre las <b>${topH[0]}:00</b>. Un programa a esa hora (o «Salgo a las…») lo haría solo.`);
+  // 8. Avería que se repite
+  const top = Object.entries(ef).sort((a, b) => b[1] - a[1])[0];
+  if (top && top[1] >= 2) tip('🛠️', `La avería <b>0x${top[0]}</b>${data.errnames[top[0]] ? ' (' + data.errnames[top[0]] + ')' : ''} se ha repetido ${top[1]} veces. Mira qué significa y cómo arreglarla en <a href="/averias.php">códigos de avería</a>.`);
+  // 9. Este mes: gasto y previsión al ritmo actual
+  const nowD = new Date(), m0 = new Date(nowD.getFullYear(), nowD.getMonth(), 1) / 1000;
+  const thisM = all.filter(r => r.t0 >= m0), lm = thisM.reduce((a, r) => a + r.ml, 0) / 1000;
+  if (thisM.length) { const dim = new Date(nowD.getFullYear(), nowD.getMonth() + 1, 0).getDate(), f = dim / Math.max(1, nowD.getDate());
+    tip('💶', `Este mes llevas <b>${nf(lm, 2)} L</b> (≈ ${nf(lm * price, 2)} €). Al ritmo actual acabarás el mes con unos <b>${nf(lm * f, 1)} L</b> (≈ ${nf(lm * f * price, 0)} €).`); }
+  $('tips').innerHTML = tips.join('') || '<li><span class="i">👍</span><span>Nada que mejorar con los datos de este periodo.</span></li>';
+
   // Tabla
   const last = R.slice(-25).reverse();
-  $('tbl').innerHTML = '<tr><th>Cuándo</th><th>Duración</th><th>Gasoil</th><th>Dentro</th><th>Agua</th><th>Quién</th><th>Final</th></tr>' +
+  $('tbl').innerHTML = '<tr><th>Cuándo</th><th>Duración</th><th>Gasoil</th><th>Dentro</th><th>Agua</th><th>Potencia</th><th>Quién</th><th>Final</th></tr>' +
     last.map(r => `<tr><td>${r.t0 ? fdate(r.t0) : 'sin hora'}</td><td>${hm(r.dur)}</td><td>${nf(r.ml / 1000, 2)} L</td>` +
-      `<td>${r.cab0 > -128 ? r.cab0 + ' → ' + (r.cab1 > -128 ? r.cab1 : '?') + ' °C' : '—'}</td><td>${r.cmax != null ? r.cmax + ' °C' : '—'}</td>` +
+      `<td>${r.cab0 > -128 ? r.cab0 + ' → ' + (r.cab1 > -128 ? r.cab1 : '?') + ' °C' : '—'}</td><td>${r.cmax != null ? r.cmax + ' °C' : '—'}</td><td>${r.pw != null ? nf(r.pw / 1000, 1) + ' kW' : '—'}</td>` +
       `<td>${SRC[Math.min(r.src, 5)]}${r.th ? ' · termostato' : ''}</td>` +
       `<td><span class="tag ${r.end === 4 || r.end === 5 ? 'bad' : r.end === 2 ? 'ok' : ''}">${END[r.end] || '?'}${r.err ? ' 0x' + r.err.toString(16).toUpperCase().padStart(2, '0') : ''}</span></td></tr>`).join('');
 }

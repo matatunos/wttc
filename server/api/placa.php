@@ -3,6 +3,7 @@
 // Código generado íntegramente con Claude (Anthropic).
 // Las envía la propia placa si tiene internet, o la app si no (el mismo JSON, que la placa le da por Bluetooth).
 // POST JSON: {"iid","fw","lang","gas","hsec","nruns","oled","sens","runs":[[seq,t0,dur,ml,cab0,cab1,cmax,vmin,src,end,err],…]}
+//   desde la 0.2.17, cada encendido trae además [hum0,hum1,tgt,treach,c0,v0,pw] (18 números; 255 = sin dato)
 //   iid = código de instalación (al azar, lo crea la placa); runs = encendidos aún no enviados, con su número
 //   (los repetidos se ignoran). Responde {"ok":true,"ack":N}: la placa ya no vuelve a mandar hasta el N.
 // No se lee ni se guarda la IP (y Caddy no registra /api/*). Los datos se ven en mi.php con el código, y se borran ahí.
@@ -56,10 +57,10 @@ $db->prepare('INSERT INTO board_days (iid, day, gas, hsec, nruns) VALUES (?, ?, 
    ->execute([$iid, $today, $gas, $hsec, $nruns]);
 
 $ack = 0;
-$ins = $db->prepare('INSERT OR IGNORE INTO board_runs (iid, seq, t0, dur, ml, cab0, cab1, cmax, vmin, src, endr, err, got)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+$ins = $db->prepare('INSERT OR IGNORE INTO board_runs (iid, seq, t0, dur, ml, cab0, cab1, cmax, vmin, src, endr, err, got,
+                     hum0, hum1, tgt, treach, c0, v0, pw) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
 foreach (array_slice(is_array($in['runs'] ?? null) ? $in['runs'] : [], 0, 64) as $r) {
-    if (!is_array($r) || count($r) !== 11) continue;
+    if (!is_array($r) || (count($r) !== 11 && count($r) !== 18)) continue;
     $seq = $int($r[0], 1, 1000000000);
     if ($seq === null) continue;
     $ack = max($ack, $seq);                       // aunque un encendido venga mal, no se vuelve a pedir
@@ -68,7 +69,11 @@ foreach (array_slice(is_array($in['runs'] ?? null) ? $in['runs'] : [], 0, 64) as
     $v = [$t0, $int($r[2], 0, 65535), $int($r[3], 0, 65535), $int($r[4], -128, 90), $int($r[5], -128, 90),
           $int($r[6], 0, 255), $int($r[7], 0, 255), $int($r[8], 0, 255), $int($r[9], 0, 15), $int($r[10], 0, 255)];
     if (in_array(null, $v, true)) continue;
-    $ins->execute(array_merge([$iid, $seq], $v, [$today]));
+    // Datos de la 0.2.17+ (255 = sin dato → NULL); con 11 números, todos NULL
+    $x = [];
+    foreach ([[11, 0, 100], [12, 0, 100], [13, 1, 40], [14, 0, 254], [15, 1, 254], [16, 1, 254], [17, 0, 254]] as [$i, $lo, $hi])
+        $x[] = (count($r) === 18 && is_int($r[$i]) && $r[$i] >= $lo && $r[$i] <= $hi) ? $r[$i] : null;
+    $ins->execute(array_merge([$iid, $seq], $v, [$today], $x));
 }
 $db->commit();
 out(200, ['ok' => true, 'ack' => $ack]);

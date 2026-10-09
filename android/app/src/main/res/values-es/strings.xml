@@ -201,6 +201,8 @@
     <string name="btn_my_stats">Ver mis estadísticas</string>
     <string name="runs_status">Encendidos apuntados: %1$d · enviados: %2$d</string>
     <string name="iid_sent">Código enviado: mira Telegram en unos segundos</string>
+    <string name="board_stats_title">¿Ver las estadísticas de tu calefacción?</string>
+    <string name="board_stats_msg">La placa apunta cada encendido: horas, gasoil, temperatura y humedad dentro, batería y averías. Si lo activas, lo verás con gráficas y consejos en wttc.favala.es (cuánto antes encender según el frío, cuánto gastas al mes, si la batería sufre…).\n\nSolo con el código de tu placa; nadie más puede verlo, y se borra cuando quieras. Se cambia en Configuración → Mis estadísticas.</string>
     <string name="quick_title">Acceso rápido</string>
     <string name="quick_help">Botón «Webasto» en los ajustes rápidos de Android (despliégalos y edítalos para añadirlo) y widget para la pantalla de inicio. Al pulsarlo se conecta a la placa y enciende con esta duración, o apaga si ya está encendida.</string>
     <string name="quick_dur">Duración del acceso rápido</string>

@@ -150,7 +150,7 @@ const float    TH_STALL_C   = 0.5;    // °C (si hace demasiado frío fuera o el
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.2.16"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.2.17"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -302,7 +302,8 @@ uint8_t loginFails = 0;               // intentos fallidos seguidos; con 5, 5 mi
 uint32_t loginLockUntil = 0;
 
 // ---------- registro de encendidos (para las estadísticas de esta placa) ----------
-// Cada encendido de la Webasto, al apagarse, deja un registro de 20 bytes en un anillo de RUNS guardado en la flash.
+// Cada encendido de la Webasto, al apagarse, deja un registro de 28 bytes en un anillo de RUNS guardado en la flash
+// (clave "runs2"; hasta la 0.2.16 eran 20 bytes en "runs", y al arrancar se pasan al formato nuevo).
 // seq numera los encendidos desde 1; los ya enviados al servidor llegan hasta runAck.
 #define RUNS 48
 enum { RE_TIME, RE_USER, RE_TARGET, RE_BATT, RE_FAULT, RE_NOCOMM, RE_STALL };   // por qué se apagó
@@ -312,12 +313,23 @@ struct Run {
   uint16_t dur, ml;                   // duración (s) y gasoil estimado (ml)
   int8_t cab0, cab1;                  // °C dentro al empezar y al acabar (-128 = sin termómetro)
   uint8_t cmax, vmin, src, end, err, pad;   // °C máx. del agua, tensión mín. (décimas de V; 0 = sin dato), RS_*, RE_*, avería
+  // Desde la 0.2.17 (255 = sin dato):
+  uint8_t hum0, hum1;                 // % de humedad dentro al empezar y al acabar
+  uint8_t tgt, treach;                // objetivo del termostato (°C; 0 = sin termostato) y minutos hasta llegar
+  uint8_t c0, v0;                     // agua al empezar (°C + 50) y batería al empezar (décimas de V)
+  uint8_t pw, pad2;                   // potencia media de la Webasto (en pasos de 25 W)
+};
+struct RunV1 {                        // formato hasta la 0.2.16, solo para pasar los guardados al nuevo
+  uint32_t seq, t0; uint16_t dur, ml; int8_t cab0, cab1; uint8_t cmax, vmin, src, end, err, pad;
 };
 Run runs[RUNS];
 uint32_t runSeq = 0, runAck = 0, heatSecTot = 0;   // último encendido apuntado, último enviado, segundos calentando en total
 uint8_t runEnd = RE_USER, runSrc = RS_WEB, runErr = 0;
 int runCmax = -999; float runVmin = 99, runCab0 = NAN;
 uint32_t runT0 = 0;
+float runHum0 = NAN;                  // humedad dentro al empezar
+uint8_t runReach = 255, runC0 = 0, runV0 = 0;   // minutos hasta el objetivo; agua y batería al empezar (como en Run)
+uint32_t runPwSum = 0, runPwN = 0;    // para la potencia media
 bool runDep = false;                  // el encendido que va a empezar es por hora de salida
 volatile bool statsBusy = false;      // envío de estadísticas en marcha (tarea aparte)
 uint32_t statsLast = 0, statsOkAt = 0;  // último intento y último envío correcto (millis)
@@ -766,6 +778,7 @@ bool readSensors() {
     lastSensorOk = millis();
     if (heaterOn) {                            // para el registro del encendido: agua máx. y batería mín.
       if (tempC > runCmax) runCmax = tempC;
+      if (power >= 0) { runPwSum += power; runPwN++; }
       if (volt > 5 && volt < runVmin) runVmin = volt;
     }
   }
@@ -856,16 +869,22 @@ void runSave() {
   x.cmax = runCmax > -50 ? (uint8_t)constrain(runCmax + 50, 1, 255) : 0;     // +50, como en el W-Bus; 0 = sin dato
   x.vmin = runVmin < 99 ? (uint8_t)constrain((int)lroundf(runVmin * 10), 1, 255) : 0;
   x.src = runSrc; x.end = runEnd; x.err = runErr; x.pad = 0;
+  auto h8 = [](float h) -> uint8_t { return isnan(h) ? 255 : (uint8_t)constrain((int)lroundf(h), 0, 100); };
+  x.hum0 = h8(runHum0); x.hum1 = h8(cabH);
+  x.tgt = (runSrc & 0x80) ? thTarget : 0; x.treach = runReach;
+  x.c0 = runC0; x.v0 = runV0;
+  x.pw = runPwN ? (uint8_t)min<uint32_t>(254, runPwSum / runPwN / 25) : 255; x.pad2 = 0;
   heatSecTot += d;
   prefs.begin("webasto", false);
-  prefs.putBytes("runs", runs, sizeof runs);
+  prefs.putBytes("runs2", runs, sizeof runs);
+  if (prefs.isKey("runs")) prefs.remove("runs");      // el formato de la 0.2.16, ya pasado al nuevo
   prefs.putUInt("rseq", runSeq);
   prefs.putUInt("hsec", heatSecTot);
   prefs.end();
 }
 
 // Informe de estadísticas (lo envía la placa, o la app si la placa no tiene internet): totales y hasta «max» encendidos
-// aún no enviados, sin pasar de maxLen bytes (por Bluetooth una respuesta no puede pasar de 512).
+// aún no enviados, sin pasar de maxLen bytes (por Bluetooth una respuesta no puede pasar de 512: caben unos 4).
 // Los encendidos van con su número: el servidor ignora los repetidos
 String statsJson(int max, unsigned maxLen) {
   String j = "{\"iid\":"; j += js(String(iid));
@@ -882,9 +901,9 @@ String statsJson(int max, unsigned maxLen) {
   for (uint32_t q = from; q <= runSeq && n < max; q++) {
     const Run& x = runs[(q - 1) % RUNS];
     if (x.seq != q) continue;
-    char b[96];
-    snprintf(b, sizeof b, "[%lu,%lu,%u,%u,%d,%d,%u,%u,%u,%u,%u]", (unsigned long)x.seq, (unsigned long)x.t0, x.dur, x.ml,
-             x.cab0, x.cab1, x.cmax, x.vmin, x.src, x.end, x.err);
+    char b[128];
+    snprintf(b, sizeof b, "[%lu,%lu,%u,%u,%d,%d,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u]", (unsigned long)x.seq, (unsigned long)x.t0,
+             x.dur, x.ml, x.cab0, x.cab1, x.cmax, x.vmin, x.src, x.end, x.err, x.hum0, x.hum1, x.tgt, x.treach, x.c0, x.v0, x.pw);
     if (j.length() + strlen(b) + 3 > maxLen) break;
     if (n++) j += ",";
     j += b;
@@ -973,6 +992,9 @@ bool startHeater(uint16_t minutes, const char* src) {
       onSrc = src;
       // Datos del registro de este encendido (se guarda al apagarse, ver runSave)
       runT0 = timeValid() ? (uint32_t)time(nullptr) : 0; runCab0 = cabT; runCmax = tempC; runVmin = volt > 5 ? volt : 99;
+      runHum0 = cabH; runReach = 255; runPwSum = runPwN = 0;
+      runC0 = tempC > -50 ? (uint8_t)constrain(tempC + 50, 1, 255) : 0;
+      runV0 = volt > 5 ? (uint8_t)constrain((int)lroundf(volt * 10), 1, 255) : 0;
       runSrc = runDep ? RS_DEP : !strcmp(src, "app") ? RS_APP : !strcmp(src, "programa") ? RS_PROG
              : !strcmp(src, "consola") ? RS_CONSOLE : !strcmp(src, "manual") ? RS_WEB : RS_OTHER;
       if (thActive) runSrc |= 0x80;
@@ -1579,6 +1601,7 @@ void thermoTick() {
   if (heaterOn) {
     // ¿Sube la temperatura de dentro? Si en TH_STALL no ha subido TH_STALL_C y aún no llega, no se insiste
     if (isnan(thBest) || cabT >= thBest + TH_STALL_C) { thBest = cabT; thBestAt = now; }
+    if (runReach == 255 && cabT >= thTarget) runReach = min<uint32_t>(254, (now - heatStart) / 60000);   // para el registro
     else if (cabT < thTarget && now - thBestAt >= TH_STALL) {
       String m = trf(T_TG_TH_STALL, degs(cabT, 1).c_str(), (int)((now - heatStart) / 60000), degs(thTarget, 0).c_str());
       endSession(false);
@@ -1713,7 +1736,18 @@ void loadCfg() {
   if (prefs.isKey("wpass"))  prefs.getString("wpass", webPass, sizeof webPass);
   if (prefs.isKey("iid"))    prefs.getString("iid", iid, sizeof iid);
   statsOn  = prefs.getBool("stats", false);
-  if (prefs.isKey("runs") && prefs.getBytesLength("runs") == sizeof runs) prefs.getBytes("runs", runs, sizeof runs);
+  if (prefs.isKey("runs2") && prefs.getBytesLength("runs2") == sizeof runs) prefs.getBytes("runs2", runs, sizeof runs);
+  else if (prefs.isKey("runs") && prefs.getBytesLength("runs") == sizeof(RunV1) * RUNS) {   // de la 0.2.16: al formato nuevo
+    RunV1* old = new RunV1[RUNS];
+    prefs.getBytes("runs", old, sizeof(RunV1) * RUNS);
+    for (int i = 0; i < RUNS; i++) {
+      Run& x = runs[i]; const RunV1& o = old[i];
+      x.seq = o.seq; x.t0 = o.t0; x.dur = o.dur; x.ml = o.ml; x.cab0 = o.cab0; x.cab1 = o.cab1;
+      x.cmax = o.cmax; x.vmin = o.vmin; x.src = o.src; x.end = o.end; x.err = o.err; x.pad = 0;
+      x.hum0 = x.hum1 = x.treach = x.pw = 255; x.tgt = x.c0 = x.v0 = x.pad2 = 0;
+    }
+    delete[] old;
+  }
   runSeq   = prefs.getUInt("rseq", 0);
   runAck   = prefs.getUInt("rack", 0);
   heatSecTot = prefs.getUInt("hsec", 0);
