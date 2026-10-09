@@ -2850,7 +2850,7 @@ uint8_t resetReason() {
     default: return RR_OTHER;
   }
 }
-const char* resetText(uint8_t r) { static const int T[] = {T_RR_POWER, T_RR_SW, T_RR_CRASH, T_RR_WDT, T_RR_BROWN, T_RR_RST, T_RR_OTHER}; return tr(T[r < 7 ? r : 6]); }
+const char* resetText(uint8_t r) { static const Txt T[] = {T_RR_POWER, T_RR_SW, T_RR_CRASH, T_RR_WDT, T_RR_BROWN, T_RR_RST, T_RR_OTHER}; return tr(T[r < 7 ? r : 6]); }
 
 String memInfo() {
   return " · memoria " + String(ESP.getFreeHeap() / 1024) + " KB (bloque " + String(ESP.getMaxAllocHeap() / 1024) + " KB, PSRAM "
