@@ -32,6 +32,7 @@ Todo el código de la web está en este repo; en producción no se edita nada a 
     `descargas/` (firmware, versión, notas, textos, `ota.json`).
   - `wttc-instalador.sh` (cron cada 15 min, `cron.d-wttc-instalador`) prepara el instalador web y la copia del `.ota`.
   - `wttc-aviso.sh "texto"` manda un aviso por Telegram (bot @Wttc_favala_bot; token y chat en `/root/.env`, fuera del repo).
-  - `post-commit` es el hook local: en cada commit en `main` lanza `deploy-web.sh` y luego `wttc-publicar.sh`.
+  - `post-commit` y `post-merge` son los hooks locales: en cada commit o fusión en `main` lanzan `deploy-web.sh` y luego
+    `wttc-publicar.sh`.
 - Fuera del repo, en producción, solo hay lo **generado** (`movil.php`, `descargas/`) y librerías de terceros
   (`vendor/`: jsPDF 2.5.1 y ESP Web Tools 10.4.0). Chart.js y `charts.js` son los comunes del portal.

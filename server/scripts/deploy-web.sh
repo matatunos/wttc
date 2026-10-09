@@ -10,7 +10,7 @@
 #   server/privado/wttc-stats/  → TOOLS_DIR/wttc-stats (vista privada, con login del portal)
 #   server/scripts/*.sh         → /usr/local/bin     (publicación del firmware y del instalador web, avisos por Telegram)
 #   server/scripts/cron.d-*     → /etc/cron.d/
-#   server/scripts/post-commit  → .git/hooks/        (el hook no viaja con git: se instala desde aquí)
+#   server/scripts/post-commit, post-merge → .git/hooks/ (los hooks no viajan con git: se instalan desde aquí)
 #
 # No se borra nada en producción (sin --delete): allí también viven ficheros GENERADOS que no están en el repo
 # (movil.php y descargas/, de wttc-publicar.sh y wttc-instalador.sh) y librerías de terceros (vendor/).
@@ -39,7 +39,8 @@ for f in wttc-publicar.sh wttc-instalador.sh wttc-aviso.sh; do
 done
 cmp -s "$REPO/server/scripts/cron.d-wttc-instalador" "$CRON_DIR/wttc-instalador" \
     || install -m 644 "$REPO/server/scripts/cron.d-wttc-instalador" "$CRON_DIR/wttc-instalador"
-cmp -s "$REPO/server/scripts/post-commit" "$REPO/.git/hooks/post-commit" \
-    || install -m 755 "$REPO/server/scripts/post-commit" "$REPO/.git/hooks/post-commit"
+for h in post-commit post-merge; do              # tras un commit y tras una fusión (git merge / git pull) en main
+    cmp -s "$REPO/server/scripts/$h" "$REPO/.git/hooks/$h" || install -m 755 "$REPO/server/scripts/$h" "$REPO/.git/hooks/$h"
+done
 
 echo "Web de WTTC desplegada desde el repo"
