@@ -58,6 +58,8 @@ class MainActivity : Activity(), BleLink.Listener {
     companion object {
         // Última versión del firmware y su actualización firmada (lo genera wttc-publicar.sh desde el repo)
         private const val OTA_MANIFEST = "https://wttc.favala.es/descargas/ota.json"
+        // «Más tarde» en el aviso de app nueva: no se vuelve a preguntar hasta que la app se abra de nuevo (proceso nuevo)
+        private var appUpdPostponed = false
     }
 
     // Colores (los mismos que la web del ESP32)
@@ -173,6 +175,7 @@ class MainActivity : Activity(), BleLink.Listener {
     private lateinit var spOtaAuto: Spinner            // actualizaciones automáticas de la placa (firmware 0.2.15+)
     private var hasOtaAuto = false
     private var nvAsked = ""                           // versión nueva de la placa por la que ya se ha preguntado
+    private var lastUp = -1L                           // segundos encendida de la placa: si baja, se ha reiniciado
     private var hasSensor = false                      // ¿tiene la placa termómetro? (sin él no se ofrece «Hasta X °C»)
     // Interruptor de las estadísticas anónimas (en «Ajustes de la app»)
     private lateinit var swStats: Switch
@@ -429,7 +432,11 @@ class MainActivity : Activity(), BleLink.Listener {
             if (wa && !lastWa) notifyUser(getString(R.string.notif_warm), getString(R.string.notif_warm_body, j.optInt("t")))
         }
         lastWa = wa
-        // La placa ha visto una versión nueva (búsqueda automática): se pregunta una vez por versión
+        // La placa ha visto una versión nueva (búsqueda automática): se pregunta una vez; con «Más tarde», hasta que la
+        // placa se reinicie (o se vuelva a abrir la app)
+        val up = j.optLong("up", -1)
+        if (up >= 0 && lastUp >= 0 && up < lastUp) nvAsked = ""
+        if (up >= 0) lastUp = up
         val nv = j.optString("nv")
         if (nv.isNotEmpty() && nv != nvAsked && !link.demo && j.optInt("op", -1) < 0) {
             nvAsked = nv
@@ -874,11 +881,11 @@ class MainActivity : Activity(), BleLink.Listener {
     // La app y el firmware llevan el mismo número: se lee de ota.json (el mismo fichero que usa «Buscar actualizaciones»).
     // Antes de avisar se comprueba que el WTTC.apk de esa versión ya está en su Release (tarda unos minutos en salir).
     // silent = la comprobación automática al abrir: una vez al día como mucho, si está activada, y sin avisar si no hay
-    // nada nuevo; con «Más tarde» no vuelve a avisar de esa versión. El botón «Buscar versión nueva» la hace siempre.
+    // nada nuevo; «Más tarde» la aparca hasta la próxima vez que se abra la app. El botón «Buscar versión nueva» la hace siempre.
     private fun checkAppUpdate(silent: Boolean) {
         val prefs = getSharedPreferences("wttc", MODE_PRIVATE)
         if (silent) {
-            if (!prefs.getBoolean("app_upd_auto", true)) return
+            if (appUpdPostponed || !prefs.getBoolean("app_upd_auto", true)) return
             if (System.currentTimeMillis() - prefs.getLong("app_upd_last", 0) < 24 * 3600_000L) return
             prefs.edit().putLong("app_upd_last", System.currentTimeMillis()).apply()
         }
@@ -903,12 +910,12 @@ class MainActivity : Activity(), BleLink.Listener {
                     m == null -> if (!silent) toast(getString(R.string.upd_no_net))
                     !newer -> if (!silent) toast(getString(R.string.app_upd_latest, mine))
                     !ready -> if (!silent) toast(getString(R.string.app_upd_notyet, v))
-                    silent && prefs.getString("app_upd_skip", "") == v -> {}
                     else -> AlertDialog.Builder(this)
                         .setTitle(getString(R.string.app_upd_title, v))
                         .setMessage(getString(R.string.app_upd_msg, mine, m?.optString("notas").orEmpty().ifEmpty { "—" }))
                         .setPositiveButton(getString(R.string.app_upd_dl)) { _, _ -> startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-                        .setNegativeButton(getString(R.string.later)) { _, _ -> prefs.edit().putString("app_upd_skip", v).apply() }
+                        // «Más tarde»: hasta que se vuelva a abrir la app (entonces se mira otra vez, sin esperar al día siguiente)
+                        .setNegativeButton(getString(R.string.later)) { _, _ -> appUpdPostponed = true; prefs.edit().putLong("app_upd_last", 0).apply() }
                         .show()
                 }
             }

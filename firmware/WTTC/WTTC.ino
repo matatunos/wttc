@@ -1846,6 +1846,7 @@ String stateJson() {
   j += String(gasMonth, 2); j += ","; j += String(gasTotal, 2); j += "]";   // con 2 decimales, como el encendido: si no, el total redondeado podía salir menor
   j += ",\"op\":";   j += otaProg;                // actualización por internet: 0–100 %, -1 = ninguna
   j += ",\"nv\":";   j += js(String(otaAvail));   // versión nueva encontrada ("" = ninguna)
+  j += ",\"up\":";   j += (uint32_t)(millis() / 1000);   // segundos encendida (la app nota así los reinicios)
   j += ",\"ct\":";   j += isnan(cabT) ? -999 : (int)lround(cabT * 10);   // °C × 10 de dentro (-999 = sin termómetro)
   j += ",\"ch\":";   j += isnan(cabH) ? -1 : (int)lround(cabH);          // humedad (%)
   j += ",\"tg\":";   j += thActive ? (int)thTarget : 0;                   // termostato: objetivo (0 = sin él)

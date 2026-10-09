@@ -11,6 +11,7 @@ ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya pro
 Versión de prueba (sin probar con una Webasto real).
 
 - **Actualizaciones automáticas** (Configuración, en la web de la placa y en la app): «No buscar», «Buscar y avisar» (por defecto) o «Buscar e instalar sola». Con la placa unida a una red con internet, busca a los 2 minutos de arrancar y luego una vez al día. Si hay versión nueva, la web y la app lo avisan con un botón para actualizar (y Telegram, si está configurado); con «instalar sola» se instala sin preguntar, nunca calentando ni con el termostato en marcha. Antes solo buscaba con Telegram configurado, y solo avisaba por ahí.
+- «Más tarde» aparca el aviso, no lo descarta: el de firmware nuevo vuelve a salir cuando la placa se reinicia (o al volver a abrir la app), y el de app nueva, la próxima vez que se abre la app.
 
 ## 0.2.14 — 2026-10-09
 
