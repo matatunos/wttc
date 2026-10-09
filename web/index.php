@@ -900,8 +900,7 @@ function espBoot() {
   addLog(trf('T_LOG_BOOT', FW));
   hwProbe();   // pantalla y termómetro, según lo marcado en la tarjeta «Placa»
   E.dispUntil = simMs + 60000;
-  serialPrint(`WTTC ${FW} | Bluetooth y Wi-Fi: "${prefs.name}" | PIN Bluetooth: ${prefs.pin}`);
-  serialPrint('Consola: on [min] [°C] | off | status | errores | cfg | set clave=valor | wifi | forget | reboot');
+  printMotd();
   if (prefs.ssid) setTimeout(() => {   // se une a la red guardada y coge la hora por NTP
     if (!E.down) { E.sta = true; setEpoch(Math.floor(worldMs / 1000)); }
   }, 1500);
@@ -1389,6 +1388,22 @@ function espLoop() {
   checkSchedule();
   tgPump();
 }
+// Resumen de arranque (como printMotd() del firmware): cómo conectarse y con qué claves. También con «info»
+function printMotd() {
+  const WM = ['siempre encendida', 'solo mientras calienta', 'solo a petición'];
+  const L = '================================================================';
+  serialPrint([L, `  WTTC ${FW} · control de la Webasto Thermo Top C · github.com/matatunos/wttc`, L,
+    `  Bluetooth (app WTTC) .. nombre "${prefs.name}" · PIN ${prefs.pin}`,
+    `  Wi-Fi propia .......... red "${prefs.name}" · clave "${prefs.appass}"${prefs.appass === 'calefaccion' ? '  <- DE FÁBRICA: cámbiala' : ''}`,
+    `                          web http://192.168.4.1 · ${WM[prefs.wifimode || 0] || WM[0]}`,
+    prefs.ssid ? `  Red con internet ...... "${prefs.ssid}" · conectando…` : '  Red con internet ...... sin configurar (Configuración → Red con internet)',
+    '  Web desde esa red ..... http://wttc.local · usuario "wttc" · clave "wttc"  <- DE FÁBRICA: cámbialos',
+    `  Telegram .............. ${prefs.tgtok && prefs.tgchat ? 'avisos al chat ' + prefs.tgchat : 'sin configurar'}`,
+    '  Mis estadísticas ...... en el simulador no hay (https://wttc.favala.es/mi.php → «Ver un ejemplo»)',
+    '  Piezas opcionales ..... pantalla sí · termómetro SHT31',
+    '----------------------------------------------------------------',
+    '  Órdenes: on [min] [°C] | off | status | info | errores | cfg | set clave=valor | wifi | forget | reboot | gasreset', L].join('\n'));
+}
 function serialCli(c) {
   serialPrint('> ' + c, 'in');
   c = c.trim().toLowerCase();
@@ -1402,9 +1417,10 @@ function serialCli(c) {
     serialPrint(`Dentro (SHT31): ${E.cabT.toFixed(1)} C, ${E.cabH} % | termostato ${E.thActive ? E.thTarget + ' C' : 'no'}\nPantalla: no`);
     if (E.stopNote) serialPrint(E.stopNote);
   }
+  else if (c === 'info' || c === 'motd') printMotd();
   else if (c === 'errores') serialPrint(errorsJson());
   else if (c === 'cfg') serialPrint(route('/api/cfg', 'GET', new URLSearchParams())[1]);
-  else if (c.length) serialPrint('Comandos: on [min] [°C] | off | status | errores | cfg | set clave=valor | wifi | forget | reboot');
+  else if (c.length) serialPrint('Comandos: on [min] [°C] | off | status | info | errores | cfg | set clave=valor | wifi | forget | reboot');
 }
 
 // ---------- Servidor web del ESP32 ----------

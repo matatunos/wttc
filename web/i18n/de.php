@@ -60,7 +60,7 @@ TXT,
 'clear' => 'Leeren',
 'traceHint' => 'Blau: was der ESP32 sendet (<code>F4</code> = von der Diagnose an die Heizung). Grau: das Echo, das die Firmware verwirft. Grün: die Antwort der Webasto (<code>4F</code>, Befehl | 0x80). Das letzte Byte ist das XOR aller vorherigen.',
 'serial' => 'Serielle Konsole (115200)',
-'conPh' => 'on 30 · off · status · errores',
+'conPh' => 'on 30 · off · status · info · errores',
 'conAria' => 'Befehl für die serielle Konsole',
 'send' => 'Senden',
 'conHint' => 'Es ist dieselbe Konsole, die du beim ersten Test benutzt, mit dem ESP32 per USB am Laptop. Ihre Befehle und Meldungen sind auf Spanisch.',
@@ -181,7 +181,7 @@ TXT,
 <li>Das Zip entpacken: es entsteht der Ordner <code>WTTC/</code> mit <code>WTTC.ino</code> und <code>web.h</code> (die IDE verlangt, dass der Ordner wie die .ino heißt). <code>WTTC.ino</code> öffnen.</li>
 <li><b>Werkzeuge → Board → esp32 → ESP32S3 Dev Module</b> und <b>Flash Size → 16MB</b>; <b>PSRAM → OPI PSRAM</b>; <b>Werkzeuge → Partition Scheme → Huge APP (3MB No OTA/1MB SPIFFS)</b> (nur wegen der Größengrenze: der Ordner <code>WTTC/</code> bringt seine eigene Partitionstabelle mit zwei Plätzen für kabellose Updates mit, die Arduino selbst verwendet); und unter <b>Port</b> den des ESP32 (<code>COMx</code> unter Windows, <code>/dev/ttyUSB0</code> unter Linux).</li>
 <li><b>Hochladen</b> drücken (der Pfeil). Bleibt es bei „Connecting……“ hängen, die Taste <b>BOOT</b> der Platine gedrückt halten, bis das Schreiben beginnt.</li>
-<li><b>Werkzeuge → Serieller Monitor</b> mit <b>115200</b> Baud: es erscheinen Version, Name und die <b>Bluetooth-PIN</b> deiner Platine (notieren). Für den ersten Test <code>status</code> eingeben.</li>
+<li><b>Werkzeuge → Serieller Monitor</b> mit <b>115200</b> Baud: es erscheint eine Übersicht mit Version, <b>Bluetooth-PIN</b>, WLAN der Platine und Passwort sowie Web-Benutzer und -Passwort (notieren; <code>info</code> zeigt sie erneut). Für den ersten Test <code>status</code> eingeben.</li>
 </ol>
 TXT,
 'cliLinux' => <<<'TXT'

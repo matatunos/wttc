@@ -6,6 +6,13 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.2.18 — 2026-10-09
+
+Versión de prueba (sin probar con una Webasto real).
+
+- **Resumen de arranque en la consola** (USB, 115200 baudios): versión, Bluetooth y su PIN, Wi-Fi propia y su clave, modo de la Wi-Fi, red con internet y su dirección, usuario y clave de la web desde otra red, Telegram, código de «Mis estadísticas» con su enlace, piezas detectadas y actualizaciones. Avisa de lo que sigue con los valores de fábrica. La orden **`info`** lo vuelve a sacar, y al unirse a la red con internet se escribe su dirección. Solo lo ve quien tiene la placa enchufada por USB; es también la forma de recuperar una clave olvidada.
+- El simulador de la web hace lo mismo.
+
 ## 0.2.17 — 2026-10-09
 
 Versión de prueba (sin probar con una Webasto real).

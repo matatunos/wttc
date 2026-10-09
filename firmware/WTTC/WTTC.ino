@@ -150,7 +150,7 @@ const float    TH_STALL_C   = 0.5;    // °C (si hace demasiado frío fuera o el
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.2.17"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.2.18"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -2021,6 +2021,35 @@ String scanNets() {
   return j + "]";
 }
 
+// Resumen de arranque por la consola serie (y con la orden «info»): cómo conectarse y con qué claves.
+// La consola solo la ve quien tiene la placa enchufada por USB (acceso físico, que ya permite reinstalarla), así que
+// enseña también las claves cambiadas: es la forma de recuperarlas si se olvidan.
+void printMotd() {
+  const char* WM[] = {"siempre encendida", "solo mientras calienta", "solo a petición"};
+  bool apDef = apDefault(), webDef = webDefault();
+  Serial.println();
+  Serial.println("================================================================");
+  Serial.printf("  WTTC %s · control de la Webasto Thermo Top C · github.com/matatunos/wttc\n", FW_VERSION);
+  Serial.println("================================================================");
+  Serial.printf("  Bluetooth (app WTTC) .. nombre \"%s\" · PIN %06u\n", cfgName, (unsigned)blePin);
+  Serial.printf("  Wi-Fi propia .......... red \"%s\" · clave \"%s\"%s\n", cfgName, cfgApPass, apDef ? "  <- DE FÁBRICA: cámbiala" : "");
+  Serial.printf("                          web http://192.168.4.1 · %s\n", WM[wifiMode <= WM_DEMAND ? wifiMode : 0]);
+  if (staSsid[0])
+    Serial.printf("  Red con internet ...... \"%s\" · %s\n", staSsid,
+                  WiFi.status() == WL_CONNECTED ? (String("conectada, http://") + WiFi.localIP().toString()).c_str() : "conectando…");
+  else Serial.println("  Red con internet ...... sin configurar (Configuración → Red con internet)");
+  Serial.printf("  Web desde esa red ..... http://%s.local · usuario \"%s\" · clave \"%s\"%s\n", HOSTNAME, webUser, webPass,
+                webDef ? "  <- DE FÁBRICA: cámbialos" : "");
+  Serial.printf("  Telegram .............. %s\n", tgToken[0] && tgChat[0] ? (String("avisos al chat ") + tgChat).c_str() : "sin configurar");
+  Serial.printf("  Mis estadísticas ...... código %s · %s\n", iid, statsOn ? "se envían" : "no se envían");
+  Serial.printf("                          https://wttc.favala.es/mi.php#%s\n", iid);
+  Serial.printf("  Piezas opcionales ..... pantalla %s · termómetro %s\n", oledOk ? "sí" : "no", snName()[0] ? snName() : "no");
+  Serial.printf("  Actualizaciones ....... %s\n", otaAuto == OA_OFF ? "no se buscan" : otaAuto == OA_NOTIFY ? "buscar y avisar" : "buscar e instalar sola");
+  Serial.println("----------------------------------------------------------------");
+  Serial.println("  Órdenes: on [min] [°C] | off | status | info | errores | cfg | set clave=valor | wifi | forget | reboot | gasreset");
+  Serial.println("================================================================");
+}
+
 // Enciende la red propia, se une a la red externa (si la hay) y arranca el servidor web y wttc.local
 void wifiStart() {
   WiFi.setHostname(HOSTNAME);
@@ -2871,6 +2900,7 @@ void serialCli() {
   if (l.startsWith("on")) { String a = l.substring(2); a.trim(); int b = a.indexOf(' ');
     String e = heatOn(a.toInt(), b > 0 ? a.substring(b + 1).toInt() : 0, "consola"); if (e.length()) Serial.println(e); }
   else if (l == "off") { endSession(true); stopHeater(tr(T_SRC_CONSOLE), true); }
+  else if (l == "info" || l == "motd") printMotd();
   else if (l == "status") {
     readSensors();
     static const char* PH[] = {"apagada", "arrancando", "con llama", "pausa de regulación", "sin respuesta"};
@@ -2954,8 +2984,7 @@ void setup() {
   hwProbe();
   dispWake();
   // El PIN Bluetooth sale aquí: es la forma de conocerlo la primera vez (o en la web, Configuración)
-  Serial.printf("WTTC %s | Bluetooth y Wi-Fi: \"%s\" | PIN Bluetooth: %06u\n", FW_VERSION, cfgName, (unsigned)blePin);
-  Serial.println("Consola: on [min] [°C] | off | status | errores | cfg | set clave=valor | wifi | forget | reboot | gasreset");
+  printMotd();                                    // cómo conectarse y con qué claves (también con la orden «info»)
 }
 
 // ============================================================================================================
@@ -2970,6 +2999,14 @@ void loop() {
   else if (!dnsOn && wifiActive && netUse == 0 && millis() - dnsTry > 5000) { dnsTry = millis(); dnsOn = dns.start(53, "*", WiFi.softAPIP()); }
   if (dnsOn) dns.processNextRequest();            // preguntas de nombres en la red propia
   serialCli();                                    // órdenes de la consola serie
+  // En la consola, al unirse o perderse la red con internet: su dirección, para entrar a la web desde esa red
+  static bool staWas = false;
+  bool staNow = WiFi.status() == WL_CONNECTED;
+  if (staNow != staWas) {
+    staWas = staNow;
+    if (staNow) Serial.printf("Red \"%s\" conectada: http://%s · http://%s.local\n", staSsid, WiFi.localIP().toString().c_str(), HOSTNAME);
+    else if (staSsid[0]) Serial.printf("Red \"%s\" perdida (se reintenta sola)\n", staSsid);
+  }
 
   // Órdenes de la app (llegan por la tarea del Bluetooth); la respuesta va por la característica RESP
   BleCmd bc;

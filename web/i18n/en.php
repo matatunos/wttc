@@ -60,7 +60,7 @@ TXT,
 'clear' => 'Clear',
 'traceHint' => 'Blue: what the ESP32 sends (<code>F4</code> = from diagnostics to heater). Grey: the echo the firmware discards. Green: the Webasto\'s answer (<code>4F</code>, command | 0x80). The last byte is the XOR of all the previous ones.',
 'serial' => 'Serial console (115200)',
-'conPh' => 'on 30 · off · status · errores',
+'conPh' => 'on 30 · off · status · info · errores',
 'conAria' => 'Command for the serial console',
 'send' => 'Send',
 'conHint' => 'It is the same console you will use for the first test, with the ESP32 connected to your laptop over USB. Its commands and messages are in Spanish.',
@@ -181,7 +181,7 @@ TXT,
 <li>Unzip the archive: you get the folder <code>WTTC/</code> with <code>WTTC.ino</code> and <code>web.h</code> (the IDE requires the folder to be named like the .ino). Open <code>WTTC.ino</code>.</li>
 <li><b>Tools → Board → esp32 → ESP32S3 Dev Module</b> and <b>Flash Size → 16MB</b>; <b>PSRAM → OPI PSRAM</b>; <b>Tools → Partition Scheme → Huge APP (3MB No OTA/1MB SPIFFS)</b> (only for the size limit: the <code>WTTC/</code> folder brings its own partition table, with two slots for wireless updates, and Arduino uses it by itself); and under <b>Port</b> the ESP32's one (<code>COMx</code> on Windows, <code>/dev/ttyUSB0</code> on Linux).</li>
 <li>Press <b>Upload</b> (the arrow). If it hangs at “Connecting……”, hold the board's <b>BOOT</b> button until it starts writing.</li>
-<li><b>Tools → Serial Monitor</b> at <b>115200</b> baud: it shows the version, the name and your board's <b>Bluetooth PIN</b> (write it down). Type <code>status</code> for the first test.</li>
+<li><b>Tools → Serial Monitor</b> at <b>115200</b> baud: it shows a summary with the version, the <b>Bluetooth PIN</b>, the board's Wi-Fi and its password, and the web user and password (write them down; <code>info</code> shows it again). Type <code>status</code> for the first test.</li>
 </ol>
 TXT,
 'cliLinux' => <<<'TXT'

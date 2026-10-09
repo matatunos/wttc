@@ -66,7 +66,7 @@ TXT,
 Azul, lo que envía el ESP32 (<code>F4</code> = de diagnóstico a calefactor). Gris, el eco que el firmware descarta. Verde, la respuesta de la Webasto (<code>4F</code>, comando | 0x80). El último byte es el XOR de todos los anteriores.
 TXT,
 'serial' => 'Consola serie (115200)',
-'conPh' => 'on 30 · off · status · errores',
+'conPh' => 'on 30 · off · status · info · errores',
 'conAria' => 'Orden para la consola serie',
 'send' => 'Enviar',
 'conHint' => <<<'TXT'
@@ -197,7 +197,7 @@ TXT,
 <li>Descomprime el zip: queda la carpeta <code>WTTC/</code> con <code>WTTC.ino</code> y <code>web.h</code> (el IDE exige que la carpeta se llame como el .ino). Abre <code>WTTC.ino</code>.</li>
 <li><b>Herramientas → Placa → esp32 → ESP32S3 Dev Module</b> y <b>Flash Size → 16MB</b>; <b>PSRAM → OPI PSRAM</b>; <b>Herramientas → Partition Scheme → Huge APP (3MB No OTA/1MB SPIFFS)</b> (solo para el límite de tamaño: la carpeta <code>WTTC/</code> trae su propia tabla de particiones, con dos huecos para las actualizaciones sin cable, y Arduino la usa sola); y en <b>Puerto</b> el del ESP32 (<code>COMx</code> en Windows, <code>/dev/ttyUSB0</code> en Linux).</li>
 <li>Pulsa <b>Subir</b> (la flecha). Si se queda en «Connecting……», mantén pulsado el botón <b>BOOT</b> de la placa hasta que empiece a escribir.</li>
-<li><b>Herramientas → Monitor serie</b> a <b>115200</b> baudios: sale la versión, el nombre y el <b>PIN Bluetooth</b> de tu placa (apúntalo). Escribe <code>status</code> para la primera prueba.</li>
+<li><b>Herramientas → Monitor serie</b> a <b>115200</b> baudios: sale un resumen con la versión, el <b>PIN Bluetooth</b>, la Wi-Fi de la placa y su clave, y el usuario y la clave de la web (apúntalos; con <code>info</code> sale otra vez). Escribe <code>status</code> para la primera prueba.</li>
 </ol>
 TXT,
 'cliLinux' => <<<'TXT'
