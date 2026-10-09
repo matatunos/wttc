@@ -1,6 +1,6 @@
 #!/bin/bash
 # wttc-instalador.sh — (fuente: server/scripts/ del repo; lo instala deploy-web.sh) Prepara en https://wttc.favala.es/instalar.php la instalación del firmware desde el navegador.
-# (generado con Claude, Anthropic; lo lanza cron cada 15 minutos)
+# (generado con Claude, Anthropic; lo lanza cron cada 5 minutos)
 # Copia de la Release de GitHub de la versión publicada (descargas/VERSION) los paquetes WTTC-<v>-instalar-<chip>.zip
 # que adjunta el workflow del firmware, los descomprime en descargas/instalar/<v>/<chip>/ y escribe
 # descargas/instalar/manifest.json para ESP Web Tools. Si ya está hecho para esa versión, sale sin hacer nada; si la
@@ -26,6 +26,12 @@ if [ ! -f "$OTA_DIR/WTTC-$v-s3.ota" ]; then
     ls -1t "$OTA_DIR"/WTTC-*-s3.ota | tail -n +3 | xargs -r rm -f
     echo "Actualización $v en el espejo"
   else rm -f "$t"; fi
+fi
+# Con el .ota ya en el espejo, se publica el anuncio que dejó pendiente wttc-publicar.sh (ver allí)
+PEND=$WEB/descargas/ota-pendiente.json
+if [ -f "$OTA_DIR/WTTC-$v-s3.ota" ] && [ -f "$PEND" ] && grep -q "\"version\":\"$v\"" "$PEND"; then
+  mv "$PEND" "$WEB/descargas/ota.json"
+  echo "ota.json anuncia ya la $v"
 fi
 [ -f "$DST/$v/.listo" ] && exit 0
 mkdir -p "$DST"

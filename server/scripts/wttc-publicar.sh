@@ -5,7 +5,8 @@
 #   - movil.php                    (web del firmware para el simulador, desde web.h)
 #   - descargas/VERSION y CHANGELOG.md (sección «Versiones»)
 #   - descargas/fwtextos.json      (textos del firmware en es/en/de, para el ESP32 simulado)
-#   - descargas/ota.json           (última versión y dirección de su .ota, para la actualización sin cable)
+#   - descargas/ota.json           (última versión y dirección de su .ota, para la actualización sin cable; solo cuando su
+#                                    .ota ya está en el espejo: si no, queda en ota-pendiente.json y lo publica wttc-instalador.sh)
 # El APK no se copia: la web enlaza al de su versión en GitHub (releases/download/v<VERSION>/WTTC.apk;
 # no releases/latest, que da 404 mientras todas las Releases sean de prueba).
 set -euo pipefail
@@ -61,8 +62,10 @@ os.replace(tmp, os.path.join(web, 'descargas', 'fwtextos.json'))
 PY
 # Versión y changelog para la sección «Versiones» de la web
 install -m 644 "$REPO/VERSION" "$WEB/descargas/VERSION"
-# Última versión para la actualización sin cable: la app y la placa lo consultan. El .ota lo adjunta a la Release
-# el workflow del firmware (firmado); mientras no esté, la placa dice que aún no se puede descargar.
+# Última versión para la actualización sin cable: la app y la placa lo consultan. El .ota lo adjunta a la Release el
+# workflow del firmware (firmado) y lo copia al espejo wttc-instalador.sh, unos minutos después. Mientras no está, el
+# anuncio se guarda en ota-pendiente.json y ota.json sigue con la versión anterior: así la placa no ve «hay versión
+# nueva» para luego no poder descargarla.
 # «notas»: la sección de esa versión del CHANGELOG en una línea (sin comillas dobles ni saltos: la placa lee este
 # JSON con un análisis sencillo y lo manda tal cual por Telegram), recortada a 450 caracteres.
 python3 - "$REPO" "$WEB" <<'PY'
@@ -82,9 +85,14 @@ if len(txt) > 450: txt = txt[:447].rsplit(' ', 1)[0] + '…'
 # mientras no está, la placa dice que aún no está publicada). Hasta el 9/10/2026 se bajaba de GitHub, cuyas descargas
 # redirigen a otro servidor y a la placa se le cortaban
 m = {'version': v, 'ota_s3': f'https://wttc.favala.es/descargas/ota/WTTC-{v}-s3.ota', 'notas': txt}   # ota_s3: ESP32-S3
-tmp = os.path.join(web, 'descargas', '.ota.json')
+ready = os.path.isfile(os.path.join(web, 'descargas', 'ota', f'WTTC-{v}-s3.ota'))
+name = 'ota.json' if ready else 'ota-pendiente.json'
+tmp = os.path.join(web, 'descargas', '.' + name)
 open(tmp, 'w', encoding='utf-8').write(json.dumps(m, ensure_ascii=False, separators=(',', ':')) + '\n')
-os.chmod(tmp, 0o644); os.replace(tmp, os.path.join(web, 'descargas', 'ota.json'))
+os.chmod(tmp, 0o644); os.replace(tmp, os.path.join(web, 'descargas', name))
+if ready:
+    try: os.remove(os.path.join(web, 'descargas', 'ota-pendiente.json'))
+    except FileNotFoundError: pass
 PY
 install -m 644 "$REPO/CHANGELOG.md" "$WEB/descargas/CHANGELOG.md"
 chmod 644 "$WEB/movil.php" "$WEB/descargas/WTTC-firmware.zip"
