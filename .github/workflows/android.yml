@@ -131,8 +131,10 @@ jobs:
           # Versiones 0.x: pre-release (de prueba, sin probar con hardware real); desde la 1.0.0, versión normal
           if [[ "$WTTC_VERSION_NAME" == 0.* ]]; then tipo=(--prerelease); titulo="WTTC ${WTTC_VERSION_NAME} (de prueba)"
           else tipo=(--latest); titulo="WTTC ${WTTC_VERSION_NAME}"; fi
+          # --target: la etiqueta en ESTE commit, aunque main ya tenga otros detrás (si no, el workflow del firmware no
+          # adjunta el .ota, porque la etiqueta sería de otro commit; pasó con la 0.2.20)
           gh release create "$tag" "WTTC-${WTTC_VERSION_NAME}.apk" WTTC.apk WTTC-firmware.zip \
-            --title "$titulo" "${tipo[@]}" --notes-file notas.md
+            --target "$GITHUB_SHA" --title "$titulo" "${tipo[@]}" --notes-file notas.md
 
       # Sin firma estable el APK compila (y queda como artefacto), pero el run se marca como fallido
       - name: Comprobar la firma
