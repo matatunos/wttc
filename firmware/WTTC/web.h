@@ -102,6 +102,12 @@ details h3{font-size:15px;margin:18px 0 0}
 <p class="sub" style="margin:6px 0 0" data-t="setupText">La clave de fábrica es pública: cualquiera cerca podría manejar la calefacción. Elige una nueva (mínimo 8 caracteres); la placa se reinicia y tendrás que volver a conectarte a su Wi-Fi con la clave nueva.</p>
 <label class="f"><span data-t="setupLabel">Clave nueva de la Wi-Fi</span><input id="s_ap" type="password" autocomplete="new-password" minlength="8" maxlength="63"></label>
 <div class="acts" style="margin-top:10px"><button class="btn pri" id="s_save" data-t="save">Guardar</button></div></div>
+<!-- Desde otra red con el usuario y la clave de la web de fábrica (wttc / wttc): obliga a cambiarlos (st.wdef) -->
+<div class="warn" id="wsetup" hidden><b data-t="wsetupT">Protege el acceso desde esta red</b>
+<p class="sub" style="margin:6px 0 0" data-t="wsetupH"></p>
+<label class="f"><span data-t="fWuser">Usuario de la web</span><input id="ws_user" autocomplete="username" autocapitalize="off" autocorrect="off" maxlength="23"></label>
+<label class="f"><span data-t="wsetupNew">Clave nueva de la web</span><input id="ws_pass" type="password" autocomplete="new-password" minlength="6" maxlength="63"></label>
+<div class="acts" style="margin-top:10px"><button class="btn pri" id="ws_save" data-t="save">Guardar</button></div></div>
 <!-- Esfera: temperatura del agua, estado real y tiempo restante (el arco naranja se vacía según pasa el tiempo) -->
 <div class="dial"><svg viewBox="0 0 200 200"><circle class="trk" cx="100" cy="100" r="88"/><circle class="arc" id="arc" cx="100" cy="100" r="88" stroke-dasharray="553" stroke-dashoffset="553"/></svg>
 <div class="ctr"><div class="tmp" id="tmp">--°</div><div class="lbl" data-t="water">agua del motor</div><div class="st" id="st" data-t="connecting">Conectando…</div><div class="lbl" id="rem"></div></div></div>
@@ -152,6 +158,10 @@ details h3{font-size:15px;margin:18px 0 0}
 <label class="f"><span data-t="fTok">Token del bot (de @BotFather; vacío: no cambiarlo)</span><input id="c_tok" type="password" autocomplete="off" autocapitalize="off" autocorrect="off"></label>
 <label class="f"><span data-t="fChat">Chat ID (vacío: avisos desactivados)</span><input id="c_chat" inputmode="numeric" autocomplete="off"></label>
 <p class="sub" id="tgst" style="white-space:pre-line"></p>
+<h3 data-t="webT">Acceso a la web desde otra red</h3>
+<p class="sub" data-t="webH"></p>
+<label class="f"><span data-t="fWuser">Usuario de la web</span><input id="c_wuser" maxlength="23" autocomplete="off" autocapitalize="off" autocorrect="off"></label>
+<label class="f"><span data-t="fWpass2">Clave de la web</span><input id="c_wpass" type="password" autocomplete="new-password"></label>
 <h3 data-t="safety">Seguridad</h3>
 <label class="f"><span data-t="fMinV">Batería mínima para arrancar un programa (V)</span><input id="c_mv" type="number" step="0.1" min="10.5" max="13"></label>
 <div id="hwBox" hidden>
@@ -165,7 +175,14 @@ details h3{font-size:15px;margin:18px 0 0}
 <label class="f"><span data-t="fLed">LED de la placa</span><select id="c_led"><option value="0" data-t="led0">Apagado</option><option value="1" data-t="led1">Bajo</option><option value="2" data-t="led2">Medio</option><option value="3" data-t="led3">Alto</option></select></label>
 <label class="f" id="lb_toff"><span data-t="fToff">Corrección del termómetro (°C)</span><input id="c_toff" type="number" step="0.1" min="-5" max="5"></label></div>
 <div class="acts" style="margin-top:14px"><button class="btn pri" id="csave" data-t="save">Guardar</button><button class="btn" id="tgtest" data-t="tgTest">Probar Telegram</button></div>
-<div class="acts" style="margin-top:10px"><button class="btn" id="forget" data-t="forget">Borrar emparejamientos</button><button class="btn" id="tsync" data-t="setClock">Poner en hora</button></div>
+<div class="acts" style="margin-top:10px"><button class="btn" id="forget" data-t="forget">Borrar emparejamientos</button><button class="btn" id="tsync" data-t="setClock">Poner en hora</button><button class="btn" id="logout" data-t="logout" hidden>Salir</button></div>
+<!-- Mis estadísticas: código de instalación (para verlas en wttc.favala.es/mi.php) y si se envían -->
+<div id="myBox" hidden><h3 data-t="myT">Mis estadísticas</h3>
+<p class="sub" data-t="myH"></p>
+<label class="f"><span data-t="fIid">Código de instalación</span><input id="c_iid" maxlength="19" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" style="font-family:monospace;letter-spacing:1px"></label>
+<div class="line" style="margin-top:10px"><span data-t="fStats">Enviar las estadísticas de esta placa</span><label class="sw"><input type="checkbox" id="c_stats" aria-label="Enviar las estadísticas de esta placa" data-ta="fStats"><i></i></label></div>
+<p class="sub" id="runsSt"></p>
+<div class="acts" style="margin-top:8px"><button class="btn" id="iidTg" data-t="iidTg">Enviar el código por Telegram</button><a class="btn" id="iidSee" target="_blank" rel="noopener" data-t="iidSee" style="text-decoration:none;text-align:center">Ver mis estadísticas</a></div></div>
 <h3 data-t="updTitle">Actualizar firmware</h3>
 <p class="sub" data-t="updHelp2">Con la placa unida a una red con internet, «Buscar actualizaciones» lo hace todo: busca, te pregunta y la descarga e instala sola.</p>
 <label class="f"><span data-t="fOtaAuto">Actualizaciones automáticas (al arrancar y una vez al día, con red con internet)</span><select id="c_otaa"><option value="0" data-t="otaa0">No buscar</option><option value="1" data-t="otaa1">Buscar y avisar</option><option value="2" data-t="otaa2">Buscar e instalar sola (nunca calentando)</option></select></label>
@@ -177,6 +194,13 @@ details h3{font-size:15px;margin:18px 0 0}
 <p class="sub" id="c_ver" style="margin-top:10px"></p></details>
 <!-- Avisos y preguntas dentro de la página: en la ventanita del portal cautivo (Android, iPhone) alert() y confirm()
      del navegador no salen, y la página parecía no hacer nada -->
+<!-- Login: desde otra red (casa, camping…) la placa pide usuario y clave (401); por su propia Wi-Fi no -->
+<div class="dlg" id="login" hidden role="dialog" aria-modal="true"><div><b data-t="loginT">Entrar en la placa</b>
+<p class="sub" style="margin:6px 0 0;white-space:normal" data-t="loginH"></p>
+<form id="lgForm"><label class="f"><span data-t="fUser">Usuario</span><input id="lg_user" autocomplete="username" autocapitalize="off" autocorrect="off" value=""></label>
+<label class="f"><span data-t="fWpass">Clave</span><input id="lg_pass" type="password" autocomplete="current-password"></label>
+<p class="sub" id="lg_err" style="color:var(--bad,#e5484d)"></p>
+<div class="acts"><button class="btn pri" id="lg_go" data-t="loginGo">Entrar</button></div></form></div></div>
 <div class="dlg" id="dlg" hidden role="dialog" aria-modal="true"><div><p id="dlgT"></p>
 <div class="acts"><button class="btn" id="dlgNo">no</button><button class="btn pri" id="dlgOk">OK</button></div></div></div>
 </main>
@@ -193,7 +217,7 @@ function ask(msg,yesNo){return new Promise(res=>{$('dlgT').textContent=String(ms
 const say=m=>{ask(m,false)};
 // ---- Idioma: el de la placa (ajuste «lang»); hasta saberlo, el del navegador. Textos en es, en y de ----
 const I18N={
-es:{loc:'es-ES',fOtaAuto:'Actualizaciones automáticas (al arrancar y una vez al día, con red con internet)',otaa0:'No buscar',otaa1:'Buscar y avisar',otaa2:'Buscar e instalar sola (nunca calentando)',nvAvail:'Hay una versión nueva del firmware: {0}.',nvGo:'Actualizar',scanBtn:'Buscar redes',scanning:'Buscando redes… (unos segundos)',scanNone:'No se ve ninguna red.',scanFail:'La placa no ha terminado de buscar. Prueba otra vez.',scanPick:'Toca una para usarla:',cabin:'Dentro: {0}',hum:' · humedad {0} %',tgtL:'Hasta',tgtNone:'Sin límite de temperatura',waiting:'En espera',tgtOn:'Hasta {0} · margen {1}',
+es:{loc:'es-ES',loginT:'Entrar en la placa',loginH:'Estás conectado desde otra red (casa, camping…): hace falta el usuario y la clave de la web. De fábrica son wttc y wttc.',fUser:'Usuario',fWpass:'Clave',loginGo:'Entrar',wsetupT:'Protege el acceso desde esta red',wsetupH:'Entras con el usuario y la clave de fábrica (wttc / wttc), que son públicos: cualquiera en esta red podría manejar la calefacción. Elige otros.',wsetupNew:'Clave nueva de la web (mínimo 6)',webT:'Acceso a la web desde otra red',webH:'Al entrar a la web de la placa desde otra red (casa, camping…) se piden usuario y clave. Por su propia Wi-Fi no hace falta: ya se puso su clave.',fWuser:'Usuario de la web',fWpass2:'Clave de la web (mínimo 6; vacío: no cambiarla)',logout:'Salir',myT:'Mis estadísticas',myH:'Cada encendido queda apuntado en la placa: duración, gasoil, temperaturas y por qué se apagó. Si lo activas, la placa (o la app, si la placa no tiene internet) lo envía, y lo ves con gráficas en wttc.favala.es con tu código. Sin el código nadie puede verlas.',fIid:'Código de instalación (al cambiar de placa, escribe aquí el de la anterior para seguir con sus estadísticas)',fStats:'Enviar las estadísticas de esta placa',iidTg:'Enviar el código por Telegram',iidSee:'Ver mis estadísticas',runsSt:'Encendidos apuntados: {0} · enviados: {1}',runsOk:' · último envío hace {0}',runsNever:' · aún no se ha enviado nada',fOtaAuto:'Actualizaciones automáticas (al arrancar y una vez al día, con red con internet)',otaa0:'No buscar',otaa1:'Buscar y avisar',otaa2:'Buscar e instalar sola (nunca calentando)',nvAvail:'Hay una versión nueva del firmware: {0}.',nvGo:'Actualizar',scanBtn:'Buscar redes',scanning:'Buscando redes… (unos segundos)',scanNone:'No se ve ninguna red.',scanFail:'La placa no ha terminado de buscar. Prueba otra vez.',scanPick:'Toca una para usarla:',cabin:'Dentro: {0}',hum:' · humedad {0} %',tgtL:'Hasta',tgtNone:'Sin límite de temperatura',waiting:'En espera',tgtOn:'Hasta {0} · margen {1}',
  warmOk:' · agua caliente',turnOnTgt:'Encender hasta {0} (máx. {1})',depL:'Salgo a las',depGo:'Programar',depCancel:'Cancelar',
  depSet:'Salida: {0} a las {1}{2}. Enciende antes, según el frío que haga.',depTgt:' (hasta {0})',mStart:'Encender a esta hora',mDep:'Salgo a esta hora',
  sTgt:'Sin termostato',nextDep:'Próxima salida: {0} a las {1}.',minvHelp:'Calentando, se apaga sola si la batería baja medio voltio por debajo de esta.',
@@ -223,7 +247,7 @@ es:{loc:'es-ES',fOtaAuto:'Actualizaciones automáticas (al arrancar y una vez al
  ver:'Firmware WTTC {0} · código generado íntegramente con Claude (Anthropic) · github.com/matatunos/wttc',
  askGas:'¿Poner a cero el gasoil estimado (último encendido, mes y total)?',askForget:'¿Borrar todos los dispositivos emparejados? Habrá que volver a emparejar la app con el PIN.',
  days:['L','M','X','J','V','S','D'],daysL:['el lunes','el martes','el miércoles','el jueves','el viernes','el sábado','el domingo']},
-en:{loc:'en-GB',fOtaAuto:'Automatic updates (at boot and once a day, with a network with internet)',otaa0:'Do not check',otaa1:'Check and notify',otaa2:'Check and install by itself (never while heating)',nvAvail:'There is a new firmware version: {0}.',nvGo:'Update',scanBtn:'Find networks',scanning:'Looking for networks… (a few seconds)',scanNone:'No network in sight.',scanFail:'The board did not finish searching. Try again.',scanPick:'Tap one to use it:',cabin:'Inside: {0}',hum:' · humidity {0} %',tgtL:'Up to',tgtNone:'No temperature limit',waiting:'Waiting',tgtOn:'Up to {0} · window {1}',
+en:{loc:'en-GB',loginT:'Log in to the board',loginH:'You are connected from another network (home, campsite…): the web user and password are needed. The factory ones are wttc and wttc.',fUser:'User',fWpass:'Password',loginGo:'Log in',wsetupT:'Protect access from this network',wsetupH:'You are logged in with the factory user and password (wttc / wttc), which are public: anyone on this network could control the heater. Choose others.',wsetupNew:'New web password (at least 6)',webT:'Web access from another network',webH:"When the board's web page is opened from another network (home, campsite…), a user and password are asked for. Not through its own Wi-Fi: its password was already entered.",fWuser:'Web user',fWpass2:'Web password (at least 6; empty: keep it)',logout:'Log out',myT:'My statistics',myH:'Every run is recorded on the board: duration, fuel, temperatures and why it stopped. If you turn this on, the board (or the app, if the board has no internet) sends it, and you see it with charts on wttc.favala.es with your code. Without the code nobody can see them.',fIid:'Installation code (when changing boards, enter the old one here to keep its statistics)',fStats:"Send this board's statistics",iidTg:'Send the code by Telegram',iidSee:'See my statistics',runsSt:'Runs recorded: {0} · sent: {1}',runsOk:' · last sent {0} ago',runsNever:' · nothing sent yet',fOtaAuto:'Automatic updates (at boot and once a day, with a network with internet)',otaa0:'Do not check',otaa1:'Check and notify',otaa2:'Check and install by itself (never while heating)',nvAvail:'There is a new firmware version: {0}.',nvGo:'Update',scanBtn:'Find networks',scanning:'Looking for networks… (a few seconds)',scanNone:'No network in sight.',scanFail:'The board did not finish searching. Try again.',scanPick:'Tap one to use it:',cabin:'Inside: {0}',hum:' · humidity {0} %',tgtL:'Up to',tgtNone:'No temperature limit',waiting:'Waiting',tgtOn:'Up to {0} · window {1}',
  warmOk:' · water is warm',turnOnTgt:'Heat up to {0} (max {1})',depL:'I leave at',depGo:'Set',depCancel:'Cancel',
  depSet:'Departure: {0} at {1}{2}. It switches on earlier, depending on how cold it is.',depTgt:' (up to {0})',mStart:'Switch on at this time',mDep:'I leave at this time',
  sTgt:'No thermostat',nextDep:'Next departure: {0} at {1}.',minvHelp:'While heating, it switches itself off if the battery drops half a volt below this.',
@@ -253,7 +277,7 @@ en:{loc:'en-GB',fOtaAuto:'Automatic updates (at boot and once a day, with a netw
  ver:'WTTC firmware {0} · code generated entirely with Claude (Anthropic) · github.com/matatunos/wttc',
  askGas:'Reset the diesel estimate (last run, month and total)?',askForget:'Delete all paired devices? The app will have to be paired again with the PIN.',
  days:['M','T','W','T','F','S','S'],daysL:['on Monday','on Tuesday','on Wednesday','on Thursday','on Friday','on Saturday','on Sunday']},
-de:{loc:'de-DE',fOtaAuto:'Automatische Updates (beim Start und einmal am Tag, mit Netz mit Internet)',otaa0:'Nicht suchen',otaa1:'Suchen und melden',otaa2:'Suchen und selbst installieren (nie beim Heizen)',nvAvail:'Es gibt eine neue Firmware-Version: {0}.',nvGo:'Aktualisieren',scanBtn:'Netze suchen',scanning:'Suche Netze… (ein paar Sekunden)',scanNone:'Kein Netz in Reichweite.',scanFail:'Die Platine ist mit der Suche nicht fertig geworden. Nochmal versuchen.',scanPick:'Eines antippen, um es zu nutzen:',cabin:'Innen: {0}',hum:' · Feuchte {0} %',tgtL:'Bis',tgtNone:'Ohne Temperaturgrenze',waiting:'Wartet',tgtOn:'Bis {0} · Zeitfenster {1}',
+de:{loc:'de-DE',loginT:'Bei der Platine anmelden',loginH:'Du bist aus einem anderen Netz verbunden (Zuhause, Campingplatz…): Web-Benutzer und -Passwort sind nötig. Ab Werk sind es wttc und wttc.',fUser:'Benutzer',fWpass:'Passwort',loginGo:'Anmelden',wsetupT:'Zugang aus diesem Netz schützen',wsetupH:'Du bist mit Benutzer und Passwort ab Werk (wttc / wttc) angemeldet, die öffentlich sind: jeder in diesem Netz könnte die Heizung steuern. Wähle andere.',wsetupNew:'Neues Web-Passwort (mindestens 6)',webT:'Web-Zugang aus einem anderen Netz',webH:'Wird die Webseite der Platine aus einem anderen Netz geöffnet (Zuhause, Campingplatz…), werden Benutzer und Passwort verlangt. Über ihr eigenes WLAN nicht: dessen Passwort wurde schon eingegeben.',fWuser:'Web-Benutzer',fWpass2:'Web-Passwort (mindestens 6; leer: behalten)',logout:'Abmelden',myT:'Meine Statistiken',myH:'Jeder Heizlauf wird auf der Platine notiert: Dauer, Diesel, Temperaturen und warum er endete. Wenn du das einschaltest, sendet es die Platine (oder die App, wenn die Platine kein Internet hat), und du siehst es mit Diagrammen auf wttc.favala.es mit deinem Code. Ohne den Code kann sie niemand sehen.',fIid:'Installationscode (beim Platinenwechsel hier den der alten eingeben, um ihre Statistiken weiterzuführen)',fStats:'Statistiken dieser Platine senden',iidTg:'Code per Telegram senden',iidSee:'Meine Statistiken ansehen',runsSt:'Heizläufe notiert: {0} · gesendet: {1}',runsOk:' · zuletzt gesendet vor {0}',runsNever:' · noch nichts gesendet',fOtaAuto:'Automatische Updates (beim Start und einmal am Tag, mit Netz mit Internet)',otaa0:'Nicht suchen',otaa1:'Suchen und melden',otaa2:'Suchen und selbst installieren (nie beim Heizen)',nvAvail:'Es gibt eine neue Firmware-Version: {0}.',nvGo:'Aktualisieren',scanBtn:'Netze suchen',scanning:'Suche Netze… (ein paar Sekunden)',scanNone:'Kein Netz in Reichweite.',scanFail:'Die Platine ist mit der Suche nicht fertig geworden. Nochmal versuchen.',scanPick:'Eines antippen, um es zu nutzen:',cabin:'Innen: {0}',hum:' · Feuchte {0} %',tgtL:'Bis',tgtNone:'Ohne Temperaturgrenze',waiting:'Wartet',tgtOn:'Bis {0} · Zeitfenster {1}',
  warmOk:' · Wasser ist warm',turnOnTgt:'Heizen bis {0} (max. {1})',depL:'Abfahrt um',depGo:'Einstellen',depCancel:'Löschen',
  depSet:'Abfahrt: {0} um {1}{2}. Schaltet je nach Kälte früher ein.',depTgt:' (bis {0})',mStart:'Zu dieser Zeit einschalten',mDep:'Abfahrt zu dieser Zeit',
  sTgt:'Ohne Thermostat',nextDep:'Nächste Abfahrt: {0} um {1}.',minvHelp:'Während des Heizens schaltet sie sich ab, wenn die Batterie ein halbes Volt darunter fällt.',
@@ -316,7 +340,17 @@ const fmtRem=s=>{const m=Math.ceil(s/60);return m<60?m+' min':Math.floor(m/60)+'
 const num=(v,d)=>(+v).toLocaleString(T('loc'),{minimumFractionDigits:d,maximumFractionDigits:d});
 // Llamada a la API del ESP32: GET sin cuerpo o POST con formulario; devuelve JSON si lo es, o el texto.
 // Si la respuesta no es 2xx lanza un error con el texto que da el firmware (se muestra con alert).
-async function api(p,b){const r=await fetch(p,b?{method:'POST',body:new URLSearchParams(b)}:undefined);const t=await r.text();if(!r.ok)throw new Error(t||r.status);try{return JSON.parse(t)}catch(e){return t}}
+// 401 = entra desde otra red sin sesión: se enseña el login
+async function api(p,b){const r=await fetch(p,b?{method:'POST',body:new URLSearchParams(b)}:undefined);const t=await r.text();if(r.status===401)showLogin();if(!r.ok)throw new Error(t||r.status);try{return JSON.parse(t)}catch(e){return t}}
+function showLogin(){if(!$('login').hidden)return;$('login').hidden=false;$('lg_err').textContent='';setTimeout(()=>$('lg_user').focus(),50)}
+$('lgForm').onsubmit=async e=>{e.preventDefault();$('lg_go').disabled=true;$('lg_err').textContent='';
+ try{await api('/api/login',{user:$('lg_user').value.trim(),pass:$('lg_pass').value});$('login').hidden=true;$('lg_pass').value='';synced=false;await poll()}
+ catch(err){$('lg_err').textContent=err.message}$('lg_go').disabled=false};
+// Primer uso desde otra red: usuario y clave de la web nuevos
+$('ws_save').onclick=async()=>{const u=$('ws_user').value.trim(),p=$('ws_pass').value;if(p.length<6)return say(T('fWpass2'));
+ try{say(await api('/api/cfg',{webuser:u||'wttc',webpass:p}));$('ws_pass').value='';poll()}catch(e){say(e.message)}};
+$('logout').onclick=async()=>{try{await api('/api/logout',{})}catch(e){}location.reload()};
+$('iidTg').onclick=async()=>{try{say(await api('/api/iidtg',{}))}catch(e){say(e.message)}};
 // Pinta los botones de duración
 function seg(){const L=tgt?TDURS:DURS;if(!L.includes(dur))dur=tgt?120:30;
  $('seg').innerHTML=L.map(d=>`<button class="${d==dur?'sel':''}" data-d="${d}">${fmtDur(d)}</button>`).join('');
@@ -363,7 +397,8 @@ function render(){if(!st)return;
  else if(st.nv)w+='<div class="warn">'+T('nvAvail',esc(st.nv))+' <button class="btn pri" id="nvGo" style="margin-left:6px;padding:6px 12px">'+T('nvGo')+'</button></div>';
  $('warn').innerHTML=w;
  $('setup').hidden=st.apdef!==true;
- if(!busy){$('big').disabled=st.apdef===true;$('big').textContent=st.on||th?T('turnOff'):tgt?T('turnOnTgt',deg(tgt,0),fmtDur(dur)):T('turnOn')+' '+fmtDur(dur)}
+ $('wsetup').hidden=st.wdef!==true||st.apdef===true;$('logout').hidden=!st.lan;
+ if(!busy){$('big').disabled=st.apdef===true||st.wdef===true;$('big').textContent=st.on||th?T('turnOff'):tgt?T('turnOnTgt',deg(tgt,0),fmtDur(dur)):T('turnOn')+' '+fmtDur(dur)}
  if(!dirty){sched=st.sch.map(a=>({en:!!a[0],days:a[1],start:a[2],dur:a[3],x:a[4]||0}));$('auto').checked=st.auto;list()}
  $('diag').textContent=T('lastTx')+(st.tx||'-')+'\n'+T('lastRx')+(st.rx||'-')+'\n\n'+st.log.join('\n');
  $('wifi').textContent=(st.ble?T('bleOn'):'')+(st.sta?T('staOn',st.ssid,st.ip,st.rssi):T('staOff'))+T('ownAp',st.name);
@@ -415,6 +450,10 @@ async function loadCfg(){try{const c=await api('/api/cfg');
  $('c_name').value=c.name;$('c_pin').value=c.pin||'';$('c_wm').value=c.wifimode;$('c_ssid').value=c.ssid;$('c_chat').value=c.tgchat;$('c_mv').value=c.minvolt;$('c_lang').value=c.lang||lang;
  $('hwBox').hidden=!c.th;$('lb_oled').hidden=$('lb_disp').hidden=!c.scr;$('lb_toff').hidden=!c.sens;
  $('c_otaa').value=c.otaauto!=null?c.otaauto:1;$('c_otaa').disabled=c.otaauto==null;
+ // Acceso desde otra red y mis estadísticas (firmware 0.2.16+)
+ $('c_wuser').value=c.webuser||'';$('c_wpass').value='';$('c_wuser').disabled=$('c_wpass').disabled=c.webuser==null;
+ $('myBox').hidden=!c.iid;if(c.iid){$('c_iid').value=c.iid;$('c_stats').checked=!!c.stats;$('iidSee').href='https://wttc.favala.es/mi.php#'+c.iid;
+  $('runsSt').textContent=T('runsSt',c.nruns,c.rack)+(c.stok>=0?T('runsOk',fmtRem(c.stok)):c.stats?T('runsNever'):'');}
  if(c.th){$('c_oled').value=c.oled;$('c_disp').value=c.disp;$('c_led').value=c.led;$('c_toff').value=c.toff;$('c_warm').value=c.warm;
   const h=[c.sens,c.scr?T('scr'):''].filter(x=>x).join(', ');$('hw').textContent=h?T('hwDet',h):T('hwNone')}
  $('c_tok').value='';$('c_ap').value='';$('c_pass').value='';$('c_tok').placeholder=T(c.tg?'stored':'notSet');
@@ -427,6 +466,8 @@ $('cfgd').ontoggle=()=>{if($('cfgd').open)loadCfg()};
 $('csave').onclick=async()=>{const b={lang:$('c_lang').value,name:$('c_name').value.trim(),wifimode:$('c_wm').value,ssid:$('c_ssid').value.trim(),tgchat:$('c_chat').value.trim(),minvolt:$('c_mv').value,
   oled:$('c_oled').value,disp:$('c_disp').value,led:$('c_led').value,toff:$('c_toff').value||0,warm:$('c_warm').value||0};
  if(!$('c_otaa').disabled)b.otaauto=$('c_otaa').value;
+ if(!$('c_wuser').disabled){b.webuser=$('c_wuser').value.trim();if($('c_wpass').value)b.webpass=$('c_wpass').value}
+ if(!$('myBox').hidden){b.iid=$('c_iid').value.trim();b.stats=$('c_stats').checked?1:0}
  if($('c_pin').value.trim())b.pin=$('c_pin').value.trim();if($('c_ap').value)b.appass=$('c_ap').value;if($('c_pass').value)b.pass=$('c_pass').value;if($('c_tok').value.trim())b.tgtok=$('c_tok').value.trim();
  try{setLang(b.lang);say(await api('/api/cfg',b));loadCfg();poll()}catch(e){say(e.message)}};
 // Primer uso: guardar la clave nueva de la Wi-Fi (la placa se reinicia para aplicarla)

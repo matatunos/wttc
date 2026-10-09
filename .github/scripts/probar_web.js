@@ -16,15 +16,16 @@ const state = (o) => Object.assign({ on: true, remain: 1320, total: 1800, src: '
   op: -1, om: '', onew: false, sta: false, ssid: '', ip: '', rssi: 0, tx: 'F4 03 44 21 00', rx: '4F 03 C4 00 88',
   sch: [[1, 31, 420, 30, 0], [1, 96, 480, 120, 148], [0, 127, 600, 60, 20]], log: ['06/10 13:27  Encendida (programa, 30 min)'],
   ct: 6.9, ch: 63, tgt: 20, tun: 5400, dep: now + 3600 * 15, dept: 21, wa: true }, o);
-let cur = state({});
+let cur = state({}), noAuth = false;
 const sb = { document: { getElementById: el, querySelectorAll: () => [], documentElement: {}, hidden: false, body: el('body') }, navigator: { language: 'es-ES' },
   setTimeout: () => {}, setInterval: () => {}, alert: m => { throw new Error('alert: ' + m) }, confirm: () => false, URLSearchParams, Date, Math, JSON,
-  fetch: async (p) => ({ ok: true, text: async () => JSON.stringify(p === '/api/cfg' ? { name: 'WTTC', pin: 123456, wifimode: 1, ssid: '', tgchat: '', minvolt: '12.0',
-    lang: cur.lang, ver: '0.2.1', bonds: 1, tg: false, th: 1, oled: 0, disp: 1, led: 1, toff: '0.0', warm: 50, sens: 'SHT31', scr: false } : cur) }),
+  fetch: async (p) => noAuth ? { ok: false, status: 401, text: async () => 'login' } : ({ ok: true, status: 200, text: async () => JSON.stringify(p === '/api/cfg' ? { name: 'WTTC', pin: 123456, wifimode: 1, ssid: '', tgchat: '', minvolt: '12.0',
+    lang: cur.lang, ver: '0.2.1', bonds: 1, tg: false, th: 1, oled: 0, disp: 1, led: 1, toff: '0.0', warm: 50, sens: 'SHT31', scr: false,
+    webuser: 'yo', webdef: false, iid: 'ABCD-2345-EFGH-6789', stats: 1, nruns: 12, rack: 10, stok: 300 } : cur) }),
   console, window: {} };
 sb.window.parent = sb.window;
 vm.createContext(sb);
-vm.runInContext(code + '\n;globalThis.__w={render,list,next,loadCfg,setLang,get st(){return st},set st(v){st=v}};', sb);
+vm.runInContext(code + '\n;globalThis.__w={render,list,next,loadCfg,setLang,poll,get st(){return st},set st(v){st=v}};', sb);
 const W = sb.__w;
 for (const lang of ['es', 'en', 'de']) {
   cur = state({ lang }); W.st = cur; W.render();
@@ -44,5 +45,16 @@ for (const lang of ['es', 'en', 'de']) {
   await W.loadCfg();
   console.log('config: hwBox oculto=' + el('hwBox').hidden, '| pantalla oculta=' + el('lb_oled').hidden, '| corrección oculta=' + el('lb_toff').hidden, '|', el('hw').textContent);
   assert.ok(!el('hwBox').hidden && el('lb_oled').hidden && !el('lb_toff').hidden, 'ajustes de piezas opcionales mal ocultados');
+  console.log('mis estadísticas: oculto=' + el('myBox').hidden, '| enlace ' + el('iidSee').href, '|', el('runsSt').textContent);
+  assert.ok(!el('myBox').hidden && el('iidSee').href.endsWith('#ABCD-2345-EFGH-6789') && /12/.test(el('runsSt').textContent), 'falta «Mis estadísticas»');
+  // Desde otra red sin sesión, la placa contesta 401: tiene que salir el login
+  el('login').hidden = true; noAuth = true;
+  await W.poll();
+  console.log('401 → login visible=' + !el('login').hidden);
+  assert.ok(!el('login').hidden, 'con 401 no sale el login');
+  noAuth = false;
+  // Con usuario y clave de fábrica desde otra red: aviso para cambiarlos y botón de encender desactivado
+  cur = state({ lang: 'es', on: false, wdef: true, lan: true }); W.st = cur; W.render();
+  assert.ok(!el('wsetup').hidden && el('big').disabled && !el('logout').hidden, 'falta el aviso de usuario y clave de fábrica');
   console.log('Web de la placa: OK');
 })().catch(e => { console.error(e); process.exit(1); });

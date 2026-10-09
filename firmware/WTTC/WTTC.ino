@@ -150,7 +150,7 @@ const float    TH_STALL_C   = 0.5;    // °C (si hace demasiado frío fuera o el
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.2.15"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.2.16"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -169,6 +169,15 @@ uint32_t blePin    = 0;               // PIN Bluetooth de 6 cifras; 0 = generar 
 uint8_t wifiMode   = WM_ALWAYS;       // por defecto: Wi-Fi siempre encendida (desde la 0.2.14; antes, solo mientras calienta)
 float minVolt      = 12.0;            // V: con la batería por debajo, los programas no arrancan
 char staSsid[33]   = "", staPass[64] = "";   // red con internet a la que unirse (opcional), y su contraseña
+// Login de la web cuando se entra desde otra red (casa, camping…): por la Wi-Fi propia ya se ha puesto su clave.
+// De fábrica «wttc» / «wttc» (públicos): con ellos, desde otra red la web obliga a cambiarlos antes de dejar hacer nada
+#define WEB_DEFAULT "wttc"
+char webUser[24]   = WEB_DEFAULT, webPass[64] = WEB_DEFAULT;
+// Código de instalación: al azar, creado una vez y guardado para siempre (sobrevive a las actualizaciones). Identifica
+// las estadísticas de esta placa en https://wttc.favala.es/mi.php; al cambiar de placa se escribe el de la vieja.
+// No sale del hardware (la MAC se emite por Bluetooth y Wi-Fi: cualquiera cerca podría calcularlo)
+char iid[20] = "";                    // XXXX-XXXX-XXXX-XXXX
+bool statsOn = false;                 // enviar las estadísticas de esta placa (opcional, apagado de fábrica)
 // Pantalla, LED y termómetro (opcionales)
 // Tipo de pantalla: 1,3" (SH1106), 0,96" (SSD1306) o 1,5" en grises (SSD1327). No se distinguen por I2C: es un ajuste
 enum { OLED_SH1106, OLED_SSD1306, OLED_SSD1327 };
@@ -285,6 +294,33 @@ bool oledOk = false, dispIsOn = false;
 uint32_t dispUntil = 0, lastDraw = 0;
 uint32_t btnUntil = 0;                // pulsado el botón BOOT: encendida hasta aquí aunque el modo sea «apagada»
 uint8_t fb[1024];                     // imagen de la pantalla de 128×64: 128 columnas × 8 páginas de 8 píxeles
+
+// ---------- sesiones de la web (login desde otra red) ----------
+char sess[4][33];                     // fichas de sesión vigentes (en RAM: al reiniciar la placa hay que volver a entrar)
+uint8_t sessNext = 0;
+uint8_t loginFails = 0;               // intentos fallidos seguidos; con 5, 5 min de espera
+uint32_t loginLockUntil = 0;
+
+// ---------- registro de encendidos (para las estadísticas de esta placa) ----------
+// Cada encendido de la Webasto, al apagarse, deja un registro de 20 bytes en un anillo de RUNS guardado en la flash.
+// seq numera los encendidos desde 1; los ya enviados al servidor llegan hasta runAck.
+#define RUNS 48
+enum { RE_TIME, RE_USER, RE_TARGET, RE_BATT, RE_FAULT, RE_NOCOMM, RE_STALL };   // por qué se apagó
+enum { RS_WEB, RS_APP, RS_PROG, RS_CONSOLE, RS_DEP, RS_OTHER };         // quién la encendió (+0x80: con termostato)
+struct Run {
+  uint32_t seq, t0;                   // número de encendido y hora de inicio (segundos UNIX; 0 = sin hora)
+  uint16_t dur, ml;                   // duración (s) y gasoil estimado (ml)
+  int8_t cab0, cab1;                  // °C dentro al empezar y al acabar (-128 = sin termómetro)
+  uint8_t cmax, vmin, src, end, err, pad;   // °C máx. del agua, tensión mín. (décimas de V; 0 = sin dato), RS_*, RE_*, avería
+};
+Run runs[RUNS];
+uint32_t runSeq = 0, runAck = 0, heatSecTot = 0;   // último encendido apuntado, último enviado, segundos calentando en total
+uint8_t runEnd = RE_USER, runSrc = RS_WEB, runErr = 0;
+int runCmax = -999; float runVmin = 99, runCab0 = NAN;
+uint32_t runT0 = 0;
+bool runDep = false;                  // el encendido que va a empezar es por hora de salida
+volatile bool statsBusy = false;      // envío de estadísticas en marcha (tarea aparte)
+uint32_t statsLast = 0, statsOkAt = 0;  // último intento y último envío correcto (millis)
 uint8_t gb[8192], gbPrev[8192];       // imagen de la SSD1327 (dos píxeles por byte) y la última enviada
 uint8_t oledAddr = 0x3C;              // dirección I2C de la pantalla (0x3C o 0x3D, según el módulo)
 
@@ -318,6 +354,8 @@ enum Txt {
   T_LOG_HW, T_LOG_TH_ON, T_LOG_TH_WAIT, T_LOG_TH_END, T_LOG_TH_NOSENS, T_TG_TH_REACHED, T_WHY_TARGET,
   T_E_NOSENS, T_E_TARGET, T_WHY_BATT, T_NOTE_BATT, T_TG_WARM, T_LOG_DEP, T_LOG_DEP_SET, T_LOG_DEP_OFF, T_E_DEP,
   T_E_WARM, T_E_TOFF, T_E_VALUE, T_TG_TH_STALL, T_OTA_NOSTA, T_OTA_NETERR, T_LOG_OTA_AUTO, T_LOG_OTA_FAIL,
+  T_W_LOGIN, T_W_LOGINBAD, T_W_LOGINLOCK, T_W_SETUPWEB, T_E_WEBUSER, T_E_WEBPASS, T_E_WEBDEF, T_LOG_LOGIN,
+  T_E_IID, T_TG_IID, T_E_NOTG, T_LOG_IID,
   T_D_OFF, T_D_START, T_D_HEAT, T_D_PAUSE, T_D_LOST, T_D_WAIT, T_D_WATER, T_D_IN, T_D_NEXT, T_D_DEP, T_D_UNTIL,
   T_D_DAYS, T_D_NOTE,
   T_COUNT
@@ -451,6 +489,22 @@ const char* const TXT[T_COUNT][L_N] = {
                             "Die Platine ist im Netz, erreicht aber wttc.favala.es nicht (Code %d · der Name ergibt %s · DNS %s · Router %s)."},
   /* T_LOG_OTA_AUTO */     {"Instalando sola la versión %s (actualizaciones automáticas)", "Installing version %s by itself (automatic updates)", "Installiert Version %s selbst (automatische Updates)"},
   /* T_LOG_OTA_FAIL */     {"La actualización automática falló: %s", "The automatic update failed: %s", "Das automatische Update ist fehlgeschlagen: %s"},
+  /* T_W_LOGIN */          {"Hace falta entrar con usuario y clave.", "You need to log in with user and password.", "Anmeldung mit Benutzer und Passwort nötig."},
+  /* T_W_LOGINBAD */       {"Usuario o clave incorrectos.", "Wrong user or password.", "Benutzer oder Passwort falsch."},
+  /* T_W_LOGINLOCK */      {"Demasiados intentos: espera %d min.", "Too many attempts: wait %d min.", "Zu viele Versuche: %d min warten."},
+  /* T_W_SETUPWEB */       {"Entras desde otra red con el usuario y la clave de fábrica (wttc / wttc), que son públicos: cámbialos en Configuración antes de nada.",
+                            "You are connected from another network with the factory user and password (wttc / wttc), which are public: change them in Settings first.",
+                            "Du bist aus einem anderen Netz mit Benutzer und Passwort ab Werk (wttc / wttc) verbunden, die öffentlich sind: zuerst in den Einstellungen ändern."},
+  /* T_E_WEBUSER */        {"El usuario de la web debe tener entre 1 y 23 caracteres.", "The web user must be 1 to 23 characters long.", "Der Web-Benutzer muss 1 bis 23 Zeichen lang sein."},
+  /* T_E_WEBPASS */        {"La clave de la web debe tener entre 6 y 63 caracteres.", "The web password must be 6 to 63 characters long.", "Das Web-Passwort muss 6 bis 63 Zeichen lang sein."},
+  /* T_E_WEBDEF */         {"Elige una clave de la web distinta de la de fábrica (wttc).", "Choose a web password other than the factory one (wttc).", "Wähle ein anderes Web-Passwort als das ab Werk (wttc)."},
+  /* T_LOG_LOGIN */        {"Entrada en la web desde otra red (%s)", "Web login from another network (%s)", "Web-Anmeldung aus einem anderen Netz (%s)"},
+  /* T_E_IID */            {"Código de instalación no válido: son 16 letras y números, como ABCD-2345-EFGH-6789.", "Invalid installation code: 16 letters and digits, like ABCD-2345-EFGH-6789.", "Ungültiger Installationscode: 16 Buchstaben und Ziffern, wie ABCD-2345-EFGH-6789."},
+  /* T_TG_IID */           {"Código de instalación de «%s» (va solo en el mensaje siguiente, para copiarlo). Tus estadísticas: https://wttc.favala.es/mi.php#%s",
+                            "Installation code of “%s” (alone in the next message, to copy it). Your statistics: https://wttc.favala.es/mi.php#%s",
+                            "Installationscode von „%s“ (allein in der nächsten Nachricht, zum Kopieren). Deine Statistiken: https://wttc.favala.es/mi.php#%s"},
+  /* T_E_NOTG */           {"Primero configura Telegram (token del bot y chat ID).", "Set up Telegram first (bot token and chat ID).", "Zuerst Telegram einrichten (Bot-Token und Chat-ID)."},
+  /* T_LOG_IID */          {"Código de instalación cambiado (estadísticas de otra placa)", "Installation code changed (statistics of another board)", "Installationscode geändert (Statistiken einer anderen Platine)"},
   /* T_D_OFF */            {"Apagada", "Off", "Aus"},
   /* T_D_START */          {"Arrancando", "Starting", "Startet"},
   /* T_D_HEAT */           {"Calentando", "Heating", "Heizt"},
@@ -587,14 +641,17 @@ String urlenc(const char* s) {
 }
 
 // Pone un aviso en la cola (no bloquea). Si Telegram no está configurado, no hace nada.
-void notify(const String& m) {
+// raw = el texto tal cual, sin «Webasto · hora» delante (para mandar algo que se vaya a copiar, como el código)
+void notifyMsg(const String& m, bool raw) {
   if (!tgQueue || !tgToken[0] || !tgChat[0]) return;
   Msg x;
-  snprintf(x.t, sizeof x.t, "Webasto · %s%s", hhmm().c_str(), m.c_str());   // "Webasto · 07:42 Encendida…"
+  if (raw) strlcpy(x.t, m.c_str(), sizeof x.t);
+  else snprintf(x.t, sizeof x.t, "Webasto · %s%s", hhmm().c_str(), m.c_str());   // "Webasto · 07:42 Encendida…"
   if (xQueueSend(tgQueue, &x, 0) != pdTRUE) strlcpy(tgLast, tr(T_TG_QUEUE_FULL), sizeof tgLast);
   // Con la Wi-Fi apagada por ahorro, se enciende unos minutos (3) para que el aviso pueda salir
   if (staSsid[0] && (int32_t)(wifiUntil - (millis() + 180000)) < 0) wifiUntil = millis() + 180000;
 }
+void notify(const String& m) { notifyMsg(m, false); }
 
 // Tarea de FreeRTOS que envía los avisos de la cola, uno tras otro, por HTTPS a la API de Telegram
 void tgTask(void*) {
@@ -707,6 +764,10 @@ bool readSensors() {
     if (n >= 5) flame = r[4];
     if (n >= 7) power = (r[5] << 8) | r[6];
     lastSensorOk = millis();
+    if (heaterOn) {                            // para el registro del encendido: agua máx. y batería mín.
+      if (tempC > runCmax) runCmax = tempC;
+      if (volt > 5 && volt < runVmin) runVmin = volt;
+    }
   }
   lastSensor = millis();
   return ok;
@@ -774,6 +835,127 @@ void gasTick() {
 // Encender y apagar
 // ============================================================================================================
 
+// ---------- Registro de encendidos ----------
+// Primera avería guardada en la Webasto (0 = ninguna o no responde)
+uint8_t firstFault() {
+  uint8_t d[1] = {0x01}, r[64], n;
+  if (wbusCmd(0x56, d, 1, r, n) && n >= 3 && r[1] > 0) return r[2];
+  return 0;
+}
+
+// Al apagarse: apunta el encendido en el anillo y lo guarda (con el total de horas)
+void runSave() {
+  Run& x = runs[runSeq % RUNS];
+  x.seq = ++runSeq;
+  x.t0 = runT0;
+  uint32_t d = (millis() - heatStart) / 1000;
+  x.dur = d > 65535 ? 65535 : d;
+  float ml = gasCur * 1000; x.ml = ml < 0 ? 0 : ml > 65535 ? 65535 : (uint16_t)ml;
+  auto c8 = [](float t) -> int8_t { return isnan(t) ? -128 : (int8_t)constrain((int)lroundf(t), -60, 90); };
+  x.cab0 = c8(runCab0); x.cab1 = c8(cabT);
+  x.cmax = runCmax > -50 ? (uint8_t)constrain(runCmax + 50, 1, 255) : 0;     // +50, como en el W-Bus; 0 = sin dato
+  x.vmin = runVmin < 99 ? (uint8_t)constrain((int)lroundf(runVmin * 10), 1, 255) : 0;
+  x.src = runSrc; x.end = runEnd; x.err = runErr; x.pad = 0;
+  heatSecTot += d;
+  prefs.begin("webasto", false);
+  prefs.putBytes("runs", runs, sizeof runs);
+  prefs.putUInt("rseq", runSeq);
+  prefs.putUInt("hsec", heatSecTot);
+  prefs.end();
+}
+
+// Informe de estadísticas (lo envía la placa, o la app si la placa no tiene internet): totales y hasta «max» encendidos
+// aún no enviados, sin pasar de maxLen bytes (por Bluetooth una respuesta no puede pasar de 512).
+// Los encendidos van con su número: el servidor ignora los repetidos
+String statsJson(int max, unsigned maxLen) {
+  String j = "{\"iid\":"; j += js(String(iid));
+  j += ",\"fw\":\""; j += FW_VERSION; j += "\"";
+  j += ",\"lang\":\""; j += LANG_CODES[lang]; j += "\"";
+  j += ",\"gas\":"; j += String(gasTotal, 2);
+  j += ",\"hsec\":"; j += heatSecTot;
+  j += ",\"nruns\":"; j += runSeq;
+  j += ",\"oled\":"; j += (int)oledType; j += ",\"sens\":"; j += isnan(cabT) ? 0 : 1;
+  j += ",\"runs\":[";
+  uint32_t from = runAck + 1;
+  if (runSeq > RUNS && from < runSeq - RUNS + 1) from = runSeq - RUNS + 1;   // los más viejos ya no están en el anillo
+  int n = 0;
+  for (uint32_t q = from; q <= runSeq && n < max; q++) {
+    const Run& x = runs[(q - 1) % RUNS];
+    if (x.seq != q) continue;
+    char b[96];
+    snprintf(b, sizeof b, "[%lu,%lu,%u,%u,%d,%d,%u,%u,%u,%u,%u]", (unsigned long)x.seq, (unsigned long)x.t0, x.dur, x.ml,
+             x.cab0, x.cab1, x.cmax, x.vmin, x.src, x.end, x.err);
+    if (j.length() + strlen(b) + 3 > maxLen) break;
+    if (n++) j += ",";
+    j += b;
+  }
+  j += "]}";
+  return j;
+}
+
+void runAckSet(uint32_t a) {
+  if (a > runSeq) a = runSeq;
+  if (a <= runAck) return;
+  runAck = a;
+  prefs.begin("webasto", false); prefs.putUInt("rack", runAck); prefs.end();
+}
+
+// Código de instalación: 16 caracteres sin los que se confunden (0/O, 1/I), en grupos de 4
+const char IID_ABC[] = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+// Normaliza lo escrito (mayúsculas, sin guiones ni espacios) y lo deja en out con guiones; false si no vale
+bool iidParse(const String& v, char* out) {
+  char c16[17]; int n = 0;
+  for (unsigned i = 0; i < v.length(); i++) {
+    char c = toupper(v[i]);
+    if (c == '-' || c == ' ') continue;
+    if (!strchr(IID_ABC, c) || n >= 16) return false;
+    c16[n++] = c;
+  }
+  if (n != 16) return false;
+  for (int g = 0, k = 0; g < 4; g++) { for (int i = 0; i < 4; i++) out[k++] = c16[g * 4 + i]; out[k++] = g < 3 ? '-' : 0; }
+  return true;
+}
+
+// ---------- Envío de las estadísticas por la placa (tarea aparte, como la actualización) ----------
+String statsBody;                     // lo prepara el bucle principal; la tarea solo lo envía
+volatile uint32_t statsAckNew = 0;
+volatile bool statsEnd = false;
+void statsWork() {
+  netBegin();
+  WiFiClientSecure cli; cli.setInsecure();         // como la actualización: no se manda nada secreto (el código, sí,
+  HTTPClient http;                                 // pero sin él no se ve más que estadísticas)
+  http.setConnectTimeout(10000); http.setTimeout(15000);
+  if (http.begin(cli, "https://wttc.favala.es/api/placa.php")) {
+    http.addHeader("Content-Type", "application/json");
+    if (http.POST(statsBody) == 200) {
+      String r = http.getString();
+      int i = r.indexOf("\"ack\":");
+      if (i >= 0) statsAckNew = strtoul(r.c_str() + i + 6, nullptr, 10);
+    }
+    http.end();
+  }
+  netEnd();
+}
+void statsTask(void*) { statsWork(); statsEnd = true; vTaskDelete(nullptr); }
+
+// Desde el bucle: con «enviar estadísticas» activado y red con internet, a los 3 min de arrancar, cada 10 min mientras
+// haya encendidos sin enviar, y una vez al día para lo demás
+void statsPoll() {
+  if (statsEnd) {
+    statsEnd = false; statsBusy = false;
+    if (statsAckNew) { runAckSet(statsAckNew); statsOkAt = millis(); statsAckNew = 0; }
+    statsBody = "";
+    return;
+  }
+  if (!statsOn || statsBusy || otaNetBusy || !iid[0] || WiFi.status() != WL_CONNECTED || millis() < 180000) return;
+  uint32_t wait = runSeq > runAck ? 600000UL : 86400000UL;
+  if (statsLast && millis() - statsLast < wait) return;
+  statsLast = millis();
+  statsBody = statsJson(RUNS, 8000);
+  statsBusy = true;
+  if (xTaskCreatePinnedToCore(statsTask, "stats", 12288, nullptr, 1, nullptr, 0) != pdPASS) statsBusy = false;
+}
+
 // Enciende la calefacción durante «minutes» minutos (máximo MAX_MIN). src dice quién la enciende.
 // Lo intenta 3 veces; devuelve true si la Webasto aceptó la orden.
 bool startHeater(uint16_t minutes, const char* src) {
@@ -789,6 +971,12 @@ bool startHeater(uint16_t minutes, const char* src) {
       stopNote = "";                              // se borra el aviso de un apagado anterior
       gasCur = 0; gasRate = 0; lastGasT = 0;      // gasoil de este encendido desde cero
       onSrc = src;
+      // Datos del registro de este encendido (se guarda al apagarse, ver runSave)
+      runT0 = timeValid() ? (uint32_t)time(nullptr) : 0; runCab0 = cabT; runCmax = tempC; runVmin = volt > 5 ? volt : 99;
+      runSrc = runDep ? RS_DEP : !strcmp(src, "app") ? RS_APP : !strcmp(src, "programa") ? RS_PROG
+             : !strcmp(src, "consola") ? RS_CONSOLE : !strcmp(src, "manual") ? RS_WEB : RS_OTHER;
+      if (thActive) runSrc |= 0x80;
+      runEnd = RE_USER; runErr = 0;
       heatStart = millis(); warmSent = false; lowBatt = 0;   // mínimo del termostato, aviso del agua y batería
       heatWarm = tempC >= TH_WARM_C && lastSensorOk && millis() - lastSensorOk < 120000;
       thBest = cabT; thBestAt = millis();         // para ver si dentro sube (termostato)
@@ -812,7 +1000,8 @@ bool stopHeater(const char* why, bool tell) {
   bool was = heaterOn;                            // ¿estaba encendida? (se puede pedir apagar estando ya apagada)
   for (int i = 0; i < 3 && !ok; i++) { ok = wbusCmd(0x10, nullptr, 0, r, n); if (!ok) delay(300); }
   // Cierra la cuenta del gasoil de este encendido y la guarda
-  if (was) { gasTick(); gasRate = 0; lastGasT = 0; gasLast = gasCur; gasSave(); }
+  if (was) { gasTick(); gasRate = 0; lastGasT = 0; gasLast = gasCur; gasSave(); runSave(); }
+  runEnd = RE_USER; runErr = 0;
   heaterOn = false;
   phase = PH_OFF;
   lastHeatOff = millis();                         // para el modo de Wi-Fi «mientras calienta»
@@ -825,6 +1014,7 @@ bool stopHeater(const char* why, bool tell) {
 // La Webasto ha dejado de calentar por su cuenta: se apunta, se leen sus averías y se avisa
 void heaterQuit(const char* why) {
   endSession(true);                               // con una avería no se vuelve a intentar sola
+  runEnd = RE_FAULT; runErr = firstFault();      // para el registro del encendido
   stopHeater(why, false);                         // sin aviso propio: va uno más completo abajo
   String e = errorsText();
   addLog(trf(T_FAULTS, e.c_str()));
@@ -1339,6 +1529,7 @@ void battRunCheck() {
   if (++lowBatt < 3) return;
   String v = num(volt, 1);
   endSession(false);
+  runEnd = RE_BATT;
   stopHeater(trf(T_WHY_BATT, v.c_str()).c_str(), true);
   stopNote = hhmm() + trf(T_NOTE_BATT, v.c_str());
   lowBatt = 0;
@@ -1381,7 +1572,7 @@ void thermoTick() {
   last = now;
   if ((int32_t)(now - thUntil) >= 0) {                      // se acabó la ventana
     endSession(true);
-    if (heaterOn) stopHeater(tr(T_WHY_END), true);
+    if (heaterOn) { runEnd = RE_TIME; stopHeater(tr(T_WHY_END), true); }
     return;
   }
   if (isnan(cabT)) { addLog(tr(T_LOG_TH_NOSENS)); thActive = false; return; }   // el encendido en marcha sigue hasta su fin
@@ -1391,6 +1582,7 @@ void thermoTick() {
     else if (cabT < thTarget && now - thBestAt >= TH_STALL) {
       String m = trf(T_TG_TH_STALL, degs(cabT, 1).c_str(), (int)((now - heatStart) / 60000), degs(thTarget, 0).c_str());
       endSession(false);
+      runEnd = RE_STALL;
       stopHeater(tr(T_LOG_TH_END), false);
       addLog(m);
       notify(m);
@@ -1401,6 +1593,7 @@ void thermoTick() {
       String t = degs(cabT, 1);
       if (!thReached) notify(trf(T_TG_TH_REACHED, t.c_str()));   // solo la primera vez: luego mantiene en silencio
       thReached = true;
+      runEnd = RE_TARGET;
       stopHeater(trf(T_WHY_TARGET, t.c_str()).c_str(), false);
     }
     return;
@@ -1450,8 +1643,10 @@ void depCheck(uint32_t depMin, uint8_t tgt, uint32_t& done, const char* src) {
   time_t dt = (time_t)depMin * 60; struct tm tm; localtime_r(&dt, &tm);
   char h[6]; strftime(h, sizeof h, "%H:%M", &tm);
   addLog(trf(T_LOG_DEP, h, (int)left, isnan(t) ? "?" : degs(t, 0).c_str()));
+  runDep = true;
   if (tgt && !isnan(cabT)) startSession(left, tgt, src);
   else startHeater(min((uint16_t)left, MAX_MIN), src);
+  runDep = false;
 }
 
 // Próxima vez que el reloj marque hh:mm (hoy o mañana), como minuto absoluto
@@ -1514,6 +1709,14 @@ void loadCfg() {
   if (prefs.isKey("appass")) prefs.getString("appass", cfgApPass, sizeof cfgApPass);
   if (prefs.isKey("ssid"))   prefs.getString("ssid", staSsid, sizeof staSsid);
   if (prefs.isKey("pass"))   prefs.getString("pass", staPass, sizeof staPass);
+  if (prefs.isKey("wuser"))  prefs.getString("wuser", webUser, sizeof webUser);
+  if (prefs.isKey("wpass"))  prefs.getString("wpass", webPass, sizeof webPass);
+  if (prefs.isKey("iid"))    prefs.getString("iid", iid, sizeof iid);
+  statsOn  = prefs.getBool("stats", false);
+  if (prefs.isKey("runs") && prefs.getBytesLength("runs") == sizeof runs) prefs.getBytes("runs", runs, sizeof runs);
+  runSeq   = prefs.getUInt("rseq", 0);
+  runAck   = prefs.getUInt("rack", 0);
+  heatSecTot = prefs.getUInt("hsec", 0);
   blePin   = prefs.getUInt("pin", 0);
   gasLast  = prefs.getFloat("glast", 0);
   gasMonth = prefs.getFloat("gmon", 0);
@@ -1538,6 +1741,15 @@ void loadCfg() {
   if (isnan(tOff) || tOff < -5 || tOff > 5) tOff = 0;
   if (lang >= L_N) lang = L_ES;
   if (wifiMode > WM_DEMAND) wifiMode = WM_ALWAYS; // valor imposible: el de por defecto
+  char ok[20];
+  if (!iidParse(String(iid), ok)) {               // primer arranque: código de instalación al azar (80 bits)
+    String c;
+    for (int i = 0; i < 16; i++) c += IID_ABC[esp_random() & 31];
+    iidParse(c, iid);
+    prefs.begin("webasto", false);
+    prefs.putString("iid", iid);
+    prefs.end();
+  }
   if (blePin < 100000 || blePin > 999999) {       // primer arranque: PIN al azar, distinto en cada placa
     blePin = 100000 + esp_random() % 900000;      // esp_random() usa el generador de números aleatorios por hardware
     prefs.begin("webasto", false);
@@ -1657,6 +1869,26 @@ int cfgSet(String k, String v, String& err) {
     float f = v.toFloat();
     if (!v.length() || f < -5 || f > 5) { err = tr(T_E_TOFF); r = 0; }
     else { if (!isnan(cabT)) cabT += f - tOff; tOff = f; prefs.putFloat("toff", tOff); }
+  } else if (k == "webuser") {                    // usuario de la web desde otra red
+    if (v.length() < 1 || v.length() >= sizeof webUser) { err = tr(T_E_WEBUSER); r = 0; }
+    else if (v != webUser) { strlcpy(webUser, v.c_str(), sizeof webUser); prefs.putString("wuser", webUser); }
+  } else if (k == "webpass") {                    // su clave (vacía: se queda la que había)
+    if (!v.length()) r = 1;
+    else if (v.length() < 6 || v.length() >= sizeof webPass) { err = tr(T_E_WEBPASS); r = 0; }
+    else if (v == WEB_DEFAULT) { err = tr(T_E_WEBDEF); r = 0; }
+    else if (v != webPass) { strlcpy(webPass, v.c_str(), sizeof webPass); prefs.putString("wpass", webPass); }
+  } else if (k == "iid") {                        // código de instalación (el de la placa anterior, para seguir sus estadísticas)
+    char n[20];
+    if (!iidParse(v, n)) { err = tr(T_E_IID); r = 0; }
+    else if (strcmp(n, iid)) {
+      strlcpy(iid, n, sizeof iid); prefs.putString("iid", iid);
+      runAck = 0; prefs.putUInt("rack", 0);       // los encendidos guardados se mandan otra vez, con el código nuevo
+      statsLast = 0;
+      addLog(tr(T_LOG_IID));
+    }
+  } else if (k == "stats") {                      // enviar las estadísticas de esta placa: 1 / 0
+    bool on = v == "1" || v == "true";
+    if (on != statsOn) { statsOn = on; prefs.putBool("stats", statsOn); statsLast = 0; }
   } else if (k == "otaauto") {                    // actualizaciones automáticas: 0 no, 1 avisar, 2 instalar sola
     int m = v.toInt();
     if (!v.length() || m < OA_OFF || m > OA_INSTALL) { err = trf(T_E_VALUE, k.c_str()); r = 0; }
@@ -1672,7 +1904,8 @@ int cfgSet(String k, String v, String& err) {
 
 // Ajustes que admite el formulario de configuración de la web (en este orden)
 const char* CFG_KEYS[] = {"lang", "name", "appass", "pin", "wifimode", "ssid", "pass", "tgtok", "tgchat", "minvolt",
-                          "oled", "disp", "led", "toff", "warm", "otaauto"};
+                          "oled", "disp", "led", "toff", "warm", "otaauto",
+                          "webuser", "webpass", "iid", "stats"};
 
 // ¿Sigue la Wi-Fi propia con la clave de fábrica? Entonces cualquiera cerca puede entrar: la web obliga a cambiarla
 bool apDefault() { return strcmp(cfgApPass, AP_PASS_DEFAULT) == 0; }
@@ -1693,6 +1926,12 @@ String cfgJson(bool withPin) {
   j += ",\"ota\":1";                                            // sabe buscar y actualizar por internet
   j += ",\"th\":1";                                             // sabe termostato y hora de salida (0.2.0+)
   j += ",\"otaauto\":"; j += (int)otaAuto;                      // actualizaciones automáticas (0.2.15+)
+  j += ",\"webuser\":"; j += js(String(webUser));                // usuario de la web desde otra red (0.2.16+)
+  j += ",\"webdef\":"; j += webDefault() ? "true" : "false";     // usuario y clave de fábrica
+  j += ",\"iid\":";   j += js(String(iid));                      // código de instalación
+  j += ",\"stats\":"; j += statsOn ? 1 : 0;                       // enviar las estadísticas de esta placa
+  j += ",\"nruns\":"; j += runSeq; j += ",\"rack\":"; j += runAck;   // encendidos apuntados y ya enviados
+  j += ",\"stok\":"; if (statsOkAt) j += (millis() - statsOkAt) / 1000; else j += "-1";   // s desde el último envío
   j += ",\"oled\":";   j += (int)oledType;
   j += ",\"disp\":";   j += (int)dispMode;
   j += ",\"led\":";    j += (int)ledLvl;
@@ -2001,6 +2240,16 @@ String runCmd(String c) {
     return "setsched:ok";
   }
   if (k == "errors") return "errors:" + errorsJson();
+  if (k == "iidtg") {                              // código de instalación por Telegram
+    if (!tgToken[0] || !tgChat[0]) return "iidtg:err " + String(tr(T_E_NOTG));
+    notifyMsg(trf(T_TG_IID, cfgName, iid), true);
+    notifyMsg(String(iid), true);
+    return "iidtg:ok";
+  }
+  // La app lleva las estadísticas al servidor si la placa no tiene internet: «report» da el informe (6 encendidos
+  // como mucho) y «runsack N» apunta hasta cuál ha aceptado el servidor
+  if (k == "report") return statsOn ? "report:" + statsJson(6, 500) : String("report:off");
+  if (k == "runsack") { runAckSet(strtoul(a.c_str(), nullptr, 10)); return "runsack:ok"; }
   if (k == "log") {                                // los eventos más recientes que quepan en ~480 bytes
     String l;
     for (int i = logN - 1; i >= 0 && l.length() + logBuf[i].length() < 480; i--) { if (l.length()) l += "\n"; l += logBuf[i]; }
@@ -2079,6 +2328,8 @@ void handleState() {
   j += ",\"om\":";     j += js(lastWebMsg);                      // último resultado de buscar o actualizar
   j += ",\"onew\":";   j += (otaNetNew && !otaNetBusy) ? "true" : "false";   // ese resultado es «hay versión nueva»
   j += ",\"nv\":";     j += js(String(otaAvail));                // versión nueva que ha visto la placa ("" = ninguna)
+  j += ",\"lan\":";    j += viaAp() ? "false" : "true";          // entra desde otra red (con login)
+  j += ",\"wdef\":";   j += (!viaAp() && webDefault()) ? "true" : "false";   // y con el usuario y la clave de fábrica
   j += ",\"ct\":";     j += isnan(cabT) ? String("null") : String(cabT, 1);   // dentro (°C); null = sin termómetro
   j += ",\"ch\":";     j += isnan(cabH) ? String("null") : String((int)lround(cabH));
   j += ",\"tgt\":";    j += thActive ? (int)thTarget : 0;                     // termostato: objetivo y segundos que quedan
@@ -2118,6 +2369,55 @@ bool foreignHost() {
 void toPortal() {
   server.sendHeader("Location", foreignHost() ? "http://" + WiFi.softAPIP().toString() + "/" : String("/"));
   server.send(302);
+}
+
+// ---------- Login desde otra red ----------
+// ¿Ha llegado la petición por la Wi-Fi propia de la placa? (entonces ya se puso su clave: no hace falta login)
+bool viaAp() { return server.client().localIP() == WiFi.softAPIP(); }
+bool webDefault() { return !strcmp(webUser, WEB_DEFAULT) && !strcmp(webPass, WEB_DEFAULT); }
+// Ficha de sesión de la cookie «wttcs» ("" si no hay)
+String cookieTok() {
+  String c = server.header("Cookie");
+  int i = c.indexOf("wttcs=");
+  return i < 0 ? String("") : c.substring(i + 6, i + 6 + 32);
+}
+bool hasSession() {
+  String t = cookieTok();
+  if (t.length() != 32) return false;
+  for (auto& k : sess) if (k[0] && t == k) return true;
+  return false;
+}
+bool loggedIn() { return viaAp() || hasSession(); }
+// Para cada ruta de la API: por la Wi-Fi propia, siempre; desde otra red, solo con sesión (si no, 401 y la web pide entrar)
+bool authed() {
+  if (loggedIn()) return true;
+  server.send(401, "text/plain", tr(T_W_LOGIN));
+  return false;
+}
+// POST /api/login (user, pass): abre la sesión (cookie de 30 días; en la placa vale hasta que se reinicie)
+void handleLogin() {
+  if ((int32_t)(loginLockUntil - millis()) > 0) {
+    server.send(429, "text/plain", trf(T_W_LOGINLOCK, (int)((loginLockUntil - millis()) / 60000) + 1)); return;
+  }
+  if (server.arg("user") != webUser || server.arg("pass") != webPass) {
+    if (++loginFails >= 5) { loginFails = 0; loginLockUntil = millis() + 300000; }
+    delay(400);                                   // frena las pruebas a ciegas
+    server.send(403, "text/plain", tr(T_W_LOGINBAD));
+    return;
+  }
+  loginFails = 0;
+  char* t = sess[sessNext]; sessNext = (sessNext + 1) % 4;   // como mucho 4 sesiones: la más antigua se pierde
+  for (int i = 0; i < 4; i++) snprintf(t + i * 8, 9, "%08lx", (unsigned long)esp_random());
+  server.sendHeader("Set-Cookie", String("wttcs=") + t + "; Path=/; Max-Age=2592000; HttpOnly; SameSite=Strict");
+  addLog(trf(T_LOG_LOGIN, server.client().remoteIP().toString().c_str()));
+  server.send(200, "text/plain", "ok");
+}
+// POST /api/logout: cierra la sesión de este navegador
+void handleLogout() {
+  String t = cookieTok();
+  if (t.length() == 32) for (auto& k : sess) if (t == k) k[0] = 0;
+  server.sendHeader("Set-Cookie", "wttcs=; Path=/; Max-Age=0");
+  server.send(200, "text/plain", "ok");
 }
 
 // Protección CSRF de la API web. Una página ajena abierta en el móvil (conectado a la Wi-Fi de la placa o a la red
@@ -2435,10 +2735,11 @@ void otaConfirm() {
 }
 
 // Primer uso: con la clave de fábrica de la Wi-Fi, la web no admite órdenes (solo cambiar la clave y poner la hora)
+// Desde otra red, lo mismo con el usuario y la clave de la web de fábrica (wttc / wttc)
 bool setupDone() {
-  if (!apDefault()) return true;
-  server.send(403, "text/plain", tr(T_W_SETUP));
-  return false;
+  if (apDefault()) { server.send(403, "text/plain", tr(T_W_SETUP)); return false; }
+  if (!viaAp() && webDefault()) { server.send(403, "text/plain", tr(T_W_SETUPWEB)); return false; }
+  return true;
 }
 
 // POST /api/on (min=minutos, tgt=objetivo °C opcional): encender
@@ -2503,6 +2804,8 @@ void handleCfgPost() {
   String err;
   // Primer uso (clave de fábrica): solo se acepta si trae la clave nueva; lo demás se configura después
   if (apDefault() && !server.arg("appass").length()) { server.send(403, "text/plain", tr(T_W_SETUP)); return; }
+  // Desde otra red con el usuario y la clave de la web de fábrica: solo se acepta si trae la clave nueva de la web
+  if (!viaAp() && webDefault() && !server.arg("webpass").length()) { server.send(403, "text/plain", tr(T_W_SETUPWEB)); return; }
   for (const char* k : CFG_KEYS) {
     if (!server.hasArg(k)) continue;              // solo los campos que se han enviado
     int r = cfgSet(k, server.arg(k), err);
@@ -2572,30 +2875,36 @@ void setup() {
   // La página (desde la flash). Pedida con otro nombre (portal cautivo), se manda a la dirección de la placa: así la web
   // y sus órdenes van siempre con el mismo origen
   server.on("/", HTTP_GET, [] { if (foreignHost()) { toPortal(); return; } server.send_P(200, "text/html", INDEX_HTML); });
-  server.on("/api/state", HTTP_GET, handleState);
+  server.on("/api/state", HTTP_GET, [] { if (authed()) handleState(); });
   // Las órdenes (POST) solo se aceptan desde la propia web de la placa (ver sameOrigin)
-  server.on("/api/on", HTTP_POST, [] { if (sameOrigin() && setupDone()) handleOn(); });
-  server.on("/api/off", HTTP_POST, [] { if (sameOrigin() && setupDone()) handleOff(); });
-  server.on("/api/sched", HTTP_POST, [] { if (sameOrigin() && setupDone()) handleSched(); });
-  server.on("/api/dep", HTTP_POST, [] { if (sameOrigin() && setupDone()) handleDep(); });
-  server.on("/api/time", HTTP_POST, [] { if (sameOrigin()) handleTime(); });
+  server.on("/api/on", HTTP_POST, [] { if (authed() && sameOrigin() && setupDone()) handleOn(); });
+  server.on("/api/off", HTTP_POST, [] { if (authed() && sameOrigin() && setupDone()) handleOff(); });
+  server.on("/api/sched", HTTP_POST, [] { if (authed() && sameOrigin() && setupDone()) handleSched(); });
+  server.on("/api/dep", HTTP_POST, [] { if (authed() && sameOrigin() && setupDone()) handleDep(); });
+  server.on("/api/time", HTTP_POST, [] { if (authed() && sameOrigin()) handleTime(); });
   // Redes Wi-Fi cercanas: {"run":true} mientras busca; {"nets":[…]} al acabar (solo lectura: no hace falta el origen)
-  server.on("/api/scan", HTTP_GET, [] { String r = scanNets(); server.send(200, "application/json", r.length() ? "{\"nets\":" + r + "}" : String("{\"run\":true}")); });
-  server.on("/api/errors", HTTP_GET, [] { server.send(200, "application/json", errorsJson()); });
-  server.on("/api/cfg", HTTP_GET, [] { server.send(200, "application/json", cfgJson(!apDefault())); });
-  server.on("/api/cfg", HTTP_POST, [] { if (sameOrigin()) handleCfgPost(); });
-  server.on("/api/tgtest", HTTP_POST, [] { if (sameOrigin() && setupDone()) handleTgTest(); });
-  server.on("/api/gasreset", HTTP_POST, [] { if (!sameOrigin() || !setupDone()) return; runCmd("gasreset"); server.send(200, "text/plain", tr(T_W_GASRESET)); });
-  server.on("/api/forget", HTTP_POST, [] { if (!sameOrigin() || !setupDone()) return; int n = bleForgetAll(); server.send(200, "text/plain", trf(T_W_FORGOT, n)); });
+  server.on("/api/scan", HTTP_GET, [] { if (!authed()) return; String r = scanNets(); server.send(200, "application/json", r.length() ? "{\"nets\":" + r + "}" : String("{\"run\":true}")); });
+  server.on("/api/errors", HTTP_GET, [] { if (authed()) server.send(200, "application/json", errorsJson()); });
+  server.on("/api/cfg", HTTP_GET, [] { if (authed()) server.send(200, "application/json", cfgJson(!apDefault())); });
+  server.on("/api/cfg", HTTP_POST, [] { if (authed() && sameOrigin()) handleCfgPost(); });
+  server.on("/api/tgtest", HTTP_POST, [] { if (authed() && sameOrigin() && setupDone()) handleTgTest(); });
+  server.on("/api/gasreset", HTTP_POST, [] { if (!authed() || !sameOrigin() || !setupDone()) return; runCmd("gasreset"); server.send(200, "text/plain", tr(T_W_GASRESET)); });
+  server.on("/api/forget", HTTP_POST, [] { if (!authed() || !sameOrigin() || !setupDone()) return; int n = bleForgetAll(); server.send(200, "text/plain", trf(T_W_FORGOT, n)); });
   // Actualización sin cable: misma protección que las órdenes; el primer manejador responde, el segundo recibe el fichero
-  server.on("/api/update", HTTP_POST, [] { if (sameOrigin() && setupDone()) handleUpdateDone(); },
-            [] { if (originOk() && !apDefault()) handleUpdateUpload(); });
-  server.on("/api/otacheck", HTTP_POST, [] { if (!sameOrigin() || !setupDone()) return; String e = otaNetStart(false, false);
+  server.on("/api/update", HTTP_POST, [] { if (authed() && sameOrigin() && setupDone()) handleUpdateDone(); },
+            [] { if (originOk() && !apDefault() && loggedIn() && (viaAp() || !webDefault())) handleUpdateUpload(); });
+  server.on("/api/otacheck", HTTP_POST, [] { if (!authed() || !sameOrigin() || !setupDone()) return; String e = otaNetStart(false, false);
     server.send(e.length() ? 400 : 202, "text/plain", e.length() ? e : String("")); });
-  server.on("/api/otaupdate", HTTP_POST, [] { if (!sameOrigin() || !setupDone()) return; String e = otaNetStart(true, false);
+  server.on("/api/otaupdate", HTTP_POST, [] { if (!authed() || !sameOrigin() || !setupDone()) return; String e = otaNetStart(true, false);
     server.send(e.length() ? 400 : 202, "text/plain", e.length() ? e : String("")); });
-  static const char* HDRS[] = {"Origin"};          // cabeceras que el servidor guarda para leerlas en los manejadores
-  server.collectHeaders(HDRS, 1);
+  // Código de instalación por Telegram (dos mensajes: explicación y el código solo, para copiarlo)
+  server.on("/api/iidtg", HTTP_POST, [] { if (!authed() || !sameOrigin() || !setupDone()) return; String r = runCmd("iidtg");
+    if (r.startsWith("iidtg:err ")) server.send(400, "text/plain", r.substring(10)); else server.send(200, "text/plain", tr(T_W_TG_SENDING)); });
+  // Login desde otra red (desde la Wi-Fi propia no hace falta)
+  server.on("/api/login", HTTP_POST, [] { if (sameOrigin()) handleLogin(); });
+  server.on("/api/logout", HTTP_POST, [] { if (sameOrigin()) handleLogout(); });
+  static const char* HDRS[] = {"Origin", "Cookie"};   // cabeceras que el servidor guarda para leerlas en los manejadores
+  server.collectHeaders(HDRS, 2);
   // Cualquier otra ruta, incluidas las comprobaciones de internet de los móviles (/generate_204, /hotspot-detect.html,
   // /connecttest.txt…): a la página de la placa. Al no recibir lo que esperan, los móviles la abren como portal
   server.onNotFound(toPortal);
@@ -2649,7 +2958,7 @@ void loop() {
 
   uint32_t now = millis();
   if (heaterOn) {
-    if ((int32_t)(now - onUntil) >= 0) stopHeater(tr(T_WHY_END), !thActive);   // se acabó el tiempo (con termostato, sin aviso: sigue)
+    if ((int32_t)(now - onUntil) >= 0) { runEnd = RE_TIME; stopHeater(tr(T_WHY_END), !thActive); }   // se acabó el tiempo (con termostato, sin aviso: sigue)
     else if (now - lastKA >= KEEPALIVE_MS) {
       // Mensaje de mantenimiento: «sigue con la orden 0x21». Sin él, la Webasto se apaga sola.
       uint8_t d[2] = {0x21, 0x00}, r[64], n;
@@ -2666,6 +2975,7 @@ void loop() {
         notify(tr(T_TG_BUS_LOST));
       } else if (kaFails >= 24) {                    // 2 minutos sin respuesta: se da por apagada
         endSession(true);
+        runEnd = RE_NOCOMM;
         stopHeater(tr(T_WHY_NO_COMM), false);
         stopNote = hhmm() + tr(T_NOTE_LOST);
         notify(tr(T_TG_LOST));
@@ -2685,4 +2995,5 @@ void loop() {
   checkSchedule();                                // ¿toca encender por programa?
   otaConfirm();                                   // tras una actualización: confirmarla al minuto de funcionar
   otaNetPoll();                                   // ¿ha terminado una búsqueda o descarga por internet?
+  statsPoll();                                    // estadísticas de esta placa (si están activadas)
 }

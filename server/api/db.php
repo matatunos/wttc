@@ -17,6 +17,8 @@
 if (!defined('WTTC_DB')) define('WTTC_DB', '/var/wttc-data/stats.sqlite');   // las pruebas pueden definir otra
 const WTTC_KINDS = ['movil', 'tablet', 'radio'];
 const WTTC_HOST = 'wttc.favala.es';
+// Código de instalación de una placa: 16 caracteres sin 0/O ni 1/I, en grupos de 4 (ver iidParse en WTTC.ino)
+const WTTC_IID_RE = '/^[2-9A-HJ-NP-Z]{4}(-[2-9A-HJ-NP-Z]{4}){3}$/';
 
 // La web también se abre en tools.favala.es/wttc/ (misma carpeta): esas visitas van al dominio público,
 // para que los buscadores solo vean una copia. Caddy pone el dominio original en X-Forwarded-Host;
@@ -43,6 +45,14 @@ function wttc_db(): PDO {
         CREATE TABLE IF NOT EXISTS err_daily (day TEXT NOT NULL, code TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, code));
         CREATE TABLE IF NOT EXISTS visits (day TEXT NOT NULL, page TEXT NOT NULL, views INTEGER NOT NULL DEFAULT 0,
             entries INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, page));
+        -- Estadísticas de cada placa (opcionales, con su código de instalación): ver api/placa.php y mi.php
+        CREATE TABLE IF NOT EXISTS boards (iid TEXT PRIMARY KEY, first_seen TEXT NOT NULL, last_seen TEXT NOT NULL,
+            fw TEXT, lang TEXT, gas REAL, hsec INTEGER, nruns INTEGER, oled INTEGER, sens INTEGER);
+        CREATE TABLE IF NOT EXISTS board_runs (iid TEXT NOT NULL, seq INTEGER NOT NULL, t0 INTEGER, dur INTEGER, ml INTEGER,
+            cab0 INTEGER, cab1 INTEGER, cmax INTEGER, vmin INTEGER, src INTEGER, endr INTEGER, err INTEGER, got TEXT,
+            PRIMARY KEY (iid, seq));
+        CREATE TABLE IF NOT EXISTS board_days (iid TEXT NOT NULL, day TEXT NOT NULL, gas REAL, hsec INTEGER, nruns INTEGER,
+            PRIMARY KEY (iid, day));
         CREATE TABLE IF NOT EXISTS referrers (day TEXT NOT NULL, host TEXT NOT NULL, page TEXT NOT NULL,
             n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, host, page));
     ');

@@ -6,6 +6,17 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.2.16 — 2026-10-09
+
+Versión de prueba (sin probar con una Webasto real).
+
+- **Login en la web de la placa desde otra red.** Si la placa está unida a otra red (casa, camping, el móvil como punto de acceso…), antes cualquiera en esa red podía abrir su web y manejar la calefacción. Ahora pide **usuario y clave** (de fábrica, `wttc` / `wttc`), y con los de fábrica obliga a cambiarlos antes de dejar hacer nada. La sesión dura 30 días en ese navegador (hasta que la placa se reinicie); 5 intentos fallidos, 5 minutos de espera. Por la Wi-Fi propia de la placa no hace falta: ya se puso su clave. Se cambian en Configuración (web y app).
+- **Mis estadísticas.** La placa apunta cada encendido: hora, duración, gasoil, temperatura dentro al empezar y al acabar, máxima del agua, batería mínima, quién la encendió, por qué se apagó y la avería, si la hubo (los 48 últimos, en su memoria).
+  - **Código de instalación** al azar, creado una vez y para siempre (Configuración → Mis estadísticas). Al cambiar de placa se escribe en la nueva el de la vieja y se siguen las mismas estadísticas.
+  - **«Enviar las estadísticas de esta placa»** (apagado de fábrica): la placa las envía si tiene internet; si no, la app al conectarse.
+  - **https://wttc.favala.es/mi.php**: con el código, gráficas de horas y gasoil por mes, encendidos por día, a qué hora y qué día enciende, quién la enciende, por qué se apaga, temperatura dentro, agua y batería, duración, averías y los últimos encendidos; coste estimado con el precio del gasoil que elijas. Sin el código no se puede ver nada, y se pueden borrar los datos desde la misma página.
+  - **«Enviar el código por Telegram»**: llega solo en un mensaje, para copiarlo.
+
 ## 0.2.15 — 2026-10-09
 
 Versión de prueba (sin probar con una Webasto real).

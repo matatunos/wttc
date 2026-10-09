@@ -119,6 +119,23 @@ object Stats {
         savePending(c, j)
     }
 
+    /** Lleva al servidor el informe de la placa (ver statsJson en WTTC.ino y server/api/placa.php); done(ack) o done(0) */
+    fun relayBoard(json: String, done: (Long) -> Unit) {
+        thread(name = "wttc-placa", isDaemon = true) {
+            val ack = runCatching {
+                val con = URL("https://wttc.favala.es/api/placa.php").openConnection() as HttpURLConnection
+                con.requestMethod = "POST"; con.connectTimeout = 8000; con.readTimeout = 8000; con.doOutput = true
+                con.setRequestProperty("Content-Type", "application/json")
+                con.outputStream.use { it.write(json.toByteArray(Charsets.UTF_8)) }
+                val ok = con.responseCode == 200
+                val body = (if (ok) con.inputStream else con.errorStream)?.bufferedReader()?.use { it.readText() } ?: ""
+                con.disconnect()
+                if (ok) JSONObject(body).optLong("ack") else 0L
+            }.getOrDefault(0L)
+            done(ack)
+        }
+    }
+
     private fun post(j: JSONObject, done: (String) -> Unit) {
         thread(name = "wttc-stats", isDaemon = true) {
             runCatching {

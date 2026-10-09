@@ -175,6 +175,17 @@ class MainActivity : Activity(), BleLink.Listener {
     private lateinit var spOtaAuto: Spinner            // actualizaciones automáticas de la placa (firmware 0.2.15+)
     private var hasOtaAuto = false
     private var nvAsked = ""                           // versión nueva de la placa por la que ya se ha preguntado
+    // Acceso web desde otra red y «Mis estadísticas» (firmware 0.2.16+)
+    private lateinit var webBox: LinearLayout
+    private lateinit var eWuser: EditText
+    private lateinit var eWpass: EditText
+    private lateinit var tWdef: TextView
+    private lateinit var myBox: LinearLayout
+    private lateinit var eIid: EditText
+    private lateinit var swBoardStats: Switch
+    private lateinit var tRuns: TextView
+    private var boardIid = ""
+    private var relayRounds = 0                        // informes de la placa llevados al servidor en esta sesión
     private var lastUp = -1L                           // segundos encendida de la placa: si baja, se ha reiniciado
     private var hasSensor = false                      // ¿tiene la placa termómetro? (sin él no se ofrece «Hasta X °C»)
     // Interruptor de las estadísticas anónimas (en «Ajustes de la app»)
@@ -348,6 +359,10 @@ class MainActivity : Activity(), BleLink.Listener {
             "scan" -> scanResult(data)
             "dep" -> { if (err) toast(msg); link.refresh() }
             "tgtest" -> toast(if (err) msg else getString(R.string.tg_sent))
+            "iidtg" -> toast(if (err) msg else getString(R.string.iid_sent))
+            // Informe de estadísticas de la placa (la placa sin internet): se lleva al servidor y se le dice hasta dónde llegó
+            "report" -> if (data.startsWith("{")) Stats.relayBoard(data) { ack -> runOnUiThread { if (ack > 0) { link.send("runsack $ack"); link.send("cfg") } } }
+            "runsack" -> {}
             "gasreset" -> { toast(getString(R.string.gas_zeroed)); link.refresh() }
             "forget" -> toast(getString(R.string.forgot_bonds))
             "reboot" -> toast(if (err) msg else getString(R.string.rebooting))
@@ -663,6 +678,28 @@ class MainActivity : Activity(), BleLink.Listener {
         cfg.addView(text(getString(R.string.cfg_tg), 15f, cInk, true), lp(top = 18))
         field(getString(R.string.f_tok), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD, getString(R.string.hint_unchanged)).let { cfg.addView(it.first); eTok = it.second }
         field(getString(R.string.f_chat), InputType.TYPE_CLASS_TEXT).let { cfg.addView(it.first); eChat = it.second }
+        // Acceso a la web de la placa desde otra red (usuario y clave)
+        webBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+        webBox.addView(text(getString(R.string.cfg_web), 15f, cInk, true), lp(top = 18))
+        webBox.addView(text(getString(R.string.cfg_web_help), 13f, cMut), lp(top = 4))
+        tWdef = text(getString(R.string.web_def_warn), 13f, cFl).apply { visibility = View.GONE }
+        webBox.addView(tWdef, lp(top = 4))
+        field(getString(R.string.f_webuser)).let { webBox.addView(it.first); eWuser = it.second }
+        field(getString(R.string.f_webpass), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD, getString(R.string.hint_unchanged)).let { webBox.addView(it.first); eWpass = it.second }
+        cfg.addView(webBox)
+        // Mis estadísticas: código de instalación, envío y enlaces
+        myBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+        myBox.addView(text(getString(R.string.cfg_my), 15f, cInk, true), lp(top = 18))
+        myBox.addView(text(getString(R.string.cfg_my_help), 13f, cMut), lp(top = 4))
+        field(getString(R.string.f_iid), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS).let {
+            myBox.addView(it.first); eIid = it.second; eIid.typeface = android.graphics.Typeface.MONOSPACE }
+        swBoardStats = Switch(this).apply { text = getString(R.string.sw_board_stats); setTextColor(cInk); textSize = 15f }
+        myBox.addView(swBoardStats, lp(top = 10))
+        tRuns = text("", 13f, cMut)
+        myBox.addView(tRuns, lp(top = 4))
+        myBox.addView(row(button(getString(R.string.btn_iid_tg)) { link.send("iidtg") },
+            button(getString(R.string.btn_my_stats)) { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wttc.favala.es/mi.php#$boardIid"))) }), lp(top = 10))
+        cfg.addView(myBox)
         cfg.addView(text(getString(R.string.cfg_safety), 15f, cInk, true), lp(top = 18))
         field(getString(R.string.f_minv), InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL).let { cfg.addView(it.first); eMinV = it.second }
         hwBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
@@ -1154,6 +1191,17 @@ class MainActivity : Activity(), BleLink.Listener {
         eTok.hint = getString(if (c.optBoolean("tg")) R.string.hint_token_saved else R.string.hint_not_set)
         eAp.setText(""); ePass.setText(""); eTok.setText("")
         fwVer = c.optString("ver"); fwOta = c.optInt("ota") == 1
+        webBox.visibility = if (c.has("webuser")) View.VISIBLE else View.GONE
+        if (c.has("webuser")) { eWuser.setText(c.optString("webuser")); eWpass.setText("")
+            tWdef.visibility = if (c.optBoolean("webdef")) View.VISIBLE else View.GONE }
+        boardIid = c.optString("iid")
+        myBox.visibility = if (boardIid.isNotEmpty()) View.VISIBLE else View.GONE
+        if (boardIid.isNotEmpty()) {
+            eIid.setText(boardIid); swBoardStats.isChecked = c.optInt("stats") == 1
+            tRuns.text = getString(R.string.runs_status, c.optInt("nruns"), c.optInt("rack"))
+            // La placa tiene encendidos sin enviar: si el móvil tiene internet, la app los lleva al servidor
+            if (c.optInt("stats") == 1 && c.optInt("nruns") > c.optInt("rack") && !link.demo && relayRounds < 6) { relayRounds++; link.send("report") }
+        }
         hasOtaAuto = c.has("otaauto")
         (spOtaAuto.tag as View).visibility = if (hasOtaAuto) View.VISIBLE else View.GONE
         if (hasOtaAuto) spOtaAuto.setSelection(c.optInt("otaauto", 1).coerceIn(0, 2))
@@ -1189,6 +1237,14 @@ class MainActivity : Activity(), BleLink.Listener {
             "minvolt" to eMinV.text.toString().trim().replace(',', '.'),
         )
         if (hasOtaAuto) sets += "otaauto" to spOtaAuto.selectedItemPosition.toString()
+        if (webBox.visibility == View.VISIBLE) {
+            sets += "webuser" to eWuser.text.toString().trim()
+            if (eWpass.text.isNotEmpty()) sets += "webpass" to eWpass.text.toString()
+        }
+        if (boardIid.isNotEmpty()) {
+            sets += "iid" to eIid.text.toString().trim()
+            sets += "stats" to (if (swBoardStats.isChecked) "1" else "0")
+        }
         if (fwTh) {
             sets += "warm" to eWarm.text.toString().trim().ifEmpty { "0" }
             sets += "oled" to spOled.selectedItemPosition.toString()
