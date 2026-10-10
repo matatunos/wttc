@@ -271,6 +271,7 @@ std::atomic<int> netUse{0};
 // coincidían varias al arrancar (actualizaciones, órdenes, estadísticas, Telegram), la memoria libre bajaba a 24 KB
 // (registro de una placa real, 10/10/2026). netBegin() espera su turno; netEnd() lo deja (ver ambas)
 SemaphoreHandle_t netMtx = nullptr;
+bool tlsInPsram = false;              // la memoria de las conexiones seguras va en la PSRAM (ver tlsMemSetup)
 Preferences prefs;                    // acceso a la memoria no volátil (espacio de nombres "webasto")
 
 // Un programa semanal: activo, días (bit0 = lunes … bit6 = domingo), hora de inicio en minutos y duración
@@ -3257,7 +3258,6 @@ void* tlsCalloc(size_t n, size_t size) {
   return p ? p : heap_caps_calloc(n, size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 }
 void tlsFree(void* p) { heap_caps_free(p); }
-bool tlsInPsram = false;              // para el resumen de arranque y el registro
 void tlsMemSetup() {
 #if defined(MBEDTLS_PLATFORM_MEMORY) && !defined(MBEDTLS_PLATFORM_CALLOC_MACRO)
   if (psramFound() && ESP.getFreePsram() > 1024 * 1024) tlsInPsram = mbedtls_platform_set_calloc_free(tlsCalloc, tlsFree) == 0;

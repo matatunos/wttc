@@ -8,6 +8,7 @@ Código generado íntegramente con Claude (Anthropic).
    en la 0.3.0 con stackMark y nvsOpen; los errores salen en cadena y despistan).
 2. La tabla de textos TXT en el mismo orden que el enum Txt y con tres idiomas por texto (si no, un texto sale en el
    sitio de otro, sin ningún error de compilación).
+3. Ninguna variable global usada antes de su declaración (pasó en la 0.3.3 con tlsInPsram).
 """
 import re, sys
 
@@ -34,6 +35,20 @@ for name, blk in zip(parts[0::2], parts[1::2]):
     n = len(re.findall(r'"((?:[^"\\]|\\.)*)"', blk))
     if n != 3:
         fallos.append(f'{name}: {n} cadenas (deben ser 3: es, en, de)')
+
+# 3. Variables globales usadas antes de declararse (el compilador lo rechaza; Arduino solo adelanta las funciones).
+#    Se mira el código sin comentarios ni cadenas, para no confundir una mención en un comentario con un uso
+codigo = re.sub(r'"(?:[^"\\\n]|\\.)*"', '""', ino)                    # cadenas
+codigo = re.sub(r'//[^\n]*', '', codigo)                                    # comentarios de línea
+codigo = re.sub(r'/\*.*?\*/', lambda m: '\n' * m.group(0).count('\n'), codigo, flags=re.S)   # de bloque (mismas líneas)
+decl = re.compile(r'^(?:static\s+|volatile\s+|const\s+|RTC_NOINIT_ATTR\s+)*[A-Za-z_][\w:<>]*\s*\*?\s+(\w+)\s*(?:\[[^\]]*\])?\s*(?:=[^;]*)?[;,]', re.M)
+for m in decl.finditer(codigo):
+    nombre = m.group(1)
+    if nombre in ('return', 'else'): continue
+    primero = re.search(r'\b' + re.escape(nombre) + r'\b', codigo)
+    if primero and primero.start() < m.start():
+        fallos.append(f'línea {codigo.count(chr(10), 0, primero.start()) + 1}: «{nombre}» se usa antes de declararse '
+                      f'(línea {codigo.count(chr(10), 0, m.start()) + 1})')
 
 for f in fallos:
     print(f'::error file=firmware/WTTC/WTTC.ino::{f}')
