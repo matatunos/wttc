@@ -209,6 +209,12 @@
     <string name="upd_lock_rebooting">Reiniciando con la versión nueva…</string>
     <string name="sw_apauto">Ocultar la Wi-Fi propia cuando esté conectada a la red con internet</string>
     <string name="sw_diag">Modo diagnóstico (registro, datos técnicos e informe de cuelgues)</string>
+    <string name="btn_wbus">Tramas del W-Bus</string>
+    <string name="btn_log_send">Enviar el registro</string>
+    <string name="log_send_ask">¿Enviar el registro, las tramas del W-Bus y los datos de salud al servidor del proyecto? Van con el código de instalación: solo quien lo tenga puede verlos (para que te ayuden a encontrar un fallo). La placa tiene que estar en una red con internet.</string>
+    <string name="log_sending">Enviando… el resultado aparecerá en el registro en unos segundos.</string>
+    <string name="f_btnmin">Botón «calentar» (pulsador entre IO7 y GND)</string>
+    <string name="f_btntgt">Con termómetro, el botón calienta hasta</string>
     <string name="quick_title">Acceso rápido</string>
     <string name="quick_help">Botón «Webasto» en los ajustes rápidos de Android (despliégalos y edítalos para añadirlo) y widget para la pantalla de inicio. Al pulsarlo se conecta a la placa y enciende con esta duración, o apaga si ya está encendida.</string>
     <string name="quick_dur">Duración del acceso rápido</string>
@@ -250,6 +256,29 @@
         <item>Apagada (solo con el botón BOOT)</item>
         <item>Automática (se apaga al minuto)</item>
         <item>Siempre encendida</item>
+    </string-array>
+    <string-array name="btn_mins">
+        <item>Desactivado</item>
+        <item>15 min</item>
+        <item>30 min</item>
+        <item>45 min</item>
+        <item>60 min</item>
+    </string-array>
+    <string-array name="btn_tgts">
+        <item>Sin límite (solo el tiempo)</item>
+        <item>10 °C</item>
+        <item>12 °C</item>
+        <item>14 °C</item>
+        <item>16 °C</item>
+        <item>17 °C</item>
+        <item>18 °C</item>
+        <item>19 °C</item>
+        <item>20 °C</item>
+        <item>21 °C</item>
+        <item>22 °C</item>
+        <item>23 °C</item>
+        <item>24 °C</item>
+        <item>25 °C</item>
     </string-array>
     <string-array name="led_levels">
         <item>Apagado</item>

@@ -209,6 +209,12 @@
     <string name="upd_lock_rebooting">Neustart mit der neuen Version…</string>
     <string name="sw_apauto">Eigenes WLAN ausblenden, solange es mit dem Netz mit Internet verbunden ist</string>
     <string name="sw_diag">Diagnosemodus (Protokoll, technische Daten und Absturzbericht)</string>
+    <string name="btn_wbus">W-Bus-Rahmen</string>
+    <string name="btn_log_send">Protokoll senden</string>
+    <string name="log_send_ask">Protokoll, W-Bus-Rahmen und Zustandsdaten an den Projektserver senden? Sie gehen mit dem Installationscode: nur wer ihn hat, kann sie sehen (damit dir jemand bei der Fehlersuche helfen kann). Die Platine muss in einem Netz mit Internet sein.</string>
+    <string name="log_sending">Wird gesendet… das Ergebnis erscheint in ein paar Sekunden im Protokoll.</string>
+    <string name="f_btnmin">„Heizen“-Taste (Taster zwischen IO7 und GND)</string>
+    <string name="f_btntgt">Mit Thermometer heizt die Taste bis</string>
     <string name="quick_title">Schnellzugriff</string>
     <string name="quick_help">„Webasto“-Schalter in den Schnelleinstellungen von Android (herunterziehen und bearbeiten, um ihn hinzuzufügen) und ein Widget für den Startbildschirm. Ein Tippen verbindet mit der Platine und schaltet für diese Dauer ein, oder aus, wenn sie schon läuft.</string>
     <string name="quick_dur">Dauer des Schnellzugriffs</string>
@@ -250,6 +256,29 @@
         <item>Aus (nur mit der BOOT-Taste)</item>
         <item>Automatisch (nach einer Minute aus)</item>
         <item>Immer an</item>
+    </string-array>
+    <string-array name="btn_mins">
+        <item>Aus</item>
+        <item>15 min</item>
+        <item>30 min</item>
+        <item>45 min</item>
+        <item>60 min</item>
+    </string-array>
+    <string-array name="btn_tgts">
+        <item>Ohne Grenze (nur die Zeit)</item>
+        <item>10 °C</item>
+        <item>12 °C</item>
+        <item>14 °C</item>
+        <item>16 °C</item>
+        <item>17 °C</item>
+        <item>18 °C</item>
+        <item>19 °C</item>
+        <item>20 °C</item>
+        <item>21 °C</item>
+        <item>22 °C</item>
+        <item>23 °C</item>
+        <item>24 °C</item>
+        <item>25 °C</item>
     </string-array>
     <string-array name="led_levels">
         <item>Aus</item>

@@ -121,7 +121,7 @@ Después, las versiones nuevas se instalan sin cable: app o web de la placa → 
 
 Más fácil: **instalar desde el navegador** en https://wttc.favala.es/instalar.php (Chrome o Edge, la placa por USB).
 
-Cada cambio se compila automáticamente en GitHub Actions para ESP32-S3, con los núcleos 2.0.17 y 3.3.12.
+Cada cambio se compila automáticamente en GitHub Actions para ESP32-S3, con el núcleo 3.3.12 (el 2.x no está soportado desde la 0.3.0).
 
 ## App Android
 Se descarga como APK en [Releases](../../releases). Busca el ESP32 por Bluetooth, empareja con el PIN y se conecta

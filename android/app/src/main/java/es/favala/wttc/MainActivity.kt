@@ -165,6 +165,10 @@ class MainActivity : Activity(), BleLink.Listener {
     private lateinit var spOled: Spinner
     private lateinit var spDisp: Spinner
     private lateinit var spLed: Spinner
+    private var spBtnMin: Spinner? = null                // botón «calentar» (0.3.0+)
+    private var spBtnTgt: Spinner? = null
+    private val BTN_MINS = intArrayOf(0, 15, 30, 45, 60)
+    private val BTN_TGTS = intArrayOf(0, 10, 12, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25)
     private lateinit var eToff: EditText
     private lateinit var tCfg: TextView
     private lateinit var tUpd: TextView                // estado de «Buscar actualizaciones»
@@ -178,6 +182,7 @@ class MainActivity : Activity(), BleLink.Listener {
     // Acceso web desde otra red y «Mis estadísticas» (firmware 0.2.16+)
     private lateinit var swDiag: Switch                 // modo diagnóstico (0.2.20+)
     private lateinit var bLog: View                     // «Ver registro»: solo en modo diagnóstico
+    private lateinit var diagRow: View                  // «Tramas del W-Bus» y «Enviar el registro»: solo en modo diagnóstico
     private lateinit var swApAuto: Switch               // ocultar la Wi-Fi propia en la red con internet (0.2.20+)
     private lateinit var webBox: LinearLayout
     private lateinit var eWuser: EditText
@@ -365,6 +370,8 @@ class MainActivity : Activity(), BleLink.Listener {
             "setsched" -> { if (err) toast(msg) else { progsDirty = false; bSaveProgs.text = getString(R.string.saved); refreshSaveBtn() } }
             "errors" -> tDiag.text = formatErrors(data)
             "log" -> tDiag.text = if (data.isBlank()) getString(R.string.log_empty) else data
+            "wbuslog" -> tDiag.text = if (data.isBlank()) getString(R.string.log_empty) else data
+            "logsend" -> toast(if (err) msg else getString(R.string.log_sending))
             "set" -> when {
                 err -> toast(msg)
                 data.startsWith("restart") -> needRestart = true
@@ -435,6 +442,7 @@ class MainActivity : Activity(), BleLink.Listener {
         }
         // «Ver registro» solo en modo diagnóstico (placas sin el ajuste: siempre, como antes)
         bLog.visibility = if (!j.has("dg") || j.optInt("dg") == 1) View.VISIBLE else View.INVISIBLE
+        diagRow.visibility = if (j.optInt("dg") == 1) View.VISIBLE else View.GONE
         val op = j.optInt("op", -1)
         if (op >= 0) { tUpd.visibility = View.VISIBLE; tUpd.text = getString(R.string.upd_progress, op); pUpd.visibility = View.VISIBLE; pUpd.progress = op }
         else pUpd.visibility = View.GONE
@@ -672,6 +680,13 @@ class MainActivity : Activity(), BleLink.Listener {
         tDiag = text("", 13f, cMut).apply { setTextIsSelectable(true) }
         bLog = button(getString(R.string.btn_view_log)) { tDiag.text = getString(R.string.reading); link.send("log") }
         controls.addView(row(button(getString(R.string.btn_read_faults)) { tDiag.text = getString(R.string.reading); link.send("errors") }, bLog), lp(top = 10))
+        diagRow = row(button(getString(R.string.btn_wbus)) { tDiag.text = getString(R.string.reading); link.send("wbuslog") },
+            button(getString(R.string.btn_log_send)) {
+                AlertDialog.Builder(this).setMessage(getString(R.string.log_send_ask))
+                    .setPositiveButton(getString(R.string.stats_yes)) { _, _ -> link.send("logsend") }
+                    .setNegativeButton(getString(R.string.stats_no), null).show()
+            })
+        controls.addView(diagRow, lp(top = 10))
         controls.addView(button(getString(R.string.btn_gas_reset)) { confirmGasReset() }, lp(top = 10))
         controls.addView(tDiag, lp(top = 10))
 
@@ -747,6 +762,8 @@ class MainActivity : Activity(), BleLink.Listener {
         spOled = spinner(R.string.f_oled, R.array.oled_types)
         spDisp = spinner(R.string.f_disp, R.array.disp_modes)
         spLed = spinner(R.string.f_led, R.array.led_levels)
+        spBtnMin = spinner(R.string.f_btnmin, R.array.btn_mins)
+        spBtnTgt = spinner(R.string.f_btntgt, R.array.btn_tgts)
         field(getString(R.string.f_toff), InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL or InputType.TYPE_NUMBER_FLAG_SIGNED).let { hwBox.addView(it.first); eToff = it.second; eToff.tag = it.first }
         cfg.addView(hwBox)
         cfg.addView(row(button(getString(R.string.btn_save), true) { saveCfg() }, button(getString(R.string.btn_tg_test)) { link.send("tgtest") }), lp(top = 14))
@@ -1244,6 +1261,13 @@ class MainActivity : Activity(), BleLink.Listener {
         eTok.hint = getString(if (c.optBoolean("tg")) R.string.hint_token_saved else R.string.hint_not_set)
         eAp.setText(""); ePass.setText(""); eTok.setText("")
         fwVer = c.optString("ver"); fwOta = c.optInt("ota") == 1
+        // Botón «calentar»: sus ajustes solo con un firmware que lo tenga
+        val hasBtn = c.has("btnmin")
+        listOfNotNull(spBtnMin, spBtnTgt).forEach { (it.tag as View).visibility = if (hasBtn) View.VISIBLE else View.GONE }
+        if (hasBtn) {
+            spBtnMin?.setSelection(BTN_MINS.indexOf(c.optInt("btnmin", 30)).coerceAtLeast(0))
+            spBtnTgt?.setSelection(BTN_TGTS.indexOf(c.optInt("btntgt", 0)).coerceAtLeast(0))
+        }
         swDiag.visibility = if (c.has("diag")) View.VISIBLE else View.GONE
         if (c.has("diag")) swDiag.isChecked = c.optInt("diag") == 1
         swApAuto.visibility = if (c.has("apauto")) View.VISIBLE else View.GONE
@@ -1296,6 +1320,8 @@ class MainActivity : Activity(), BleLink.Listener {
             "minvolt" to eMinV.text.toString().trim().replace(',', '.'),
         )
         if (hasOtaAuto) sets += "otaauto" to spOtaAuto.selectedItemPosition.toString()
+        spBtnMin?.let { if ((it.tag as View).visibility == View.VISIBLE) sets += "btnmin" to BTN_MINS[it.selectedItemPosition.coerceIn(0, BTN_MINS.size - 1)].toString() }
+        spBtnTgt?.let { if ((it.tag as View).visibility == View.VISIBLE) sets += "btntgt" to BTN_TGTS[it.selectedItemPosition.coerceIn(0, BTN_TGTS.size - 1)].toString() }
         if (swDiag.visibility == View.VISIBLE) sets += "diag" to (if (swDiag.isChecked) "1" else "0")
         if (swApAuto.visibility == View.VISIBLE) sets += "apauto" to (if (swApAuto.isChecked) "1" else "0")
         if (webBox.visibility == View.VISIBLE) {

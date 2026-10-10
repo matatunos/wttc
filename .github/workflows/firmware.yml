@@ -1,5 +1,5 @@
 # firmware.yml — Compila el firmware en GitHub para ESP32-S3 (la única placa soportada desde la 0.2.0), con los
-# núcleos ESP32 2.0.17 y 3.3.12, en cada cambio.
+# núcleo ESP32 3.3.12, en cada cambio (el 2.x dejó de estar soportado en la 0.3.0).
 # Código generado íntegramente con Claude (Anthropic).
 # Así se comprueba que el .ino compila sin tener que compilarlo en ningún servidor propio.
 # Los errores de compilación se publican como anotaciones del run (visibles sin iniciar sesión).
@@ -31,14 +31,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        core: ['2.0.17', '3.3.12']
+        core: ['3.3.12']           # solo el núcleo 3.x desde la 0.3.0 (el 2.x ya no compila: #error en WTTC.ino)
         # suffix: lo que va tras la versión en el nombre del .ota
         board:
         # chip/family/boot: para instalar desde el navegador (nombre del paquete, chipFamily de ESP Web Tools y
         # dirección del cargador de arranque: 0x0 en el S3)
           - { name: 'ESP32-S3', fqbn: 'esp32:esp32:esp32s3:FlashSize=16M,PSRAM=opi,PartitionScheme=huge_app', suffix: '-s3', chip: 'esp32s3', family: 'ESP32-S3', boot: 0 }
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: Versión del firmware igual a VERSION
         shell: bash
         run: |
@@ -48,7 +48,28 @@ jobs:
       - name: Probar la web de la placa
         shell: bash
         run: node .github/scripts/probar_web.js firmware/WTTC/web.h
-      - uses: arduino/setup-arduino-cli@v2
+      # Lógica sin hardware (W-Bus, versiones, código de instalación, salida, termostato: firmware/WTTC/logica.h),
+      # compilada para el ordenador con los detectores de errores de memoria y de comportamiento indefinido de GCC
+      - name: Pruebas de la lógica
+        shell: bash
+        run: |
+          g++ -std=c++17 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+            firmware/pruebas/logica_test.cpp -o logica_test
+          ./logica_test
+      # Análisis estático (cppcheck): errores típicos de C/C++ como variables sin iniciar, índices fuera de rango o
+      # fugas. Imagen fijada por su huella: el mismo cppcheck que se usó para dejar el código limpio. Falla con cualquier
+      # aviso (para callar uno que no lo es: comentario «// cppcheck-suppress <id>» en esa línea, explicando por qué)
+      - name: Análisis estático (cppcheck)
+        shell: bash
+        run: |
+          docker run --rm -v "$PWD/firmware/WTTC:/src:ro" \
+            neszt/cppcheck-docker@sha256:5820e09951be7507b4b453a24d1eae5ff1df077188115c869ba8fa4b1bccdf7c \
+            cppcheck --language=c++ --std=c++17 --enable=warning,portability,performance --inline-suppr \
+              --suppress=missingIncludeSystem --suppress=missingInclude --error-exitcode=1 \
+              -DCONFIG_IDF_TARGET_ESP32S3 -DESP_ARDUINO_VERSION_MAJOR=3 -DPROGMEM= -DRTC_NOINIT_ATTR= -DIRAM_ATTR= -DWTTC_COREDUMP \
+              --template='::error::cppcheck {file}:{line} {severity} {id}: {message}' \
+              /src/WTTC.ino /src/rollback.cpp
+      - uses: arduino/setup-arduino-cli@81d310742121c928ea9c8bbd407b4217b432ae02 # v2
       - name: Instalar el núcleo ESP32 ${{ matrix.core }}
         shell: bash
         run: |
@@ -109,7 +130,7 @@ jobs:
           (cd build && zip -qr "WTTC-$v-$n.zip" "$n")
           echo "WTTC_FLASH=build/WTTC-$v-$n.zip" >> "$GITHUB_ENV"; echo "WTTC_VER=$v" >> "$GITHUB_ENV"
           echo "::notice title=Paquete de instalación (${{ matrix.board.name }})::$(cd "$d" && for f in *; do printf '%s %s B · ' "$f" "$(stat -c %s "$f")"; done)"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: success()
         with:
           name: WTTC-firmware-${{ matrix.board.name }}-core-${{ matrix.core }}

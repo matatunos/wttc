@@ -6,6 +6,31 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.3.0 — 2026-10-10
+
+Versión de prueba (sin probar con una Webasto real). **Solo núcleo ESP32 3.x de Arduino:** quien compile desde el código con el 2.x tiene que actualizarlo (Gestor de placas → esp32 de Espressif → 3.x); el instalador web y las actualizaciones no cambian.
+
+**Control de errores**
+- **Si la placa se reinicia calentando** (cuelgue, vigilante, orden), al arrancar apaga la Webasto, lo apunta, avisa por Telegram y lo dice en la pantalla. Antes arrancaba creyendo que estaba apagada y perdía el control hasta que se acababa el tiempo.
+- **Vigilante del bucle principal:** si el programa se queda atascado 30 s, la placa se reinicia sola, con el motivo y el informe de dónde estaba atascada en el registro.
+- Se comprueba todo lo que puede fallar y se apunta en el registro en vez de seguir a ciegas: la memoria de ajustes (abrirla y si se llena), las tareas de Telegram, estadísticas, actualización y envío del registro, la Wi-Fi propia y wttc.local, y la memoria para pasar el registro antiguo. Las tramas del W-Bus se arman y comprueban con límites (una orden demasiado larga ya no puede escribir fuera de su sitio), y mientras espera la respuesta la placa cede el procesador.
+- **Avisos de salud:** poca memoria libre (menos de 30 KB) o una tarea que va justa de pila quedan en el registro.
+- **Certificado del servidor:** las actualizaciones, las estadísticas y el registro solo hablan con el servidor del proyecto (Let's Encrypt o ZeroSSL). Antes no se comprobaba (la firma ya impedía instalar algo falso, pero el anuncio de versión sí se podía falsear en una red ajena).
+
+**Depuración**
+- **Enviar el registro** (Diagnóstico, en modo diagnóstico; web y app): manda el registro, las últimas tramas del W-Bus y los datos de salud al servidor del proyecto con el código de instalación. Se ven en https://wttc.favala.es/mi.php con ese código.
+- **Captura del W-Bus:** las 40 últimas tramas, con su momento (web y app).
+- En Diagnóstico también la memoria de ajustes libre y la pila que les sobra a las tareas.
+
+**Botón y pantalla**
+- **Botón «calentar»** opcional (un pulsador entre IO7 y GND): con la calefacción apagada la enciende 30 min (o lo que elijas, o «hasta X °C» con termómetro); encendida, la apaga. Hay que mantenerlo medio segundo, y si se queda pulsado (cable en corto) se ignora. Cuenta en las estadísticas como «Botón».
+- **Mensajes en la pantalla:** lo que acaba de hacer el botón, «La Webasto no responde», «Actualizando 40 %», «Instalando actualización» y «Reinicio calentando: apagada».
+
+**Pruebas automáticas** (en cada compilación, en GitHub)
+- La lógica del termostato, las tramas del W-Bus, las versiones, el código de instalación y la antelación de la salida van aparte (`logica.h`) y se prueban con muchos casos (también `millis()` dando la vuelta), con los detectores de errores de memoria de GCC.
+- Análisis estático con cppcheck: el código queda limpio y cualquier aviso nuevo para la compilación.
+- Las acciones de GitHub, fijadas a versiones exactas; `.github/` con propietario (CODEOWNERS).
+
 ## 0.2.21 — 2026-10-09
 
 Versión de prueba (sin probar con una Webasto real).

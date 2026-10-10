@@ -1,0 +1,4 @@
+# Quién tiene que aprobar los cambios (si en GitHub está activada la regla «Require review from Code Owners» en main).
+# Los workflows y scripts de CI pueden leer los secretos (clave de firma del firmware y de la app): ningún cambio ahí
+# sin revisión del propietario. Ver el incidente del 07/10/2026 (un workflow que intentaba robar los secretos).
+/.github/   @matatunos

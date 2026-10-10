@@ -141,7 +141,7 @@ TXT,
 'noData' => 'No data.',
 'allVersions' => 'All published versions: ',
 'dlHint' => <<<'TXT'
-Every firmware change is compiled automatically on GitHub with the ESP32 cores 2.0.17 and 3.3.12, and the app is published in
+Every firmware change is compiled automatically on GitHub with the ESP32 core 3.3.12, and the app is published in
       <a href="https://github.com/matatunos/wttc/releases" target="_blank" rel="noopener">Releases</a>.
       <b>Test version (0.x): it has not been tried on a real Webasto yet.</b> 1.0 will come when someone has tried it installed;
       if you build it, tell us how it went by opening an issue on GitHub.
@@ -154,6 +154,7 @@ TXT,
 <tr><td>W-Bus transceiver</td><td><b>UART ↔ LIN/K-Line module with TJA1020</b> (the one used is by Gutol: screw terminals 12V/GND/LIN/INH and TX/RX/SLP/GND, no VCC pin)</td><td>Adapts the ESP32's 3.3 V TTL to the single-wire 12 V bus. Any module with a TJA1020 or equivalent will do (TJA1021, MCP2003, L9637D)</td></tr>
 <tr><td>Optional: display</td><td><b>1.5" SSD1327 I2C OLED</b> (128×128, 16 greys; the recommended one) or a 128×64 one: 1.3" (SH1106) or 0.96" (SSD1306). Address 0x3C or 0x3D</td><td>Inside temperature, status, coolant, battery and what happens next. The type is chosen in Settings</td></tr>
 <tr><td>Optional: thermometer</td><td><b>SHT31</b> or <b>AHT20</b> I2C module (temperature and humidity)</td><td>Inside temperature: “heat up to X °C”, a better departure time and condensation at a glance</td></tr>
+<tr><td>Optional: “heat” button</td><td>Any <b>push button</b> (normally open), between <b>IO7</b> and <b>GND</b></td><td>Switch on (30 min, or whatever you choose in Settings) or off without the phone, like the heat key of the original timer. Hold it for half a second</td></tr>
 <tr><td>Power supply</td><td><b>LM2596</b> step-down regulator (module with potentiometer), set to <b>5.0 V</b></td><td>Takes the ESP32's 5 V from the connector's permanent +12 V</td></tr>
 <tr><td>Wiring</td><td>Female dupont wires for the ESP32, 0.5 mm² wire for the 12 V side, splices or terminal blocks and tape or heat-shrink</td><td>Connections as per the diagram and the wire list above</td></tr>
 <tr><td>Tools</td><td>Multimeter, small screwdriver, PC with USB (Linux or Windows)</td><td>Identifying the connector's wires, adjusting the LM2596, flashing the ESP32 and the first test over the console</td></tr>
@@ -177,7 +178,7 @@ TXT,
 <ol class="pasos">
 <li>Install the IDE from <a href="https://www.arduino.cc/en/software" target="_blank" rel="noopener">arduino.cc/en/software</a>. On Windows use the .exe installer or <code>winget install ArduinoSA.IDE.stable</code>; on Linux, the AppImage (make it executable).</li>
 <li><b>File → Preferences → “Additional boards manager URLs”</b>, add:<br><code class="sel">https://espressif.github.io/arduino-esp32/package_esp32_index.json</code></li>
-<li><b>Tools → Board → Boards Manager</b>, search for “esp32” and install <b>esp32 by Espressif Systems</b>.</li>
+<li><b>Tools → Board → Boards Manager</b>, search for “esp32” and install <b>esp32 by Espressif Systems</b>, version <b>3.x</b> (2.x no longer works: if you have it, update it right there).</li>
 <li>Unzip the archive: you get the folder <code>WTTC/</code> with <code>WTTC.ino</code> and <code>web.h</code> (the IDE requires the folder to be named like the .ino). Open <code>WTTC.ino</code>.</li>
 <li><b>Tools → Board → esp32 → ESP32S3 Dev Module</b> and <b>Flash Size → 16MB</b>; <b>PSRAM → OPI PSRAM</b>; <b>Tools → Partition Scheme → Huge APP (3MB No OTA/1MB SPIFFS)</b> (only for the size limit: the <code>WTTC/</code> folder brings its own partition table, with two slots for wireless updates, and Arduino uses it by itself); and under <b>Port</b> the ESP32's one (<code>COMx</code> on Windows, <code>/dev/ttyUSB0</code> on Linux).</li>
 <li>Press <b>Upload</b> (the arrow). If it hangs at “Connecting……”, hold the board's <b>BOOT</b> button until it starts writing.</li>

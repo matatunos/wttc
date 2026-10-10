@@ -28,7 +28,7 @@ jobs:
     env:
       WTTC_VERSION_CODE: ${{ github.run_number }}      # siempre crece: Android exige que cada APK nuevo tenga un código mayor
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       # Una sola versión para todo: el fichero VERSION. El firmware debe decir lo mismo en FW_VERSION.
       - name: Versión
@@ -39,11 +39,11 @@ jobs:
           if [ "$v" != "$fw" ]; then echo "::error::VERSION ($v) y FW_VERSION del firmware ($fw) no coinciden"; exit 1; fi
           grep -q "^## $v " CHANGELOG.md || { echo "::error::Falta la sección «## $v …» en CHANGELOG.md"; exit 1; }
           echo "WTTC_VERSION_NAME=$v" >> "$GITHUB_ENV"
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
         with:
           gradle-version: '8.7'
 
@@ -108,7 +108,7 @@ jobs:
           cp "WTTC-${WTTC_VERSION_NAME}.apk" WTTC.apk      # nombre fijo: releases/download/v<versión>/WTTC.apk
           (cd firmware && zip -qr ../WTTC-firmware.zip WTTC) && zip -q WTTC-firmware.zip LICENSE   # GPL v3: el código va con su licencia
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: WTTC-${{ env.WTTC_VERSION_NAME }}
           path: WTTC-*.apk

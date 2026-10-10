@@ -23,13 +23,18 @@ $q = function ($sql, $p = []) use ($db) { $s = $db->prepare($sql); $s->execute($
 
 if (!empty($in['borrar'])) {
     $db->beginTransaction();
-    foreach (['boards', 'board_runs', 'board_days'] as $t) $q("DELETE FROM $t WHERE iid = ?", [$c]);
+    foreach (['boards', 'board_runs', 'board_days', 'board_logs'] as $t) $q("DELETE FROM $t WHERE iid = ?", [$c]);
     $db->commit();
     out(200, ['ok' => true, 'borrado' => true]);
 }
 
 $b = $q('SELECT first_seen, last_seen, fw, lang, gas, hsec, nruns, oled, sens FROM boards WHERE iid = ?', [$c])->fetch();
-if (!$b) { usleep(300000); out(404, ['error' => 'no']); }   // un poco de espera: probar códigos a ciegas no compensa
+if (!$b) {
+    // Sin estadísticas pero con algún registro enviado: se devuelve solo eso
+    $hasLog = $q('SELECT 1 FROM board_logs WHERE iid = ? LIMIT 1', [$c])->fetchColumn();
+    if (!$hasLog) { usleep(300000); out(404, ['error' => 'no']); }
+    $b = ['first_seen' => '', 'last_seen' => '', 'fw' => '', 'gas' => 0, 'hsec' => 0, 'nruns' => 0, 'sens' => 0, 'oled' => 0];
+}   // un poco de espera: probar códigos a ciegas no compensa
 
 // Cada encendido: los 11 números de siempre y, desde la 0.2.17, 7 más (null = sin dato o placa más antigua)
 $runs = array_map(fn($r) => array_map(fn($v) => $v === null ? null : (int)$v, array_values($r)),
@@ -51,11 +56,15 @@ if (count($per) >= 3) {
     $com['min'] = round($med(array_map(fn($r) => $r['s'] / 60 / $r['n'], $per)), 1);
 }
 
+// Registros que ha enviado la placa (Diagnóstico → «Enviar el registro»): los 3 últimos
+$logs = array_map(fn($r) => ['at' => $r['at'], 'fw' => $r['fw'], 'd' => json_decode($r['body'], true)],
+    $q('SELECT at, fw, body FROM board_logs WHERE iid = ? ORDER BY id DESC LIMIT 3', [$c])->fetchAll());
+
 $errs = [];
 foreach ($runs as $r) if ($r[10]) { $k = sprintf('%02X', $r[10]); $errs[$k] = wttc_error_name($k) ?: ''; }
 out(200, [
     'iid' => $c,
     'board' => ['first' => $b['first_seen'], 'last' => $b['last_seen'], 'fw' => $b['fw'], 'gas' => (float)$b['gas'],
                 'hsec' => (int)$b['hsec'], 'nruns' => (int)$b['nruns'], 'sens' => (int)$b['sens'], 'oled' => (int)$b['oled']],
-    'runs' => $runs, 'days' => $days, 'errnames' => $errs, 'comunidad' => $com,
+    'runs' => $runs, 'days' => $days, 'errnames' => $errs, 'comunidad' => $com, 'logs' => $logs,
 ]);

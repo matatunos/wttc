@@ -141,7 +141,7 @@ TXT,
 'noData' => 'Keine Daten.',
 'allVersions' => 'Alle veröffentlichten Versionen: ',
 'dlHint' => <<<'TXT'
-Jede Änderung der Firmware wird auf GitHub automatisch mit den ESP32-Cores 2.0.17 und 3.3.12 kompiliert, und die App erscheint unter
+Jede Änderung der Firmware wird auf GitHub automatisch mit dem ESP32-Core 3.3.12 kompiliert, und die App erscheint unter
       <a href="https://github.com/matatunos/wttc/releases" target="_blank" rel="noopener">Releases</a>.
       <b>Testversion (0.x): noch nicht an einer echten Webasto erprobt.</b> Die 1.0 kommt, wenn jemand es eingebaut getestet hat;
       wenn du es baust, erzähl uns, wie es lief, indem du ein Issue auf GitHub eröffnest.
@@ -154,6 +154,7 @@ TXT,
 <tr><td>W-Bus-Transceiver</td><td>Modul <b>UART ↔ LIN/K-Line mit TJA1020</b> (das verwendete ist von Gutol: Schraubklemmen 12V/GND/LIN/INH und TX/RX/SLP/GND, ohne VCC-Pin)</td><td>Passt den 3,3-V-TTL-Pegel des ESP32 an den Eindraht-Bus mit 12 V an. Jedes Modul mit TJA1020 oder gleichwertig geht (TJA1021, MCP2003, L9637D)</td></tr>
 <tr><td>Optional: Display</td><td><b>I2C-OLED SSD1327 1,5"</b> (128×128, 16 Graustufen; empfohlen) oder eines mit 128×64: 1,3" (SH1106) oder 0,96" (SSD1306). Adresse 0x3C oder 0x3D</td><td>Innentemperatur, Zustand, Kühlwasser, Batterie und was als Nächstes passiert. Der Typ wird in den Einstellungen gewählt</td></tr>
 <tr><td>Optional: Thermometer</td><td>I2C-Modul <b>SHT31</b> oder <b>AHT20</b> (Temperatur und Feuchte)</td><td>Innentemperatur: „Heizen bis X °C“, genauere Abfahrtszeit und Kondenswasser auf einen Blick</td></tr>
+<tr><td>Optional: „Heizen“-Taste</td><td>Beliebiger <b>Taster</b> (Schließer), zwischen <b>IO7</b> und <b>GND</b></td><td>Ein- (30 min oder was in den Einstellungen gewählt ist) und ausschalten ohne Handy, wie die Heiztaste des Original-Bedienteils. Eine halbe Sekunde halten</td></tr>
 <tr><td>Stromversorgung</td><td>Abwärtsregler <b>LM2596</b> (Modul mit Potentiometer), eingestellt auf <b>5,0 V</b></td><td>Erzeugt die 5 V für den ESP32 aus dem Dauer-Plus +12 V des Steckers</td></tr>
 <tr><td>Verkabelung</td><td>Dupont-Kabel (Buchse) für den ESP32, 0,5-mm²-Kabel für die 12-V-Seite, Verbinder oder Lüsterklemmen und Band oder Schrumpfschlauch</td><td>Verbindungen laut Schaltplan und Kabelliste oben</td></tr>
 <tr><td>Werkzeug</td><td>Multimeter, kleiner Schraubendreher, PC mit USB (Linux oder Windows)</td><td>Kabel des Steckers bestimmen, LM2596 einstellen, ESP32 programmieren und erster Test über die Konsole</td></tr>
@@ -177,7 +178,7 @@ TXT,
 <ol class="pasos">
 <li>Die IDE von <a href="https://www.arduino.cc/en/software" target="_blank" rel="noopener">arduino.cc/en/software</a> installieren. Unter Windows mit dem .exe-Installer oder <code>winget install ArduinoSA.IDE.stable</code>; unter Linux das AppImage (ausführbar machen).</li>
 <li><b>Datei → Einstellungen → „Zusätzliche Boardverwalter-URLs“</b>, hinzufügen:<br><code class="sel">https://espressif.github.io/arduino-esp32/package_esp32_index.json</code></li>
-<li><b>Werkzeuge → Board → Boardverwalter</b>, nach „esp32“ suchen und <b>esp32 von Espressif Systems</b> installieren.</li>
+<li><b>Werkzeuge → Board → Boardverwalter</b>, nach „esp32“ suchen und <b>esp32 von Espressif Systems</b> in Version <b>3.x</b> installieren (2.x geht nicht mehr: falls vorhanden, dort aktualisieren).</li>
 <li>Das Zip entpacken: es entsteht der Ordner <code>WTTC/</code> mit <code>WTTC.ino</code> und <code>web.h</code> (die IDE verlangt, dass der Ordner wie die .ino heißt). <code>WTTC.ino</code> öffnen.</li>
 <li><b>Werkzeuge → Board → esp32 → ESP32S3 Dev Module</b> und <b>Flash Size → 16MB</b>; <b>PSRAM → OPI PSRAM</b>; <b>Werkzeuge → Partition Scheme → Huge APP (3MB No OTA/1MB SPIFFS)</b> (nur wegen der Größengrenze: der Ordner <code>WTTC/</code> bringt seine eigene Partitionstabelle mit zwei Plätzen für kabellose Updates mit, die Arduino selbst verwendet); und unter <b>Port</b> den des ESP32 (<code>COMx</code> unter Windows, <code>/dev/ttyUSB0</code> unter Linux).</li>
 <li><b>Hochladen</b> drücken (der Pfeil). Bleibt es bei „Connecting……“ hängen, die Taste <b>BOOT</b> der Platine gedrückt halten, bis das Schreiben beginnt.</li>

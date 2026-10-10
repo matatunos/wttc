@@ -118,6 +118,9 @@ wttc_visit('mi');
   .tips li{display:grid;grid-template-columns:28px 1fr;gap:8px;background:var(--bg-inner);border:1px solid var(--border);border-radius:12px;padding:10px 12px;font-size:.92rem}
   .tips li .i{font-size:1.2rem;line-height:1.3}
   .tips li b{color:#ffd2b3}
+  details.log{background:var(--bg-inner);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-top:10px}
+  details.log summary{cursor:pointer;font-weight:600}
+  details.log pre{white-space:pre-wrap;word-break:break-word;font-size:.78rem;max-height:420px;overflow:auto;background:var(--bg-page);padding:10px;border-radius:8px}
   ul.priv{margin:6px 0 0;padding-left:20px;font-size:.88rem}
   ul.priv li{margin-bottom:4px}
   [hidden]{display:none!important}
@@ -204,6 +207,9 @@ wttc_visit('mi');
       <div class="card"><h2>Últimos encendidos</h2><div class="tblwrap"><table class="tbl" id="tbl"></table></div>
         <div style="margin-top:12px"><button class="btn ghost" id="csv" type="button">Descargar todos (CSV, para Excel)</button></div></div>
     </div>
+    <div class="card" id="logsCard" hidden><h2>Registros enviados desde la placa</h2>
+      <div class="muted">Los que se mandan desde Diagnóstico → «Enviar el registro» (modo diagnóstico). Se guardan los 10 últimos.</div>
+      <div id="logs"></div></div>
     <div class="card">
       <h2>Tus datos</h2>
       <ul class="priv">
@@ -232,8 +238,8 @@ const nf = (n, d = 0) => Number(n).toLocaleString('es-ES', { minimumFractionDigi
 const store = { get: k => { try { return localStorage.getItem(k) } catch (e) { return null } },
                 set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v) } catch (e) {} } };
 // Quién la encendió (bit 7: con termostato) y por qué se apagó: como RS_* y RE_* en WTTC.ino
-const SRC = ['Web de la placa', 'App', 'Programa', 'Consola', 'Hora de salida', 'Otro'];
-const SRCC = ['#5bc0eb', '#3a8ee0', '#a78bfa', '#7a84a8', '#ff8a3d', '#4b5275'];
+const SRC = ['Web de la placa', 'App', 'Programa', 'Consola', 'Hora de salida', 'Otro', 'Botón'];
+const SRCC = ['#5bc0eb', '#3a8ee0', '#a78bfa', '#7a84a8', '#ff8a3d', '#4b5275', '#3ecf8e'];
 // El último (7) no es un apagado: el arranque falló porque la Webasto no contestó por el W-Bus (firmware 0.2.19+)
 const END = ['Se acabó el tiempo', 'Apagada a mano', 'Llegó a la temperatura', 'Batería baja', 'Se apagó sola (avería)', 'Sin comunicación', 'Dentro no subía', 'No respondió (W-Bus)'];
 const ENDC = ['#5bc0eb', '#7a84a8', '#3ecf8e', '#ffcc4d', '#ff5d5d', '#ff8f9a', '#ff8a3d', '#c2185b'];
@@ -302,7 +308,7 @@ $('csv').onclick = () => {
     const d = r[1] ? new Date(r[1] * 1000) : null;
     rows.push([r[0], d ? dayKey(d) : '', d ? String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') : '',
       n2((r[2] / 60).toFixed(1)), n2((r[3] / 1000).toFixed(3)), r[4] > -128 ? r[4] : '', r[5] > -128 ? r[5] : '', r[6] ? r[6] - 50 : '',
-      r[7] ? n2(r[7] / 10) : '', SRC[Math.min(r[8] & 0x7f, 5)], r[8] & 0x80 ? 'sí' : 'no', END[r[9]] || '', r[10] ? '0x' + r[10].toString(16).toUpperCase().padStart(2, '0') : '',
+      r[7] ? n2(r[7] / 10) : '', SRC[Math.min(r[8] & 0x7f, SRC.length - 1)], r[8] & 0x80 ? 'sí' : 'no', END[r[9]] || '', r[10] ? '0x' + r[10].toString(16).toUpperCase().padStart(2, '0') : '',
       opt(r[11]), opt(r[12]), r[13] || '', opt(r[14]), r[15] ? r[15] - 50 : '', r[16] ? n2(r[16] / 10) : '', opt(r[17], v => v * 25)]);
   }
   const blob = new Blob(['\ufeff' + rows.map(r => r.join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
@@ -393,6 +399,14 @@ function render() {
       'de media por encendido' + (reached != null ? ' · llega al objetivo el ' + Math.round(reached * 100) + ' %' : ''));
   $('price').onchange = e => { store.set('wttc_price', e.target.value); render(); };
 
+  // Registros enviados desde la placa (Diagnóstico → «Enviar el registro»)
+  const LG = data.logs || [];
+  $('logsCard').hidden = !LG.length;
+  $('logs').innerHTML = LG.map((g, i) => { const d = g.d || {};
+    return `<details class="log"${i ? '' : ' open'}><summary>${esc(g.at.replace(' ', ' · '))} UTC · firmware ${esc(g.fw || '?')}</summary>` +
+      `<p class="muted">Encendida desde hacía ${d.up != null ? hm(d.up) : '?'} · arranque: ${esc(d.rr || '?')} · memoria ${d.heap && d.heap[0] != null ? Math.round(d.heap[0] / 1024) + ' KB (mínima ' + Math.round(d.heap[1] / 1024) + ' KB)' : '?'}` +
+      `${d.rssi ? ' · Wi-Fi ' + d.rssi + ' dBm' : ''}</p><pre>${esc(d.log || '')}</pre>` +
+      (d.wbus ? `<p class="muted" style="margin:8px 0 4px">Tramas del W-Bus</p><pre>${esc(d.wbus)}</pre>` : '') + '</details>'; }).join('');
   $('noRuns').hidden = all.length > 0;
   $('charts').hidden = all.length === 0;
   if (!all.length) return;
@@ -421,7 +435,7 @@ function render() {
   for (let t = first; t <= end; t += 86400000) { const k = keyOf(t); if (axis[axis.length - 1] !== k && !axis.includes(k)) axis.push(k); }
   const idx = Object.fromEntries(axis.map((d, i) => [d, i]));
   const per_src = SRC.map(() => axis.map(() => 0));
-  for (const r of T) { const i = idx[keyOf(r.t0 * 1000)]; if (i != null) per_src[Math.min(r.src, 5)][i]++; }
+  for (const r of T) { const i = idx[keyOf(r.t0 * 1000)]; if (i != null) per_src[Math.min(r.src, SRC.length - 1)][i]++; }
   $('hDay').textContent = 'Encendidos por ' + { day: 'día', week: 'semana', month: 'mes' }[unit];
   const axLabel = d => unit === 'month' ? MES[+d.slice(5, 7) - 1] + ' ' + d.slice(2, 4) : (unit === 'week' ? 'sem. ' : '') + +d.slice(8) + ' ' + MES[+d.slice(5, 7) - 1];
   chart('chDay', { type: 'bar', data: { labels: axis.map(axLabel),
@@ -440,7 +454,7 @@ function render() {
 
   // Quién y por qué
   const cs = SRC.map(() => 0), ce = END.map(() => 0); let thN = 0;
-  for (const r of R) { cs[Math.min(r.src, 5)]++; if (r.end < END.length) ce[r.end]++; if (r.th) thN++; }
+  for (const r of R) { cs[Math.min(r.src, SRC.length - 1)]++; if (r.end < END.length) ce[r.end]++; if (r.th) thN++; }
   bars('bSrc', SRC.map((l, i) => [l, cs[i], SRCC[i]]).sort((a, b) => b[1] - a[1]));
   if (thN) $('bSrc').insertAdjacentHTML('beforeend', `<p class="muted" style="margin:10px 0 0">${nf(thN)} con «calentar hasta» (termostato).</p>`);
   ce[NOWBUS] = F.length;
@@ -642,7 +656,7 @@ function render() {
   $('tbl').innerHTML = '<tr><th>Cuándo</th><th>Duración</th><th>Gasoil</th><th>Dentro</th><th>Agua</th><th>Potencia</th><th>Quién</th><th>Final</th></tr>' +
     last.map(r => `<tr><td>${r.t0 ? fdate(r.t0) : 'sin hora'}</td><td>${r.end === NOWBUS ? '—' : hm(r.dur)}</td><td>${nf(r.ml / 1000, 2)} L</td>` +
       `<td>${r.cab0 > -128 ? r.cab0 + ' → ' + (r.cab1 > -128 ? r.cab1 : '?') + ' °C' : '—'}</td><td>${r.cmax != null ? r.cmax + ' °C' : '—'}</td><td>${r.pw != null ? nf(r.pw / 1000, 1) + ' kW' : '—'}</td>` +
-      `<td>${SRC[Math.min(r.src, 5)]}${r.th ? ' · termostato' : ''}</td>` +
+      `<td>${SRC[Math.min(r.src, SRC.length - 1)]}${r.th ? ' · termostato' : ''}</td>` +
       `<td><span class="tag ${r.end === 4 || r.end === 5 || r.end === NOWBUS ? 'bad' : r.end === 2 ? 'ok' : ''}">${END[r.end] || '?'}${r.err ? ' 0x' + r.err.toString(16).toUpperCase().padStart(2, '0') : ''}</span></td></tr>`).join('');
 }
 

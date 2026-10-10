@@ -155,7 +155,7 @@ TXT,
 'noData' => 'Sin datos.',
 'allVersions' => 'Todas las versiones publicadas: ',
 'dlHint' => <<<'TXT'
-Cada cambio del firmware se compila automáticamente en GitHub con los núcleos ESP32 2.0.17 y 3.3.12, y la app se publica en
+Cada cambio del firmware se compila automáticamente en GitHub con el núcleo ESP32 3.3.12, y la app se publica en
       <a href="https://github.com/matatunos/wttc/releases" target="_blank" rel="noopener">Releases</a>.
       <b>Versión de prueba (0.x): aún no se ha probado contra una Webasto real.</b> La 1.0 llegará cuando alguien lo haya probado montado;
       si lo montas, cuéntanos cómo te ha ido abriendo una incidencia en GitHub.
@@ -168,6 +168,7 @@ TXT,
 <tr><td>Transceptor W-Bus</td><td>Módulo <b>UART ↔ LIN/K-Line con TJA1020</b> (el usado es de Gutol: bornas de tornillo 12V/GND/LIN/INH y TX/RX/SLP/GND, sin pin VCC)</td><td>Adapta el TTL de 3,3 V del ESP32 al bus de un hilo a 12 V. Vale cualquier módulo con TJA1020 o equivalente (TJA1021, MCP2003, L9637D)</td></tr>
 <tr><td>Opcional: pantalla</td><td><b>OLED I2C SSD1327 de 1,5"</b> (128×128, 16 grises; la recomendada) o una de 128×64: 1,3" (SH1106) o 0,96" (SSD1306). Dirección 0x3C o 0x3D</td><td>Temperatura de dentro, estado, agua, batería y lo siguiente que va a pasar. Se elige el tipo en Configuración</td></tr>
 <tr><td>Opcional: termómetro</td><td>Módulo I2C <b>SHT31</b> o <b>AHT20</b> (temperatura y humedad)</td><td>Temperatura de dentro: «calentar hasta X °C», hora de salida más afinada y aviso de condensación a la vista</td></tr>
+<tr><td>Opcional: botón «calentar»</td><td>Cualquier <b>pulsador</b> (normalmente abierto), entre <b>IO7</b> y <b>GND</b></td><td>Encender (30 min, o lo que elijas en Configuración) o apagar sin el móvil, como la tecla de calentar del mando original. Hay que mantenerlo medio segundo</td></tr>
 <tr><td>Alimentación</td><td>Regulador reductor <b>LM2596</b> (módulo con potenciómetro), ajustado a <b>5,0 V</b></td><td>Saca los 5 V del ESP32 del +12 V permanente del conector</td></tr>
 <tr><td>Cableado</td><td>Cables dupont hembra para el ESP32, cable de 0,5 mm² para el lado de 12 V, empalmes o regletas y cinta o termorretráctil</td><td>Conexiones según el esquema y la lista de cables de arriba</td></tr>
 <tr><td>Herramientas</td><td>Polímetro, destornillador pequeño, PC con USB (Linux o Windows)</td><td>Identificar los cables del conector, ajustar el LM2596, programar el ESP32 y la primera prueba por consola</td></tr>
@@ -193,7 +194,7 @@ TXT,
 <ol class="pasos">
 <li>Instala el IDE desde <a href="https://www.arduino.cc/en/software" target="_blank" rel="noopener">arduino.cc/en/software</a>. En Windows sirve el instalador .exe o <code>winget install ArduinoSA.IDE.stable</code>; en Linux, el AppImage (dale permiso de ejecución).</li>
 <li><b>Archivo → Preferencias → «URLs adicionales del gestor de placas»</b>, añade:<br><code class="sel">https://espressif.github.io/arduino-esp32/package_esp32_index.json</code></li>
-<li><b>Herramientas → Placa → Gestor de placas</b>, busca «esp32» e instala <b>esp32 de Espressif Systems</b>.</li>
+<li><b>Herramientas → Placa → Gestor de placas</b>, busca «esp32» e instala <b>esp32 de Espressif Systems</b>, versión <b>3.x</b> (la 2.x ya no vale: si la tienes, actualízala ahí mismo).</li>
 <li>Descomprime el zip: queda la carpeta <code>WTTC/</code> con <code>WTTC.ino</code> y <code>web.h</code> (el IDE exige que la carpeta se llame como el .ino). Abre <code>WTTC.ino</code>.</li>
 <li><b>Herramientas → Placa → esp32 → ESP32S3 Dev Module</b> y <b>Flash Size → 16MB</b>; <b>PSRAM → OPI PSRAM</b>; <b>Herramientas → Partition Scheme → Huge APP (3MB No OTA/1MB SPIFFS)</b> (solo para el límite de tamaño: la carpeta <code>WTTC/</code> trae su propia tabla de particiones, con dos huecos para las actualizaciones sin cable, y Arduino la usa sola); y en <b>Puerto</b> el del ESP32 (<code>COMx</code> en Windows, <code>/dev/ttyUSB0</code> en Linux).</li>
 <li>Pulsa <b>Subir</b> (la flecha). Si se queda en «Connecting……», mantén pulsado el botón <b>BOOT</b> de la placa hasta que empiece a escribir.</li>
