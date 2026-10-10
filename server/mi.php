@@ -412,6 +412,8 @@ function render() {
   $('logs').innerHTML = LG.map((g, i) => { const d = g.d || {};
     return `<details class="log"${i ? '' : ' open'}><summary>${esc(g.at.replace(' ', ' · '))} UTC · firmware ${esc(g.fw || '?')}</summary>` +
       `<p class="muted">Encendida desde hacía ${d.up != null ? hm(d.up) : '?'} · arranque: ${esc(d.rr || '?')} · memoria ${d.heap && d.heap[0] != null ? Math.round(d.heap[0] / 1024) + ' KB (mínima ' + Math.round(d.heap[1] / 1024) + ' KB)' : '?'}` +
+      (d.heap && d.heap[2] != null ? ' · mayor bloque ' + Math.round(d.heap[2] / 1024) + ' KB' : '') +
+      (d.heap && d.heap[3] != null ? ' · PSRAM ' + Math.round(d.heap[3] / 1024) + ' KB' + (d.tlsps ? ' (con las conexiones)' : '') : '') +
       `${d.rssi ? ' · Wi-Fi ' + d.rssi + ' dBm' : ''}</p><pre>${esc(lines(d.log))}</pre>` +
       (d.wbus ? `<p class="muted" style="margin:8px 0 4px">Tramas del W-Bus</p><pre>${esc(lines(d.wbus))}</pre>` : '') + '</details>'; }).join('');
   $('noRuns').hidden = all.length > 0;

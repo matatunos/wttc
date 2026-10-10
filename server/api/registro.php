@@ -1,7 +1,7 @@
 <?php
 // wttc/api/registro.php — Recibe el registro de una placa cuando su usuario lo envía (Diagnóstico → «Enviar el registro»).
 // Código generado íntegramente con Claude (Anthropic).
-// POST JSON: {"iid","fw","up","rr","heap":[libre,mínima],"nvs","stk":[stats,ota,telegram],"rssi","log":"…","wbus":"…"}
+// POST JSON: {"iid","fw","up","rr","heap":[libre,mínima,bloque,psram],"tlsps","nvs","stk":[stats,ota,telegram],"rssi","log":"…","wbus":"…"}
 // Se guarda tal cual (validado y recortado) con el código de instalación; se ve en mi.php con ese código y en la vista
 // privada. Como mucho 20 envíos por placa y día, y se guardan los 10 últimos de cada placa. No se lee ni se guarda la IP.
 require_once __DIR__ . '/db.php';
@@ -25,7 +25,9 @@ $txt = fn($v, $max) => is_string($v) ? mb_substr(preg_replace('/[^\P{C}\n]/u', '
 $num = fn($v) => is_int($v) ? $v : null;
 $body = [
     'up' => $num($in['up'] ?? null), 'rr' => $txt($in['rr'] ?? '', 120),
-    'heap' => is_array($in['heap'] ?? null) ? array_map($num, array_slice($in['heap'], 0, 2)) : [],
+    // libre, mínima, mayor bloque seguido (0.3.3+) y PSRAM libre (0.3.3+), en bytes
+    'heap' => is_array($in['heap'] ?? null) ? array_map($num, array_slice($in['heap'], 0, 4)) : [],
+    'tlsps' => $num($in['tlsps'] ?? null),
     'nvs' => $num($in['nvs'] ?? null),
     'stk' => is_array($in['stk'] ?? null) ? array_map($num, array_slice($in['stk'], 0, 3)) : [],
     'rssi' => $num($in['rssi'] ?? null),

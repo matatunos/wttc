@@ -6,6 +6,13 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.3.3 — 2026-10-10
+
+Versión de prueba (sin probar con una Webasto real).
+
+- **Las conexiones seguras usan la PSRAM** (8 MB, casi sin usar) en vez de la memoria interna. Una placa real no pudo descargar una actualización con 40 KB libres porque el mayor bloque seguido era de 13 KB (cada conexión pide bloques de unos 16 KB). Si no hay PSRAM, se usa la interna como antes.
+- El registro enviado incluye el mayor bloque libre de la memoria interna, la PSRAM libre y si las conexiones van en ella (se ve en «Mis estadísticas»).
+
 ## 0.3.2 — 2026-10-10
 
 Versión de prueba (sin probar con una Webasto real).

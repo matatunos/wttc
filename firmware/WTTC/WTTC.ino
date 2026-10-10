@@ -108,6 +108,8 @@
 #include <esp_ota_ops.h>        // confirmar el programa nuevo (o volver al anterior si no arranca)
 #include <mbedtls/pk.h>         // comprobar la firma de las actualizaciones (ECDSA P-256)
 #include <mbedtls/md.h>         // SHA-256 de la actualización
+#include <mbedtls/platform.h>   // mbedtls_platform_set_calloc_free(): la memoria de las conexiones seguras, a la PSRAM
+#include <esp_heap_caps.h>
 #include <sys/time.h>           // settimeofday(): poner en hora desde el móvil
 #include <Wire.h>               // bus I2C: pantalla y termómetro opcionales
 #include <math.h>               // NAN / isnan(): «sin dato» del termómetro
@@ -163,7 +165,7 @@ const uint16_t MAX_SESSION  = 240;    // min: ventana máxima de «calentar hast
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.3.2"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.3.3"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -1309,7 +1311,8 @@ String logReport() {
   j += ",\"fw\":\""; j += FW_VERSION; j += "\"";
   j += ",\"up\":"; j += (uint32_t)(millis() / 1000);
   j += ",\"rr\":"; j += js(String(resetText(bootWhy)));
-  j += ",\"heap\":["; j += ESP.getFreeHeap(); j += ","; j += heapMin; j += "]";
+  j += ",\"heap\":["; j += ESP.getFreeHeap(); j += ","; j += heapMin; j += ","; j += ESP.getMaxAllocHeap(); j += ","; j += ESP.getFreePsram(); j += "]";
+  j += ",\"tlsps\":"; j += tlsInPsram ? 1 : 0;
   j += ",\"nvs\":"; j += nvsFree();
   j += ",\"stk\":["; j += stackLeft[0]; j += ","; j += stackLeft[1]; j += ","; j += stackLeft[2]; j += "]";
   j += ",\"rssi\":"; j += WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0;
@@ -2503,7 +2506,8 @@ void printMotd() {
   Serial.printf("  Piezas opcionales ..... pantalla %s · termómetro %s\n", oledOk ? "sí" : "no", snName()[0] ? snName() : "no");
   if (btnMin) Serial.printf("  Botón «calentar» ...... IO7 a GND · %u min%s\n", btnMin, btnTgt ? (String(" o hasta ") + btnTgt + " °C").c_str() : "");
   else Serial.println("  Botón «calentar» ...... desactivado");
-  Serial.printf("  Este arranque ......... %s · memoria libre %u KB\n", resetText(bootWhy), (unsigned)(ESP.getFreeHeap() / 1024));
+  Serial.printf("  Este arranque ......... %s · memoria libre %u KB · PSRAM %u KB%s\n", resetText(bootWhy), (unsigned)(ESP.getFreeHeap() / 1024),
+                (unsigned)(ESP.getFreePsram() / 1024), tlsInPsram ? " (conexiones seguras ahí)" : "");
   Serial.printf("  Órdenes remotas ....... %s\n", remoteOn ? "permitidas (firmadas por el proyecto; nunca la calefacción)" : "no permitidas");
   Serial.printf("  Actualizaciones ....... %s\n", otaAuto == OA_OFF ? "no se buscan" : otaAuto == OA_NOTIFY ? "buscar y avisar" : "buscar e instalar sola");
   Serial.println("----------------------------------------------------------------");
@@ -3244,6 +3248,22 @@ void otaNetDone(bool ok, const String& msg) { if (otaNetHeld) { netEnd(); otaNet
 
 // Para salir a internet desde una tarea: pide la pausa del portal cautivo (y espera a que loop() la haga, 0,5 s como
 // mucho) y luego la devuelve. Cada netBegin() lleva su netEnd(); el contador no baja de cero por si acaso
+// Memoria de las conexiones seguras (mbedTLS) en la PSRAM. Cada conexión pide bloques de ~16 KB seguidos; en la memoria
+// interna (unos 100 KB, compartidos con Wi-Fi y Bluetooth) se fragmentaba: una placa real tenía 40 KB libres pero el
+// mayor bloque era de 13 KB, y la actualización no podía ni conectar (10/10/2026). La PSRAM tiene 8 MB casi sin usar.
+// Si alguna vez no hubiera PSRAM o se llenara, se usa la interna como antes
+void* tlsCalloc(size_t n, size_t size) {
+  void* p = heap_caps_calloc(n, size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  return p ? p : heap_caps_calloc(n, size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+}
+void tlsFree(void* p) { heap_caps_free(p); }
+bool tlsInPsram = false;              // para el resumen de arranque y el registro
+void tlsMemSetup() {
+#if defined(MBEDTLS_PLATFORM_MEMORY) && !defined(MBEDTLS_PLATFORM_CALLOC_MACRO)
+  if (psramFound() && ESP.getFreePsram() > 1024 * 1024) tlsInPsram = mbedtls_platform_set_calloc_free(tlsCalloc, tlsFree) == 0;
+#endif
+}
+
 void netBegin() {
   if (netMtx) xSemaphoreTake(netMtx, portMAX_DELAY);   // de una en una (cada tarea da su netEnd() desde ella misma)
   netUse++;
@@ -3572,6 +3592,7 @@ void setup() {
   loadCfg();
   logLoad();                                      // el registro guardado (y lo de justo antes, si se colgó)
   netMtx = xSemaphoreCreateMutex();               // conexiones a internet de una en una (ver netBegin)
+  tlsMemSetup();                                  // y su memoria, en la PSRAM (ver tlsCalloc)
   tgQueue = xQueueCreate(6, sizeof(Msg));         // hasta 6 avisos en espera
   bleQueue = xQueueCreate(4, sizeof(BleCmd));     // hasta 4 órdenes de la app en espera
   // Tarea de Telegram en el núcleo 0 (el del Wi-Fi); loop() corre en el núcleo 1
