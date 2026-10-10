@@ -48,6 +48,10 @@ jobs:
       - name: Probar la web de la placa
         shell: bash
         run: node .github/scripts/probar_web.js firmware/WTTC/web.h
+      # Orden de WTTC.ino: ninguna función antes de los textos y la tabla de textos en el orden del enum (sin compilar)
+      - name: Comprobar el orden de WTTC.ino
+        shell: bash
+        run: python3 .github/scripts/comprobar_orden.py firmware/WTTC/WTTC.ino
       # Lógica sin hardware (W-Bus, versiones, código de instalación, salida, termostato: firmware/WTTC/logica.h),
       # compilada para el ordenador con los detectores de errores de memoria y de comportamiento indefinido de GCC
       - name: Pruebas de la lógica
