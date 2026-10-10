@@ -121,6 +121,8 @@ Después, las versiones nuevas se instalan sin cable: app o web de la placa → 
 
 Más fácil: **instalar desde el navegador** en https://wttc.favala.es/instalar.php (Chrome o Edge, la placa por USB).
 
+Para probar sin furgoneta, un segundo ESP32 puede hacer de Webasto: [herramientas/webasto_falsa](herramientas/webasto_falsa/README.md).
+
 Cada cambio se compila automáticamente en GitHub Actions para ESP32-S3, con el núcleo 3.3.12 (el 2.x no está soportado desde la 0.3.0).
 
 ## App Android

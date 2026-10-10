@@ -11,7 +11,7 @@ name: Firmware
 
 on:
   push:
-    paths: ['firmware/**', 'VERSION', '.github/workflows/firmware.yml', '.github/scripts/**']
+    paths: ['firmware/**', 'herramientas/webasto_falsa/**', 'VERSION', '.github/workflows/firmware.yml', '.github/scripts/**']
   pull_request:
     paths: ['firmware/**']
   workflow_dispatch:
@@ -57,9 +57,11 @@ jobs:
       - name: Pruebas de la lógica
         shell: bash
         run: |
-          g++ -std=c++17 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
-            firmware/pruebas/logica_test.cpp -o logica_test
-          ./logica_test
+          for t in logica webasto; do       # webasto: el protocolo de punta a punta con la Webasto falsa
+            g++ -std=c++17 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+              firmware/pruebas/${t}_test.cpp -o ${t}_test
+            ./${t}_test
+          done
       # Análisis estático (cppcheck): errores típicos de C/C++ como variables sin iniciar, índices fuera de rango o
       # fugas. Imagen fijada por su huella: el mismo cppcheck que se usó para dejar el código limpio. Falla con cualquier
       # aviso (para callar uno que no lo es: comentario «// cppcheck-suppress <id>» en esa línea, explicando por qué)
@@ -73,6 +75,12 @@ jobs:
               -DCONFIG_IDF_TARGET_ESP32S3 -DESP_ARDUINO_VERSION_MAJOR=3 -DPROGMEM= -DRTC_NOINIT_ATTR= -DIRAM_ATTR= -DWTTC_COREDUMP \
               --template='::error::cppcheck {file}:{line} {severity} {id}: {message}' \
               /src/WTTC.ino /src/rollback.cpp
+          # y la Webasto falsa
+          docker run --rm -v "$PWD/herramientas/webasto_falsa:/src:ro" \
+            neszt/cppcheck-docker@sha256:5820e09951be7507b4b453a24d1eae5ff1df077188115c869ba8fa4b1bccdf7c \
+            cppcheck --language=c++ --std=c++17 --enable=warning,portability,performance --inline-suppr \
+              --suppress=missingIncludeSystem --suppress=missingInclude --error-exitcode=1 \
+              --template='::error::cppcheck {file}:{line} {severity} {id}: {message}' /src/webasto_falsa.ino /src/webasto_modelo.h
       - uses: arduino/setup-arduino-cli@81d310742121c928ea9c8bbd407b4217b432ae02 # v2
       - name: Instalar el núcleo ESP32 ${{ matrix.core }}
         shell: bash
@@ -88,6 +96,13 @@ jobs:
           mkdir -p build
           arduino-cli compile --fqbn '${{ matrix.board.fqbn }}' --warnings default \
             --output-dir build firmware/WTTC 2>&1 | tee build.log
+      # La Webasto falsa (herramientas/webasto_falsa): un segundo ESP32 para probar WTTC en la mesa; para el clásico y el S3
+      - name: Compilar la Webasto falsa
+        shell: bash
+        run: |
+          for fqbn in esp32:esp32:esp32 esp32:esp32:esp32s3; do
+            arduino-cli compile --fqbn "$fqbn" --warnings default herramientas/webasto_falsa
+          done
       # Tamaño del programa, como anotación visible sin iniciar sesión. Tiene que caber en cada hueco de programa de
       # firmware/WTTC/partitions.csv (0x1F0000 = 2 031 616 bytes): si no, falla. El menú del IDE («Huge APP») solo
       # comprueba su propio límite de 3 MB, así que esta es la comprobación que vale.
