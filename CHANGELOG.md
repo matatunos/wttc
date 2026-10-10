@@ -6,6 +6,13 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.3.1 — 2026-10-10
+
+Versión de prueba (sin probar con una Webasto real).
+
+- **Órdenes remotas** (Configuración, web y app: «Permitir órdenes remotas», apagado de fábrica). Para cuidar la placa de lejos, en cualquier Wi-Fi con internet: cada 2 minutos pregunta al servidor del proyecto si hay una orden para ella (solo salen conexiones: sin VPN ni abrir puertos). Las órdenes van **firmadas** con la clave de las actualizaciones, y la placa comprueba la firma, que son para su código de instalación, que no las ha hecho ya y que no han caducado (15 min). **Lista cerrada:** actualizar, buscar actualizaciones, enviar el registro, reiniciar (nunca calentando) y el modo diagnóstico. **Nunca enciende ni apaga la calefacción.** Tras cada orden, la placa manda su registro (también después de reiniciar) para ver cómo fue.
+- Pruebas automáticas también de las órdenes (formato, firma de otra placa, repetidas, caducadas, desconocidas).
+
 ## 0.3.0 — 2026-10-10
 
 Versión de prueba (sin probar con una Webasto real). **Solo núcleo ESP32 3.x de Arduino:** quien compile desde el código con el 2.x tiene que actualizarlo (Gestor de placas → esp32 de Espressif → 3.x); el instalador web y las actualizaciones no cambian.

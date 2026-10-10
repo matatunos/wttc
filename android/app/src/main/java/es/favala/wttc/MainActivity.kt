@@ -181,6 +181,7 @@ class MainActivity : Activity(), BleLink.Listener {
     private var nvAsked = ""                           // versión nueva de la placa por la que ya se ha preguntado
     // Acceso web desde otra red y «Mis estadísticas» (firmware 0.2.16+)
     private lateinit var swDiag: Switch                 // modo diagnóstico (0.2.20+)
+    private lateinit var swRemote: Switch               // órdenes remotas (0.3.1+)
     private lateinit var bLog: View                     // «Ver registro»: solo en modo diagnóstico
     private lateinit var diagRow: View                  // «Tramas del W-Bus» y «Enviar el registro»: solo en modo diagnóstico
     private lateinit var swApAuto: Switch               // ocultar la Wi-Fi propia en la red con internet (0.2.20+)
@@ -738,6 +739,8 @@ class MainActivity : Activity(), BleLink.Listener {
             button(getString(R.string.btn_my_stats)) { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wttc.favala.es/mi.php#$boardIid"))) }), lp(top = 10))
         cfg.addView(myBox)
         cfg.addView(swDiag, lp(top = 18))
+        swRemote = Switch(this).apply { text = getString(R.string.sw_remote); setTextColor(cInk); textSize = 15f; visibility = View.GONE }
+        cfg.addView(swRemote, lp(top = 10))
         cfg.addView(text(getString(R.string.cfg_safety), 15f, cInk, true), lp(top = 18))
         field(getString(R.string.f_minv), InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL).let { cfg.addView(it.first); eMinV = it.second }
         hwBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
@@ -1268,6 +1271,8 @@ class MainActivity : Activity(), BleLink.Listener {
             spBtnMin?.setSelection(BTN_MINS.indexOf(c.optInt("btnmin", 30)).coerceAtLeast(0))
             spBtnTgt?.setSelection(BTN_TGTS.indexOf(c.optInt("btntgt", 0)).coerceAtLeast(0))
         }
+        swRemote.visibility = if (c.has("remote")) View.VISIBLE else View.GONE
+        if (c.has("remote")) swRemote.isChecked = c.optInt("remote") == 1
         swDiag.visibility = if (c.has("diag")) View.VISIBLE else View.GONE
         if (c.has("diag")) swDiag.isChecked = c.optInt("diag") == 1
         swApAuto.visibility = if (c.has("apauto")) View.VISIBLE else View.GONE
@@ -1322,6 +1327,7 @@ class MainActivity : Activity(), BleLink.Listener {
         if (hasOtaAuto) sets += "otaauto" to spOtaAuto.selectedItemPosition.toString()
         spBtnMin?.let { if ((it.tag as View).visibility == View.VISIBLE) sets += "btnmin" to BTN_MINS[it.selectedItemPosition.coerceIn(0, BTN_MINS.size - 1)].toString() }
         spBtnTgt?.let { if ((it.tag as View).visibility == View.VISIBLE) sets += "btntgt" to BTN_TGTS[it.selectedItemPosition.coerceIn(0, BTN_TGTS.size - 1)].toString() }
+        if (swRemote.visibility == View.VISIBLE) sets += "remote" to (if (swRemote.isChecked) "1" else "0")
         if (swDiag.visibility == View.VISIBLE) sets += "diag" to (if (swDiag.isChecked) "1" else "0")
         if (swApAuto.visibility == View.VISIBLE) sets += "apauto" to (if (swApAuto.isChecked) "1" else "0")
         if (webBox.visibility == View.VISIBLE) {

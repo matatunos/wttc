@@ -163,7 +163,7 @@ const uint16_t MAX_SESSION  = 240;    // min: ventana máxima de «calentar hast
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.3.0"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.3.1"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -226,6 +226,16 @@ bool apAuto = true, apOn = false;
 // manda ese informe por Telegram. Apagado, la web y la app solo dejan lo útil para cualquiera (averías, gasoil a cero).
 // El registro y el informe se guardan siempre: al activarlo se ve también lo de antes
 bool diagOn = false;
+// Órdenes remotas (Configuración «Permitir órdenes remotas», apagado de fábrica): la placa pregunta cada 2 min al
+// servidor del proyecto si hay una orden firmada para ella (ver cmdPoll). Nunca la calefacción: solo actualizar,
+// buscar, enviar el registro, reiniciar y el modo diagnóstico
+bool remoteOn = false;
+uint32_t cmdSeqLast = 0;              // número de la última orden ejecutada (NVS "cseq"): ninguna se ejecuta dos veces
+volatile bool cmdBusy = false, cmdEnd = false;
+volatile int cmdCode = 0;
+String cmdBody;
+uint32_t cmdLast = 0, cmdLogAt = 0;   // última consulta; cuándo mandar el registro tras una orden (0 = no)
+bool cmdOta = false;                  // la búsqueda/actualización en marcha la pidió una orden: su resultado, al registro
 uint32_t staUpSince = 0, staDownSince = 0, staTryAt = 0;
 uint8_t bootWhy = 0;                  // motivo del último arranque (RR_*, ver resetReason())
 uint32_t heapMin = 0;                 // memoria libre más baja vista desde que arrancó (bytes)
@@ -418,7 +428,8 @@ enum Txt {
   T_E_WARM, T_E_TOFF, T_E_VALUE, T_TG_TH_STALL, T_OTA_NOSTA, T_OTA_NETERR, T_LOG_OTA_AUTO, T_LOG_OTA_FAIL,
   T_LOG_AP_OFF, T_LOG_AP_ON, T_LOG_CRASH, T_LOG_NVS_ERR, T_LOG_NVS_FULL, T_LOG_TASK_ERR, T_LOG_AP_ERR,
   T_LOG_MDNS_ERR, T_WHY_REBOOT, T_LOG_LOWMEM, T_LOG_STACK, T_OTA_NOTIME, T_LOG_SENT, T_LOG_SENDFAIL, T_E_NOINET, T_SRC_BUTTON, T_D_BTN_ON, T_D_BTN_TGT, T_D_BTN_OFF, T_D_NOWBUS,
-  T_D_UPDATING, T_D_INSTALLING, T_D_REBOOT_OFF, T_LOG_BTN_STUCK, T_E_BTNMIN, T_W_UPDATING, T_RR_POWER, T_RR_SW, T_RR_CRASH, T_RR_WDT, T_RR_BROWN, T_RR_RST, T_RR_OTHER, T_LOG_RESET, T_TG_RESET,
+  T_D_UPDATING, T_D_INSTALLING, T_D_REBOOT_OFF, T_LOG_BTN_STUCK, T_E_BTNMIN, T_LOG_CMD_OK, T_LOG_CMD_BAD, T_LOG_CMD_FAIL, T_LOG_CMD_RES, T_CMD_E_FORMAT,
+  T_CMD_E_SIG, T_CMD_E_BOARD, T_CMD_E_OLD, T_CMD_E_EXPIRED, T_CMD_E_UNKNOWN, T_CMD_E_HEAT, T_W_UPDATING, T_RR_POWER, T_RR_SW, T_RR_CRASH, T_RR_WDT, T_RR_BROWN, T_RR_RST, T_RR_OTHER, T_LOG_RESET, T_TG_RESET,
   T_W_LOGIN, T_W_LOGINBAD, T_W_LOGINLOCK, T_W_SETUPWEB, T_E_WEBUSER, T_E_WEBPASS, T_E_WEBDEF, T_LOG_LOGIN,
   T_E_IID, T_TG_IID, T_E_NOTG, T_LOG_IID,
   T_D_OFF, T_D_START, T_D_HEAT, T_D_PAUSE, T_D_LOST, T_D_WAIT, T_D_WATER, T_D_IN, T_D_NEXT, T_D_DEP, T_D_UNTIL,
@@ -579,6 +590,17 @@ const char* const TXT[T_COUNT][L_N] = {
   /* T_D_REBOOT_OFF */     {"Reinicio calentando: apagada", "Restart while heating: off", "Neustart beim Heizen: aus"},
   /* T_LOG_BTN_STUCK */    {"El botón de calentar (IO7) lleva más de 10 s pulsado: se ignora hasta que se suelte", "The heat button (IO7) has been pressed for over 10 s: ignored until released", "Die Heiztaste (IO7) ist seit über 10 s gedrückt: wird bis zum Loslassen ignoriert"},
   /* T_E_BTNMIN */         {"Minutos del botón: 0 (desactivado), 15, 30, 45 o 60.", "Button minutes: 0 (off), 15, 30, 45 or 60.", "Tastenminuten: 0 (aus), 15, 30, 45 oder 60."},
+  /* T_LOG_CMD_OK */       {"Orden remota: %s", "Remote command: %s", "Fernbefehl: %s"},
+  /* T_LOG_CMD_BAD */      {"Orden remota rechazada (%s)", "Remote command rejected (%s)", "Fernbefehl abgelehnt (%s)"},
+  /* T_LOG_CMD_FAIL */     {"La orden remota «%s» no se pudo hacer: %s", "The remote command “%s” could not be done: %s", "Fernbefehl „%s“ nicht ausführbar: %s"},
+  /* T_LOG_CMD_RES */      {"Resultado de la orden remota: %s", "Result of the remote command: %s", "Ergebnis des Fernbefehls: %s"},
+  /* T_CMD_E_FORMAT */     {"mal formada", "malformed", "fehlerhaft"},
+  /* T_CMD_E_SIG */        {"la firma no es la del proyecto", "the signature is not the project's", "die Signatur ist nicht die des Projekts"},
+  /* T_CMD_E_BOARD */      {"es para otra placa", "it is for another board", "sie ist für eine andere Platine"},
+  /* T_CMD_E_OLD */        {"ya se había hecho", "it was already done", "schon ausgeführt"},
+  /* T_CMD_E_EXPIRED */    {"caducada", "expired", "abgelaufen"},
+  /* T_CMD_E_UNKNOWN */    {"orden desconocida", "unknown command", "unbekannter Befehl"},
+  /* T_CMD_E_HEAT */       {"está calentando", "it is heating", "sie heizt"},
   /* T_W_UPDATING */       {"La placa se está actualizando: espera a que termine y se reinicie.", "The board is updating: wait until it finishes and restarts.", "Die Platine wird aktualisiert: warten, bis sie fertig ist und neu startet."},
   /* T_RR_POWER */         {"se enchufó o volvió la corriente", "it was plugged in or power came back", "eingesteckt oder Strom kam zurück"},
   /* T_RR_SW */            {"reinicio pedido (actualización, ajustes o la orden reboot)", "requested restart (update, settings or the reboot command)", "angeforderter Neustart (Update, Einstellungen oder reboot)"},
@@ -2139,6 +2161,8 @@ void loadCfg() {
   apAuto   = prefs.getBool("apau", true);
   diagOn   = prefs.getBool("diag", false);
   btnMin   = prefs.getUChar("bmin", 30);
+  remoteOn = prefs.getBool("remo", false);
+  cmdSeqLast = prefs.getUInt("cseq", 0);
   btnTgt   = prefs.getUChar("btgt", 0);
   if (prefs.isKey("runs2") && prefs.getBytesLength("runs2") == sizeof runs) prefs.getBytes("runs2", runs, sizeof runs);
   else if (prefs.isKey("runs") && prefs.getBytesLength("runs") == sizeof(RunV1) * RUNS) {   // de la 0.2.16: al formato nuevo
@@ -2326,6 +2350,9 @@ int cfgSet(String k, String v, String& err) {
       statsLast = 0;
       addLog(tr(T_LOG_IID));
     }
+  } else if (k == "remote") {                     // permitir órdenes remotas (firmadas): 1 / 0
+    bool on = v == "1" || v == "true";
+    if (on != remoteOn) { remoteOn = on; prefs.putBool("remo", remoteOn); cmdLast = 0; }
   } else if (k == "btnmin") {                     // botón «calentar»: minutos (0 = desactivado)
     int m = v.toInt();
     if (!v.length() || (m != 0 && m != 15 && m != 30 && m != 45 && m != 60)) { err = tr(T_E_BTNMIN); r = 0; }
@@ -2359,7 +2386,7 @@ int cfgSet(String k, String v, String& err) {
 // Ajustes que admite el formulario de configuración de la web (en este orden)
 const char* CFG_KEYS[] = {"lang", "name", "appass", "pin", "wifimode", "ssid", "pass", "tgtok", "tgchat", "minvolt",
                           "oled", "disp", "led", "toff", "warm", "otaauto",
-                          "webuser", "webpass", "iid", "stats", "apauto", "diag", "btnmin", "btntgt"};
+                          "webuser", "webpass", "iid", "stats", "apauto", "diag", "btnmin", "btntgt", "remote"};
 
 // ¿Sigue la Wi-Fi propia con la clave de fábrica? Entonces cualquiera cerca puede entrar: la web obliga a cambiarla
 bool apDefault() { return strcmp(cfgApPass, AP_PASS_DEFAULT) == 0; }
@@ -2387,6 +2414,7 @@ String cfgJson(bool withPin) {
   j += ",\"apauto\":"; j += apAuto ? 1 : 0;                       // ocultar la Wi-Fi propia en la red con internet (0.2.20+)
   j += ",\"diag\":";  j += diagOn ? 1 : 0;                        // modo diagnóstico (0.2.20+)
   j += ",\"btnmin\":"; j += btnMin; j += ",\"btntgt\":"; j += btnTgt;   // botón «calentar» (0.3.0+)
+  j += ",\"remote\":"; j += remoteOn ? 1 : 0;                     // órdenes remotas (0.3.1+)
   j += ",\"nruns\":"; j += runSeq; j += ",\"rack\":"; j += runAck;   // encendidos apuntados y ya enviados
   j += ",\"stok\":"; if (statsOkAt) j += (millis() - statsOkAt) / 1000; else j += "-1";   // s desde el último envío
   j += ",\"oled\":";   j += (int)oledType;
@@ -2471,6 +2499,7 @@ void printMotd() {
   if (btnMin) Serial.printf("  Botón «calentar» ...... IO7 a GND · %u min%s\n", btnMin, btnTgt ? (String(" o hasta ") + btnTgt + " °C").c_str() : "");
   else Serial.println("  Botón «calentar» ...... desactivado");
   Serial.printf("  Este arranque ......... %s · memoria libre %u KB\n", resetText(bootWhy), (unsigned)(ESP.getFreeHeap() / 1024));
+  Serial.printf("  Órdenes remotas ....... %s\n", remoteOn ? "permitidas (firmadas por el proyecto; nunca la calefacción)" : "no permitidas");
   Serial.printf("  Actualizaciones ....... %s\n", otaAuto == OA_OFF ? "no se buscan" : otaAuto == OA_NOTIFY ? "buscar y avisar" : "buscar e instalar sola");
   Serial.println("----------------------------------------------------------------");
   Serial.println("  Órdenes: on [min] [°C] | off | status | info | errores | cfg | set clave=valor | wifi | forget | reboot | gasreset");
@@ -3041,18 +3070,101 @@ void otaFeed(const uint8_t* d, size_t n) {
 }
 
 // Al terminar de recibir: comprobar la firma y, solo si vale, dar el programa nuevo por bueno para el próximo arranque
+// ¿La firma (ECDSA P-256, DER) de este resumen SHA-256 es de la clave del proyecto (OTA_PUBKEY)? La usan las
+// actualizaciones y las órdenes remotas
+bool sigVerify(const uint8_t* hash, const uint8_t* sig, size_t sigLen) {
+  if (!hash || !sig || !sigLen) return false;
+  mbedtls_pk_context pk; mbedtls_pk_init(&pk);
+  bool ok = mbedtls_pk_parse_public_key(&pk, (const unsigned char*)OTA_PUBKEY, strlen(OTA_PUBKEY) + 1) == 0
+         && mbedtls_pk_verify(&pk, MBEDTLS_MD_SHA256, hash, 32, sig, sigLen) == 0;
+  mbedtls_pk_free(&pk);
+  return ok;
+}
+
 void otaFinish() {
   if (ota.failed) return;
   if (!ota.mdOn) { otaFail(T_OTA_FORMAT); return; }
   uint8_t hash[32];
   mbedtls_md_finish(&ota.md, hash); mbedtls_md_free(&ota.md); ota.mdOn = false;
-  mbedtls_pk_context pk; mbedtls_pk_init(&pk);
-  bool ok = mbedtls_pk_parse_public_key(&pk, (const unsigned char*)OTA_PUBKEY, strlen(OTA_PUBKEY) + 1) == 0
-         && mbedtls_pk_verify(&pk, MBEDTLS_MD_SHA256, hash, sizeof hash, ota.sig, ota.sigLen) == 0;
-  mbedtls_pk_free(&pk);
-  if (!ok) { otaFail(T_OTA_SIG); return; }
+  if (!sigVerify(hash, ota.sig, ota.sigLen)) { otaFail(T_OTA_SIG); return; }
   if (!Update.end(true)) { otaFail(T_OTA_WRITE); return; }
   ota.done = true;
+}
+
+// ---------- Órdenes remotas ----------
+// Con «Permitir órdenes remotas», la placa pregunta cada 2 min a https://wttc.favala.es/api/orden.php con su código.
+// Solo salen conexiones (funciona en cualquier red con internet, sin VPN ni puertos). La orden viene firmada con la
+// clave de las actualizaciones (server/scripts/wttc-orden.sh) y se comprueba la firma, que es para esta placa, que no
+// se ha hecho ya y que no ha caducado (logica.h). Lista cerrada: nunca la calefacción
+void cmdTask(void*) {
+  int code = -1; String body;
+  netBegin();
+  {
+    WiFiClientSecure cli; cli.setCACert(WEB_ROOT_CA);
+    HTTPClient http; http.setConnectTimeout(10000); http.setTimeout(15000);
+    if (http.begin(cli, String("https://wttc.favala.es/api/orden.php?c=") + iid)) {
+      code = http.GET();
+      if (code == 200 && http.getSize() > 0 && http.getSize() < 800) body = http.getString();
+      http.end();
+    }
+  }                                               // conexión destruida antes de borrar la tarea (sin fugas)
+  netEnd();
+  cmdBody = body; cmdCode = code; cmdEnd = true;
+  vTaskDelete(nullptr);
+}
+// Pide mandar el registro al volver a arrancar (orden que reinicia la placa: actualizar o reiniciar)
+void cmdLogAfterBoot() { if (nvsOpen(false)) { prefs.putBool("clog", true); prefs.end(); } }
+// Comprueba y hace la orden que ha llegado
+void cmdRun(const String& body) {
+  char msg[160]; uint8_t sig[80]; int sl = 0;
+  if (!cmdSplit(body.c_str(), msg, sizeof msg, sig, sizeof sig, sl)) { addLog(trf(T_LOG_CMD_BAD, tr(T_CMD_E_FORMAT))); return; }
+  uint8_t h[32];
+  if (mbedtls_md(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), (const uint8_t*)msg, strlen(msg), h) != 0 || !sigVerify(h, sig, sl)) {
+    addLog(trf(T_LOG_CMD_BAD, tr(T_CMD_E_SIG))); return;
+  }
+  Cmd c;
+  CmdErr e = cmdParse(msg, c);
+  if (e == CE_OK) e = cmdCheck(c, iid, cmdSeqLast, (uint32_t)time(nullptr));
+  if (e != CE_OK) {
+    static const Txt E[] = {T_CMD_E_FORMAT, T_CMD_E_FORMAT, T_CMD_E_BOARD, T_CMD_E_OLD, T_CMD_E_EXPIRED, T_CMD_E_UNKNOWN};
+    addLog(trf(T_LOG_CMD_BAD, tr(E[e < 6 ? e : 0])));
+    return;
+  }
+  cmdSeqLast = c.seq;                             // apuntada antes de hacerla: nunca se hace dos veces
+  if (nvsOpen(false)) { nvsCheck(prefs.putUInt("cseq", cmdSeqLast), 4, "orden"); prefs.end(); }
+  const char* name = strrchr(msg, '|') + 1;
+  addLog(trf(T_LOG_CMD_OK, name));
+  notify(trf(T_LOG_CMD_OK, name));
+  String r;
+  switch (c.kind) {
+    case CMD_UPDATE: r = otaNetStart(true, false); if (!r.length()) { cmdOta = true; cmdLogAfterBoot(); } cmdLogAt = millis() + 120000; break;
+    case CMD_CHECK:  r = otaNetStart(false, false); if (!r.length()) cmdOta = true; cmdLogAt = millis() + 60000; break;
+    case CMD_LOGSEND: r = logSendStart(); break;
+    case CMD_REBOOT:
+      if (heaterOn || thActive) r = tr(T_CMD_E_HEAT);
+      else { cmdLogAfterBoot(); rebootPending = true; }
+      break;
+    case CMD_DIAG_ON: case CMD_DIAG_OFF:
+      diagOn = c.kind == CMD_DIAG_ON;
+      if (nvsOpen(false)) { prefs.putBool("diag", diagOn); prefs.end(); }
+      cmdLogAt = millis() + 5000;
+      break;
+    default: break;
+  }
+  if (r.length()) { addLog(trf(T_LOG_CMD_FAIL, name, r.c_str())); notify(trf(T_LOG_CMD_FAIL, name, r.c_str())); cmdLogAt = millis() + 5000; }
+}
+// Desde loop(): resultado de la consulta, registro pendiente tras una orden y la siguiente consulta
+void cmdPoll() {
+  if (cmdEnd) { cmdEnd = false; cmdBusy = false; if (cmdCode == 200) cmdRun(cmdBody); cmdBody = ""; }
+  if (cmdLogAt && (int32_t)(millis() - cmdLogAt) >= 0 && !logBusy && !otaNetBusy) { cmdLogAt = 0; logSendStart(); }
+  if (!remoteOn || cmdBusy || otaNetBusy || logBusy || statsBusy || !iid[0] || WiFi.status() != WL_CONNECTED || !timeValid()) return;
+  if (cmdLast && millis() - cmdLast < 120000) return;
+  cmdLast = millis();
+  cmdBusy = true;
+  if (xTaskCreatePinnedToCore(cmdTask, "orden", 12288, nullptr, 1, nullptr, 0) != pdPASS) {
+    cmdBusy = false;
+    addLog(trf(T_LOG_TASK_ERR, "orden", (unsigned)(ESP.getFreeHeap() / 1024)));
+  }
 }
 
 // Manejador de la subida (POST /api/update, multipart): lo llama el servidor web con cada trozo del fichero
@@ -3296,6 +3408,7 @@ void otaNetPoll() {
   if (otaNetOk && !otaNetInstall) {                       // búsqueda a mano: también se apunta lo encontrado
     if (otaNetNew) strlcpy(otaAvail, otaNetVer, sizeof otaAvail); else otaAvail[0] = 0;
   }
+  if (cmdOta) { cmdOta = false; addLog(trf(T_LOG_CMD_RES, otaNetMsg.c_str())); }
   if (otaNetOk && otaNetInstall) { addLog(trf(T_LOG_OTA, otaNetVer)); rebootPending = true; }
   bleSet(chResp, String(otaNetInstall ? "update:" : "otacheck:") + (otaNetOk ? "" : "err ") + otaNetMsg);
   lastWebMsg = otaNetMsg;
@@ -3518,6 +3631,8 @@ void setup() {
     dispMsg(tr(T_D_REBOOT_OFF), 60000);
   }
   rtcHeat = 0;
+  // Una orden remota reinició la placa (actualizar, reiniciar): a los 3 min se manda el registro, para ver cómo fue
+  if (nvsOpen(false)) { if (prefs.getBool("clog", false)) { prefs.remove("clog"); cmdLogAt = millis() + 180000; } prefs.end(); }
   // Pantalla y termómetro (opcionales) en el bus I2C; botón BOOT para encender la pantalla
   Wire.begin(I2C_SDA, I2C_SCL, (uint32_t)400000);
   pinMode(BTN_PIN, INPUT_PULLUP);
@@ -3632,4 +3747,5 @@ void loop() {
   logSaveTick();                                  // el registro, a la flash (como mucho cada 2 s)
   healthTick();                                   // memoria y pila de las tareas (Diagnóstico)
   logPoll();                                      // resultado de «Enviar el registro»
+  cmdPoll();                                      // órdenes remotas (si están permitidas)
 }

@@ -128,3 +128,72 @@ inline ThOut thDecide(const ThIn& s) {
   if (cold && left >= TH_MINRUN && (!s.lastHeatOff || s.now - s.lastHeatOff >= TH_REST)) o.act = TH_RESTART;
   return o;
 }
+
+// ---------- Órdenes remotas (ver cmdPoll en WTTC.ino y server/api/orden.php) ----------
+// El servidor devuelve dos líneas: el mensaje y su firma ECDSA P-256 (DER, en hexadecimal), hecha con la misma clave
+// que las actualizaciones. Mensaje: «WTTCCMD1|<código de instalación>|<número>|<caduca (s UNIX)>|<orden>».
+// Aquí solo se separa y se comprueba el formato; la firma la verifica el firmware (mbedtls)
+enum CmdKind { CMD_NONE, CMD_UPDATE, CMD_CHECK, CMD_LOGSEND, CMD_REBOOT, CMD_DIAG_ON, CMD_DIAG_OFF };
+enum CmdErr { CE_OK, CE_FORMAT, CE_OTHER_BOARD, CE_OLD, CE_EXPIRED, CE_UNKNOWN };
+struct Cmd { char iid[20]; uint32_t seq; uint32_t exp; CmdKind kind; };
+const uint32_t CMD_MAX_LIFE = 3600;    // s: una orden no puede caducar más tarde de una hora desde ahora
+
+// Hexadecimal a bytes (sin espacios). Devuelve cuántos, o -1 si no es hexadecimal o no cabe
+inline int hexDecode(const char* h, uint8_t* out, int cap) {
+  if (!h || !out) return -1;
+  int n = 0;
+  for (; h[0] && h[1]; h += 2) {
+    auto v = [](char c) -> int { return c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1; };
+    int a = v(h[0]), b = v(h[1]);
+    if (a < 0 || b < 0 || n >= cap) return -1;
+    out[n++] = (uint8_t)(a << 4 | b);
+  }
+  return *h ? -1 : n;                                  // número impar de cifras
+}
+
+// Separa la respuesta en mensaje (msg, hasta msgCap bytes con el cero) y firma (sig, hasta sigCap bytes)
+inline bool cmdSplit(const char* body, char* msg, int msgCap, uint8_t* sig, int sigCap, int& sigLen) {
+  sigLen = 0;
+  if (!body || !msg || msgCap < 2) return false;
+  const char* nl = strchr(body, '\n');
+  if (!nl) return false;
+  int ml = (int)(nl - body);
+  if (ml < 1 || ml >= msgCap) return false;
+  memcpy(msg, body, ml); msg[ml] = 0;
+  char hx[300]; int hl = 0;                            // la firma, sin el salto final ni espacios
+  for (const char* p = nl + 1; *p && *p != '\n' && *p != '\r'; p++) { if (hl >= (int)sizeof hx - 1) return false; hx[hl++] = *p; }
+  hx[hl] = 0;
+  sigLen = hexDecode(hx, sig, sigCap);
+  return sigLen >= 8;
+}
+
+// Lee el mensaje. CE_FORMAT si no tiene la forma esperada; CE_UNKNOWN si la orden no es de la lista cerrada
+inline CmdErr cmdParse(const char* m, Cmd& c) {
+  memset(&c, 0, sizeof c);
+  if (!m || strncmp(m, "WTTCCMD1|", 9)) return CE_FORMAT;
+  const char* p = m + 9;
+  const char* bar = strchr(p, '|');
+  if (!bar || bar - p != 19) return CE_FORMAT;
+  memcpy(c.iid, p, 19); c.iid[19] = 0;
+  p = bar + 1;
+  auto num = [](const char*& q, uint32_t& out) -> bool {   // cifras hasta «|», sin pasarse de 32 bits
+    uint64_t v = 0; int k = 0;
+    while (*q >= '0' && *q <= '9') { v = v * 10 + (uint64_t)(*q - '0'); if (v > 0xFFFFFFFFull || ++k > 10) return false; q++; }
+    if (!k || *q != '|') return false;
+    q++; out = (uint32_t)v; return true;
+  };
+  if (!num(p, c.seq) || !num(p, c.exp)) return CE_FORMAT;
+  static const struct { const char* s; CmdKind k; } L[] = {
+    {"update", CMD_UPDATE}, {"check", CMD_CHECK}, {"logsend", CMD_LOGSEND}, {"reboot", CMD_REBOOT},
+    {"diag-on", CMD_DIAG_ON}, {"diag-off", CMD_DIAG_OFF}};
+  for (const auto& e : L) if (!strcmp(p, e.s)) { c.kind = e.k; return CE_OK; }
+  return CE_UNKNOWN;
+}
+
+// ¿Vale para esta placa, ahora? (la firma ya comprobada aparte)
+inline CmdErr cmdCheck(const Cmd& c, const char* myIid, uint32_t lastSeq, uint32_t nowEpoch) {
+  if (!myIid || strcmp(c.iid, myIid)) return CE_OTHER_BOARD;
+  if (c.seq <= lastSeq) return CE_OLD;                 // ya ejecutada (o una vieja reenviada)
+  if (nowEpoch > c.exp || c.exp > nowEpoch + CMD_MAX_LIFE) return CE_EXPIRED;
+  return CE_OK;
+}

@@ -34,7 +34,7 @@ mkdir -p "$TOOLS_DIR/wttc-stats"
 rsync -a --checksum "$REPO/server/privado/wttc-stats/" "$TOOLS_DIR/wttc-stats/"
 
 # ---------- scripts, cron y hook ----------
-for f in wttc-publicar.sh wttc-instalador.sh wttc-aviso.sh; do
+for f in wttc-publicar.sh wttc-instalador.sh wttc-aviso.sh wttc-orden.sh; do
     cmp -s "$REPO/server/scripts/$f" "$BIN_DIR/$f" || install -m 755 "$REPO/server/scripts/$f" "$BIN_DIR/$f"
 done
 cmp -s "$REPO/server/scripts/cron.d-wttc-instalador" "$CRON_DIR/wttc-instalador" \

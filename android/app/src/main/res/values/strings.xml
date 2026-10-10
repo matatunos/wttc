@@ -216,6 +216,7 @@
     <string name="log_sending">Sending… the result will appear in the log in a few seconds.</string>
     <string name="f_btnmin">“Heat” button (push button between IO7 and GND)</string>
     <string name="f_btntgt">With a thermometer, the button heats up to</string>
+    <string name="sw_remote">Allow remote commands (update and diagnostics from afar; never the heater)</string>
     <string name="quick_title">Quick access</string>
     <string name="quick_help">“Webasto” button in Android\'s quick settings (pull them down and edit them to add it) and a home screen widget. Tapping it connects to the board and switches on for this long, or off if it is already on.</string>
     <string name="quick_dur">Quick access duration</string>

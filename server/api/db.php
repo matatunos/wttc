@@ -57,6 +57,10 @@ function wttc_db(): PDO {
         CREATE TABLE IF NOT EXISTS board_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, iid TEXT NOT NULL, at TEXT NOT NULL,
             fw TEXT, body TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS board_logs_iid ON board_logs (iid, id);
+        -- Órdenes remotas firmadas para una placa (server/scripts/wttc-orden.sh las deja; api/orden.php las entrega)
+        CREATE TABLE IF NOT EXISTS board_cmds (id INTEGER PRIMARY KEY AUTOINCREMENT, iid TEXT NOT NULL, msg TEXT NOT NULL,
+            sig TEXT NOT NULL, created TEXT NOT NULL, expires INTEGER NOT NULL, delivered TEXT);
+        CREATE INDEX IF NOT EXISTS board_cmds_iid ON board_cmds (iid, delivered);
         CREATE TABLE IF NOT EXISTS referrers (day TEXT NOT NULL, host TEXT NOT NULL, page TEXT NOT NULL,
             n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, host, page));
     ');

@@ -215,6 +215,7 @@
     <string name="log_sending">Enviando… el resultado aparecerá en el registro en unos segundos.</string>
     <string name="f_btnmin">Botón «calentar» (pulsador entre IO7 y GND)</string>
     <string name="f_btntgt">Con termómetro, el botón calienta hasta</string>
+    <string name="sw_remote">Permitir órdenes remotas (actualizar y diagnóstico a distancia; nunca la calefacción)</string>
     <string name="quick_title">Acceso rápido</string>
     <string name="quick_help">Botón «Webasto» en los ajustes rápidos de Android (despliégalos y edítalos para añadirlo) y widget para la pantalla de inicio. Al pulsarlo se conecta a la placa y enciende con esta duración, o apaga si ya está encendida.</string>
     <string name="quick_dur">Duración del acceso rápido</string>

@@ -32,6 +32,9 @@ Todo el código de la web está en este repo; en producción no se edita nada a 
     `descargas/` (firmware, versión, notas, textos, `ota.json`).
   - `wttc-instalador.sh` (cron cada 15 min, `cron.d-wttc-instalador`) prepara el instalador web y la copia del `.ota`.
   - `wttc-aviso.sh "texto"` manda un aviso por Telegram (bot @Wttc_favala_bot; token y chat en `/root/.env`, fuera del repo).
+  - `wttc-orden.sh <código> update|check|logsend|reboot|diag-on|diag-off` deja una orden remota firmada (clave de las
+    actualizaciones) para una placa con «Permitir órdenes remotas»; la entrega `api/orden.php` y la placa manda luego su
+    registro (`api/registro.php`). Nunca hay órdenes para la calefacción.
   - `post-commit` y `post-merge` son los hooks locales: en cada commit o fusión en `main` lanzan `deploy-web.sh` y luego
     `wttc-publicar.sh`.
 - Fuera del repo, en producción, solo hay lo **generado** (`movil.php`, `descargas/`) y librerías de terceros

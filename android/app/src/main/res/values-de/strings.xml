@@ -215,6 +215,7 @@
     <string name="log_sending">Wird gesendet… das Ergebnis erscheint in ein paar Sekunden im Protokoll.</string>
     <string name="f_btnmin">„Heizen“-Taste (Taster zwischen IO7 und GND)</string>
     <string name="f_btntgt">Mit Thermometer heizt die Taste bis</string>
+    <string name="sw_remote">Fernbefehle erlauben (Update und Diagnose aus der Ferne; nie die Heizung)</string>
     <string name="quick_title">Schnellzugriff</string>
     <string name="quick_help">„Webasto“-Schalter in den Schnelleinstellungen von Android (herunterziehen und bearbeiten, um ihn hinzuzufügen) und ein Widget für den Startbildschirm. Ein Tippen verbindet mit der Platine und schaltet für diese Dauer ein, oder aus, wenn sie schon läuft.</string>
     <string name="quick_dur">Dauer des Schnellzugriffs</string>

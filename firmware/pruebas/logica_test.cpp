@@ -162,12 +162,53 @@ static void pruebasTermostato() {
   CHECK(thDecide(s).act != TH_END_WINDOW);
 }
 
+// ---------- Órdenes remotas ----------
+static void pruebasOrdenes() {
+  uint8_t b[80];
+  CHECK(hexDecode("00ff10Ab", b, 80) == 4 && b[1] == 0xFF && b[3] == 0xAB);
+  CHECK(hexDecode("0", b, 80) == -1);                       // impar
+  CHECK(hexDecode("zz", b, 80) == -1);
+  CHECK(hexDecode("0011", b, 1) == -1);                     // no cabe
+  CHECK(hexDecode("", b, 80) == 0);
+
+  char m[200]; uint8_t sig[80]; int sl;
+  CHECK(cmdSplit("WTTCCMD1|X\n30450221000102030405\n", m, sizeof m, sig, sizeof sig, sl) && !strcmp(m, "WTTCCMD1|X") && sl == 10);
+  CHECK(cmdSplit("msg\n30450221000102030405\r\n", m, sizeof m, sig, sizeof sig, sl) && sl == 10);   // fin de línea de Windows
+  CHECK(!cmdSplit("sin salto", m, sizeof m, sig, sizeof sig, sl));
+  CHECK(!cmdSplit("msg\nnohex", m, sizeof m, sig, sizeof sig, sl));
+  CHECK(!cmdSplit("msg\n30", m, sizeof m, sig, sizeof sig, sl));   // firma demasiado corta
+  CHECK(!cmdSplit("\n3045022100aa", m, sizeof m, sig, sizeof sig, sl));   // sin mensaje
+  CHECK(!cmdSplit("mensaje demasiado largo para el sitio\n3045022100aa", m, 8, sig, sizeof sig, sl));
+
+  Cmd c;
+  CHECK(cmdParse("WTTCCMD1|ABCD-2345-EFGH-6789|17|1800000000|update", c) == CE_OK && c.kind == CMD_UPDATE && c.seq == 17 && c.exp == 1800000000u
+        && !strcmp(c.iid, "ABCD-2345-EFGH-6789"));
+  CHECK(cmdParse("WTTCCMD1|ABCD-2345-EFGH-6789|1|1|diag-off", c) == CE_OK && c.kind == CMD_DIAG_OFF);
+  CHECK(cmdParse("WTTCCMD1|ABCD-2345-EFGH-6789|1|1|heat", c) == CE_UNKNOWN);          // nunca la calefacción
+  CHECK(cmdParse("WTTCCMD1|ABCD-2345-EFGH-6789|1|1|update extra", c) == CE_UNKNOWN);
+  CHECK(cmdParse("WTTCCMD2|ABCD-2345-EFGH-6789|1|1|update", c) == CE_FORMAT);          // otra versión del formato
+  CHECK(cmdParse("WTTCCMD1|ABCD-2345-EFGH-678|1|1|update", c) == CE_FORMAT);           // código corto
+  CHECK(cmdParse("WTTCCMD1|ABCD-2345-EFGH-6789|x|1|update", c) == CE_FORMAT);
+  CHECK(cmdParse("WTTCCMD1|ABCD-2345-EFGH-6789|99999999999|1|update", c) == CE_FORMAT);   // más de 32 bits
+  CHECK(cmdParse("WTTCCMD1|ABCD-2345-EFGH-6789|1|1", c) == CE_FORMAT);
+  CHECK(cmdParse(nullptr, c) == CE_FORMAT);
+
+  cmdParse("WTTCCMD1|ABCD-2345-EFGH-6789|17|1800000600|update", c);
+  CHECK(cmdCheck(c, "ABCD-2345-EFGH-6789", 16, 1800000000) == CE_OK);
+  CHECK(cmdCheck(c, "ZZZZ-2345-EFGH-6789", 16, 1800000000) == CE_OTHER_BOARD);
+  CHECK(cmdCheck(c, "ABCD-2345-EFGH-6789", 17, 1800000000) == CE_OLD);                 // ya ejecutada
+  CHECK(cmdCheck(c, "ABCD-2345-EFGH-6789", 16, 1800000601) == CE_EXPIRED);
+  CHECK(cmdCheck(c, "ABCD-2345-EFGH-6789", 16, 1800000600 - CMD_MAX_LIFE - 1) == CE_EXPIRED);   // caduca demasiado tarde
+  CHECK(cmdCheck(c, nullptr, 16, 1800000000) == CE_OTHER_BOARD);
+}
+
 int main() {
   pruebasWbus();
   pruebasVersiones();
   pruebasCodigo();
   pruebasSalida();
   pruebasTermostato();
+  pruebasOrdenes();
   printf("%d pruebas, %d fallos\n", pruebas, fallos);
   return fallos ? 1 : 0;
 }
