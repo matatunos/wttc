@@ -16,6 +16,8 @@ las tramas (`firmware/pruebas/webasto_test.cpp`): arranque, mantenimiento, apaga
 
 ## Conexión
 
+![Esquema de conexión de la Webasto falsa](esquema.svg)
+
 ### A) Directa, sin transceptores (la más fácil)
 
 Solo tres cables, todo a 3,3 V. **Quita antes la placa TJA1020 de WTTC** o desconecta sus TX y RX: los dos no pueden
@@ -34,7 +36,7 @@ sin el bus, ese eco lo devuelve la Webasto falsa.
 
 Más parecido a la furgoneta: prueba también el transceptor y el cable del W-Bus.
 
-- En el ESP32 falso, un TJA1020 como el de WTTC: su TX a `WF_RX`, su RX a `WF_TX`, SLP a 3V3, GND a GND.
+- En el ESP32 falso, un TJA1020 cableado **como el de WTTC**: la borna **TX** del módulo (la que manda hacia el ESP32) a `WF_RX` (IO16), la **RX** a `WF_TX` (IO17), SLP a 3V3 y GND a GND.
 - Los **LIN** de los dos TJA1020 unidos (ese es el W-Bus), y los dos con **12 V** y **masa** comunes.
 - En `webasto_falsa.ino`, `WF_ECO = false` (el eco ya lo da el bus).
 
