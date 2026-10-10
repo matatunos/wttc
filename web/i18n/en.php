@@ -82,12 +82,13 @@ TXT,
 'svgWbus' => 'W-Bus loose',
 'svgSlp' => 'SLP floating: ⑩ is missing',
 'svgCross' => '⑧ and ⑨ swapped',
-'svgOpt' => 'Optional: display and thermometer (I2C bus)',
+'svgOpt' => 'Optional: display and thermometer (I2C bus) and “heat” button',
 'svgOptSub' => 'dashed wires: the build works without them',
 'svgOled' => 'I2C OLED display (SSD1327 1.5")',
 'svgSens' => 'SHT31 or AHT20 thermometer',
+'svgBtn' => '“heat” button (push button)',
 'wireHint' => <<<'TXT'
-Boards may come with the terminals in other places: <b>go by what is printed next to each terminal or pin</b>, not by its position in the drawing. The drawing shows the <b>ESP32-S3 DevKitC-1</b>: all the pins WTTC uses are on the same side. Screw-terminal bases have them labelled (the 5 V one sometimes says “5Vin”). Since version 0.2.0 only the <b>ESP32-S3</b> is supported. What is inside the <b>dashed box</b> (display and thermometer, wires ⑫–⑮) is <b>optional</b>: the build works without it.
+Boards may come with the terminals in other places: <b>go by what is printed next to each terminal or pin</b>, not by its position in the drawing. The drawing shows the <b>ESP32-S3 DevKitC-1</b>: all the pins WTTC uses are on the same side. Screw-terminal bases have them labelled (the 5 V one sometimes says “5Vin”). Since version 0.2.0 only the <b>ESP32-S3</b> is supported. What is inside the <b>dashed box</b> (display and thermometer, wires ⑫–⑮, and “heat” button, ⑯–⑰) is <b>optional</b>: the build works without it.
   The colours of wires ⑥–⑪ are a suggestion (dupont wires). Those of the van's connector are <b>unconfirmed: measure them with a multimeter</b>.
 TXT,
 'cables' => <<<'TXT'
@@ -112,6 +113,8 @@ TXT,
 <tr><td>13</td><td><span class="sw-c" style="background:#9aa3b5"></span>grey</td><td>ESP32, pin <b>GND</b> (or splice from ⑦)</td><td>Display <b>GND</b> and thermometer <b>GND</b></td></tr>
 <tr><td>14</td><td><span class="sw-c" style="background:#2ec4b6"></span>teal</td><td>ESP32, pin <b>IO4</b> (SDA)</td><td>Display <b>SDA</b> and thermometer <b>SDA</b></td></tr>
 <tr><td>15</td><td><span class="sw-c" style="background:#e9c46a"></span>gold</td><td>ESP32, pin <b>IO5</b> (SCL)</td><td>Display <b>SCL</b> and thermometer <b>SCL</b></td></tr>
+<tr><td>16</td><td><span class="sw-c" style="background:#f15bb5"></span>magenta</td><td>ESP32, pin <b>IO7</b></td><td>“Heat” button: one leg</td></tr>
+<tr><td>17</td><td><span class="sw-c" style="background:#9aa3b5"></span>grey</td><td>“Heat” button: the other leg</td><td>Ground: splice of ⑬ (or a <b>GND</b> pin)</td></tr>
 </tbody></table>
 TXT,
 'steps' => <<<'TXT'
@@ -123,7 +126,7 @@ TXT,
 <li>Disconnect, and wire the TJA1020 board: ① ② ③ on the 12V/LIN side terminal (INH empty) and ⑧ ⑨ ⑩ ⑪ on the other side.</li>
 <li>Finally, ⑥ and ⑦ to the ESP32. For the <b>first test</b> leave them off: power the ESP32 over USB from your laptop (on the ESP32-S3, through the USB port marked UART or COM) and type <code>status</code> in the console.</li>
 <li>If the console does not even show the echo, <b>swap ⑧ and ⑨</b> (it often happens with the TX/RX labels on these boards). If there is an echo but “sin respuesta” (no answer), check ② and the ground.</li>
-<li><b>Optional, once the basics work:</b> the OLED display and the thermometer (SHT31 or AHT20) with ⑫–⑮. The board detects them by itself at boot (or 30 s after plugging them in). Keep the thermometer a hand's width away from the board and the regulator, which get warm. Without a thermometer everything works the same, except “heat up to X °C”.</li>
+<li><b>Optional, once the basics work:</b> the OLED display and the thermometer (SHT31 or AHT20) with ⑫–⑮, and the “heat” button with ⑯–⑰ (any push button; set it up in Settings). The board detects them by itself at boot (or 30 s after plugging them in). Keep the thermometer a hand's width away from the board and the regulator, which get warm. Without a thermometer everything works the same, except “heat up to X °C”.</li>
 </ol>
 TXT,
 'dlTitle' => 'Downloads',

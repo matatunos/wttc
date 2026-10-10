@@ -82,12 +82,13 @@ TXT,
 'svgWbus' => 'W-Bus lose',
 'svgSlp' => 'SLP offen: ⑩ fehlt',
 'svgCross' => '⑧ und ⑨ vertauscht',
-'svgOpt' => 'Optional: Display und Thermometer (I2C-Bus)',
+'svgOpt' => 'Optional: Display und Thermometer (I2C-Bus) und „Heizen“-Taste',
 'svgOptSub' => 'gestrichelte Kabel: der Aufbau funktioniert ohne sie',
 'svgOled' => 'I2C-OLED-Display (SSD1327 1,5")',
 'svgSens' => 'Thermometer SHT31 oder AHT20',
+'svgBtn' => '„Heizen“-Taste (Taster)',
 'wireHint' => <<<'TXT'
-Die Platinen können die Klemmen an anderen Stellen haben: <b>richte dich nach der Beschriftung neben jeder Klemme bzw. jedem Pin</b>, nicht nach der Position in der Zeichnung. Die Zeichnung zeigt den <b>ESP32-S3 DevKitC-1</b>: alle Pins, die WTTC nutzt, liegen auf derselben Seite. Auf Basisplatinen mit Schraubklemmen sind sie beschriftet (der 5-V-Pin heißt manchmal „5Vin“). Seit Version 0.2.0 wird nur der <b>ESP32-S3</b> unterstützt. Was im <b>gestrichelten Kasten</b> steht (Display und Thermometer, Kabel ⑫–⑮), ist <b>optional</b>: der Aufbau funktioniert auch ohne.
+Die Platinen können die Klemmen an anderen Stellen haben: <b>richte dich nach der Beschriftung neben jeder Klemme bzw. jedem Pin</b>, nicht nach der Position in der Zeichnung. Die Zeichnung zeigt den <b>ESP32-S3 DevKitC-1</b>: alle Pins, die WTTC nutzt, liegen auf derselben Seite. Auf Basisplatinen mit Schraubklemmen sind sie beschriftet (der 5-V-Pin heißt manchmal „5Vin“). Seit Version 0.2.0 wird nur der <b>ESP32-S3</b> unterstützt. Was im <b>gestrichelten Kasten</b> steht (Display und Thermometer, Kabel ⑫–⑮, und „Heizen“-Taste, ⑯–⑰), ist <b>optional</b>: der Aufbau funktioniert auch ohne.
   Die Farben der Kabel ⑥–⑪ sind ein Vorschlag (Dupont-Kabel). Die des Fahrzeugsteckers sind <b>unbestätigt: mit dem Multimeter messen</b>.
 TXT,
 'cables' => <<<'TXT'
@@ -112,6 +113,8 @@ TXT,
 <tr><td>13</td><td><span class="sw-c" style="background:#9aa3b5"></span>grau</td><td>ESP32, Pin <b>GND</b> (oder Abzweig von ⑦)</td><td>Display <b>GND</b> und Thermometer <b>GND</b></td></tr>
 <tr><td>14</td><td><span class="sw-c" style="background:#2ec4b6"></span>türkis</td><td>ESP32, Pin <b>IO4</b> (SDA)</td><td>Display <b>SDA</b> und Thermometer <b>SDA</b></td></tr>
 <tr><td>15</td><td><span class="sw-c" style="background:#e9c46a"></span>gold</td><td>ESP32, Pin <b>IO5</b> (SCL)</td><td>Display <b>SCL</b> und Thermometer <b>SCL</b></td></tr>
+<tr><td>16</td><td><span class="sw-c" style="background:#f15bb5"></span>magenta</td><td>ESP32, Pin <b>IO7</b></td><td>„Heizen“-Taste: ein Bein</td></tr>
+<tr><td>17</td><td><span class="sw-c" style="background:#9aa3b5"></span>grau</td><td>„Heizen“-Taste: das andere Bein</td><td>Masse: Abzweig von ⑬ (oder ein <b>GND</b>-Pin)</td></tr>
 </tbody></table>
 TXT,
 'steps' => <<<'TXT'
@@ -123,7 +126,7 @@ TXT,
 <li>Abklemmen und die TJA1020-Platine verdrahten: ① ② ③ an die Klemme auf der Seite 12V/LIN (INH frei) und ⑧ ⑨ ⑩ ⑪ an die der anderen Seite.</li>
 <li>Zum Schluss ⑥ und ⑦ an den ESP32. Für den <b>ersten Test</b> weglassen: den ESP32 per USB vom Laptop versorgen (beim ESP32-S3 über den mit UART oder COM beschrifteten USB-Anschluss) und in der Konsole <code>status</code> eingeben.</li>
 <li>Zeigt die Konsole nicht einmal das Echo, <b>⑧ und ⑨ tauschen</b> (passiert oft wegen der TX/RX-Beschriftung dieser Platinen). Kommt ein Echo, aber „sin respuesta“ (keine Antwort), ② und die Masse prüfen.</li>
-<li><b>Optional, wenn das Grundlegende läuft:</b> das OLED-Display und das Thermometer (SHT31 oder AHT20) mit ⑫–⑮. Die Platine erkennt sie beim Start selbst (oder 30 s nach dem Anschließen). Das Thermometer eine Handbreit von Platine und Regler entfernt anbringen, die warm werden. Ohne Thermometer funktioniert alles gleich, außer „Heizen bis X °C“.</li>
+<li><b>Optional, wenn das Grundlegende läuft:</b> das OLED-Display und das Thermometer (SHT31 oder AHT20) mit ⑫–⑮, und die „Heizen“-Taste mit ⑯–⑰ (beliebiger Taster; einstellen unter Einstellungen). Die Platine erkennt sie beim Start selbst (oder 30 s nach dem Anschließen). Das Thermometer eine Handbreit von Platine und Regler entfernt anbringen, die warm werden. Ohne Thermometer funktioniert alles gleich, außer „Heizen bis X °C“.</li>
 </ol>
 TXT,
 'dlTitle' => 'Downloads',

@@ -94,12 +94,13 @@ TXT,
 'svgWbus' => 'W-Bus suelto',
 'svgSlp' => 'SLP al aire: falta el ⑩',
 'svgCross' => '⑧ y ⑨ cruzados',
-'svgOpt' => 'Opcional: pantalla y termómetro (bus I2C)',
+'svgOpt' => 'Opcional: pantalla y termómetro (bus I2C) y botón «calentar»',
 'svgOptSub' => 'cables discontinuos: el montaje funciona sin ellos',
 'svgOled' => 'pantalla OLED I2C (SSD1327 1,5")',
 'svgSens' => 'termómetro SHT31 o AHT20',
+'svgBtn' => 'botón «calentar» (pulsador)',
 'wireHint' => <<<'TXT'
-Las placas pueden venir con las bornas en otro sitio: <b>guíate por lo que pone impreso al lado de cada borna o pin</b>, no por su posición en el dibujo. El dibujo es del <b>ESP32-S3 DevKitC-1</b>: todos los pines que usa WTTC están en el mismo lado. En las bases con bornas de tornillo vienen rotulados (a veces el de 5 V pone «5Vin»). Desde la versión 0.2.0 solo vale el <b>ESP32-S3</b>. Lo que está en el <b>recuadro discontinuo</b> (pantalla y termómetro, cables ⑫–⑮) es <b>opcional</b>: el montaje funciona sin ello.
+Las placas pueden venir con las bornas en otro sitio: <b>guíate por lo que pone impreso al lado de cada borna o pin</b>, no por su posición en el dibujo. El dibujo es del <b>ESP32-S3 DevKitC-1</b>: todos los pines que usa WTTC están en el mismo lado. En las bases con bornas de tornillo vienen rotulados (a veces el de 5 V pone «5Vin»). Desde la versión 0.2.0 solo vale el <b>ESP32-S3</b>. Lo que está en el <b>recuadro discontinuo</b> (pantalla y termómetro, cables ⑫–⑮, y botón «calentar», ⑯–⑰) es <b>opcional</b>: el montaje funciona sin ello.
   Los colores de los cables ⑥–⑪ son una sugerencia (cables dupont). Los del conector de la furgo están <b>sin confirmar: mídelos con el polímetro</b>.
 TXT,
 'cables' => <<<'TXT'
@@ -124,6 +125,8 @@ TXT,
 <tr><td>13</td><td><span class="sw-c" style="background:#9aa3b5"></span>gris</td><td>ESP32, pin <b>GND</b> (o empalme del ⑦)</td><td>Pantalla <b>GND</b> y termómetro <b>GND</b></td></tr>
 <tr><td>14</td><td><span class="sw-c" style="background:#2ec4b6"></span>turquesa</td><td>ESP32, pin <b>IO4</b> (SDA)</td><td>Pantalla <b>SDA</b> y termómetro <b>SDA</b></td></tr>
 <tr><td>15</td><td><span class="sw-c" style="background:#e9c46a"></span>dorado</td><td>ESP32, pin <b>IO5</b> (SCL)</td><td>Pantalla <b>SCL</b> y termómetro <b>SCL</b></td></tr>
+<tr><td>16</td><td><span class="sw-c" style="background:#f15bb5"></span>magenta</td><td>ESP32, pin <b>IO7</b></td><td>Botón «calentar»: una pata</td></tr>
+<tr><td>17</td><td><span class="sw-c" style="background:#9aa3b5"></span>gris</td><td>Botón «calentar»: la otra pata</td><td>Masa: empalme del ⑬ (o un pin <b>GND</b>)</td></tr>
 </tbody></table>
 TXT,
 'steps' => <<<'TXT'
@@ -135,7 +138,7 @@ TXT,
 <li>Desconecta, y monta la placa TJA1020: ① ② ③ en la borna del lado 12V/LIN (INH vacía) y ⑧ ⑨ ⑩ ⑪ en la del otro lado.</li>
 <li>Por último, ⑥ y ⑦ al ESP32. Para la <b>primera prueba</b> no los pongas: alimenta el ESP32 por USB desde el portátil (en el ESP32-S3, por el USB marcado UART o COM) y escribe <code>status</code> en la consola.</li>
 <li>Si la consola no muestra ni el eco, <b>intercambia ⑧ y ⑨</b> (pasa a menudo con la serigrafía TX/RX de estas placas). Si sale eco pero «sin respuesta», revisa ② y la masa.</li>
-<li><b>Opcional, cuando lo básico funcione:</b> la pantalla OLED y el termómetro (SHT31 o AHT20) con ⑫–⑮. La placa los detecta sola al arrancar (o a los 30 s de conectarlos). El termómetro, a un palmo de la placa y del regulador, que calientan. Sin termómetro todo funciona igual, salvo «calentar hasta X °C».</li>
+<li><b>Opcional, cuando lo básico funcione:</b> la pantalla OLED y el termómetro (SHT31 o AHT20) con ⑫–⑮, y el botón «calentar» con ⑯–⑰ (cualquier pulsador; se configura en Configuración). La placa los detecta sola al arrancar (o a los 30 s de conectarlos). El termómetro, a un palmo de la placa y del regulador, que calientan. Sin termómetro todo funciona igual, salvo «calentar hasta X °C».</li>
 </ol>
 TXT,
 'dlTitle' => 'Descargas',

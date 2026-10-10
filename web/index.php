@@ -542,7 +542,8 @@ function wttc_changelog(string $md): string {
 <g><path class="halo" d="M555 260 H665 V297"/><path class="cw" d="M555 260 H665 V297" stroke="#9aa3b5"/><circle cx="615" cy="260" r="11" fill="var(--bg-card)" stroke="#9aa3b5" stroke-width="2.5"/><text x="615" y="260.5" class="tag" style="fill:#9aa3b5">11</text></g>
 <g id="sigOk"><g><path class="halo" d="M555 300 H630 V484 H845 V443"/><path class="cw" d="M555 300 H630 V484 H845 V443" stroke="#4aa8ff"/><circle cx="760" cy="484" r="11" fill="var(--bg-card)" stroke="#4aa8ff" stroke-width="2.5"/><text x="760" y="484.5" class="tag" style="fill:#4aa8ff">9</text></g><g><path class="halo" d="M555 380 H590 V500 H825 V443"/><path class="cw" d="M555 380 H590 V500 H825 V443" stroke="#3ecf8e"/><circle cx="700" cy="500" r="11" fill="var(--bg-card)" stroke="#3ecf8e" stroke-width="2.5"/><text x="700" y="500.5" class="tag" style="fill:#3ecf8e">8</text></g></g>
 <g id="sigX" class="hide"><g><path class="halo" d="M555 300 H630 V484 H825 V443"/><path class="cw" d="M555 300 H630 V484 H825 V443" stroke="var(--bad)" stroke-dasharray="10 6"/><circle cx="760" cy="484" r="11" fill="var(--bg-card)" stroke="var(--bad)" stroke-width="2.5"/><text x="760" y="484.5" class="tag" style="fill:var(--bad)">9</text></g><g><path class="halo" d="M555 380 H590 V500 H845 V443"/><path class="cw" d="M555 380 H590 V500 H845 V443" stroke="var(--bad)" stroke-dasharray="10 6"/><circle cx="700" cy="500" r="11" fill="var(--bg-card)" stroke="var(--bad)" stroke-width="2.5"/><text x="700" y="500.5" class="tag" style="fill:var(--bad)">8</text></g><text x="870" y="540" class="bad"><?= t('svgCross') ?></text></g>
-<!-- Opcional: pantalla OLED y termómetro en el bus I2C (IO4/IO5). Recuadro y cables discontinuos: el montaje funciona sin ellos -->
+<!-- Opcional: pantalla OLED y termómetro en el bus I2C (IO4/IO5) y botón «calentar» (IO7 a GND). Recuadro y cables
+     discontinuos: el montaje funciona sin ellos -->
 <g id="optHw">
 <rect x="15" y="668" width="1107" height="222" rx="12" fill="none" stroke="#5d6680" stroke-width="2" stroke-dasharray="10 7"/>
 <text x="35" y="698" class="t"><?= t('svgOpt') ?></text><text x="35" y="716" class="m"><?= t('svgOptSub') ?></text>
@@ -587,6 +588,14 @@ function wttc_changelog(string $md): string {
 <circle cx="995" cy="755" r="4" fill="#2ec4b6"/>
 <circle cx="995" cy="795" r="4" fill="#e0b84a"/><text x="995" y="808" class="pin" text-anchor="middle">SDA</text>
 <text x="960" y="884" class="m" text-anchor="middle"><?= t('svgSens') ?></text>
+<!-- Botón «calentar»: pulsador normalmente abierto entre IO7 (⑯) y masa (⑰, al cable de masa de las piezas opcionales) -->
+<circle cx="785" cy="443" r="7" fill="none" stroke="#f15bb5" stroke-width="2.5" stroke-dasharray="3 2"/>
+<g><path class="halo" d="M785 443 V700 H500 V792"/><path class="cw" d="M785 443 V700 H500 V792" stroke="#f15bb5" stroke-dasharray="9 6"/><circle cx="600" cy="700" r="11" fill="var(--bg-card)" stroke="#f15bb5" stroke-width="2.5" stroke-dasharray="3 2"/><text x="600" y="700.5" class="tag" style="fill:#f15bb5">16</text></g>
+<g><path class="halo" d="M540 792 V740 H680"/><path class="cw" d="M540 792 V740 H680" stroke="#9aa3b5" stroke-dasharray="9 6"/><circle cx="610" cy="740" r="11" fill="var(--bg-card)" stroke="#9aa3b5" stroke-width="2.5" stroke-dasharray="3 2"/><text x="610" y="740.5" class="tag" style="fill:#9aa3b5">17</text></g>
+<rect x="480" y="792" width="80" height="56" rx="6" fill="#2a2f3d" stroke="#5d6680" stroke-width="2"/>
+<circle cx="520" cy="826" r="15" fill="#e04848" stroke="#8c2b2b" stroke-width="2"/>
+<circle cx="500" cy="797" r="4" fill="#e0b84a"/><circle cx="540" cy="797" r="4" fill="#e0b84a"/>
+<text x="520" y="884" class="m" text-anchor="middle"><?= t('svgBtn') ?></text>
 </g>
 </svg></div>
 <div class="hint"><?= t('wireHint') ?></div>
