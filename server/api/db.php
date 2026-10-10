@@ -147,7 +147,7 @@ function wttc_error_name(string $code): string {
           '05' => 'llama antes de encender', '06' => 'sobrecalentamiento', '07' => 'bloqueada (interlock)', '08' => 'bomba dosificadora (cortocircuito)',
           '09' => 'ventilador (cortocircuito)', '0A' => 'bujía (cortocircuito)', '0B' => 'bomba de agua (cortocircuito)', '12' => 'fallo de comunicación W-Bus',
           '14' => 'sensor de temperatura (cortocircuito)', '15' => 'ventilador bloqueado', '83' => 'fallo de llama', '84' => 'tensión demasiado baja',
-          '87' => 'bloqueo permanente', '88' => 'bomba dosificadora', '89' => 'ventilador (circuito abierto)', '8A' => 'bujía (circuito abierto)',
+          '87' => 'bloqueo permanente', '92' => 'fallo de refresco de la orden', '88' => 'bomba dosificadora', '89' => 'ventilador (circuito abierto)', '8A' => 'bujía (circuito abierto)',
           '8B' => 'bomba de agua (circuito abierto)', '92' => 'fallo de refresco de la orden', '94' => 'sensor de temperatura (circuito abierto)'];
     return $m[strtoupper($code)] ?? '';
 }

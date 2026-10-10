@@ -5,11 +5,14 @@
 // que lo usen el emulador (webasto_falsa.ino, en un segundo ESP32) y las pruebas en un ordenador
 // (firmware/pruebas/webasto_test.cpp). Es una aproximación para probar WTTC sin furgoneta: fases y tiempos de arranque,
 // llama, regulación por temperatura, postbarrido, averías y bloqueo; NO es el comportamiento exacto de una Webasto.
+// Contrastado con libwbus (Manuel Jander, sourceforge.net/projects/libwbus: wbus_server.c y poeli.c, el «lado
+// calefacción» de referencia del W-Bus): encender solo desde apagada, la orden se mantiene hasta apagarse del todo
+// (0x44 sigue diciendo «sigo» en el postbarrido) y sin renovación en 20 s se apaga con la avería 0x92.
 //
 // Órdenes que entiende (las que usa WTTC):
-//   0x21 n   encender n minutos            → responde [n]
-//   0x44 c 0 mantenimiento («sigue con c») → [0] si sigue con esa orden y calentando; [1] si no
-//   0x10     apagar                          → []
+//   0x21 n   encender n minutos            → responde [n] (solo enciende si está apagada del todo; si no, se ignora)
+//   0x44 c 0 mantenimiento («sigue con c») → [0] si tiene esa orden (hasta apagarse del todo); [1] si no
+//   0x10     apagar                          → [0]
 //   0x50 05  sensores                         → [05, temp+50, mV alto, mV bajo, llama, W alto, W bajo, bujía alto, bajo]
 //   0x56 01  lista de averías                 → [01, cuántas, código, veces, …];  0x56 03 → borrarlas → [03]
 #pragma once
@@ -58,11 +61,14 @@ struct Webasto {
   }
   int flame() const { return st == STAB || st == FULL || st == PART ? 1 : 0; }
   float volt() const { if (env.noPower) return 0; float v = env.batt - AMPS[st] * 0.06f; return v < 8 ? 8 : v; }
-  void stop() { cmd = 0; if (active(st)) set(AFTER); }
+  // Apagar: a postbarrido. La orden se mantiene hasta apagarse del todo (como libwbus: 0x44 sigue diciendo «sigo»)
+  void stop() { if (active(st)) set(AFTER); }
+  // Encender: solo desde apagada del todo; calentando, en postbarrido o en fallo se ignora (no alarga el tiempo)
   void on(uint8_t min) {
-    cmd = 0x21; runLeft = (int32_t)min * 60000; refresh = 0;
     if (st == LOCK) { err(0x07); return; }
-    if (!active(st)) { tries = 0; set(FAN); }
+    if (st != OFF) return;
+    cmd = 0x21; runLeft = (int32_t)min * 60000; refresh = 0;
+    tries = 0; set(FAN);
   }
 
   // Avanza dt ms (el emulador lo llama en cada vuelta, multiplicado si el tiempo va acelerado)
@@ -72,7 +78,8 @@ struct Webasto {
       t += dt;
       if (active(st) && cmd) {
         runLeft -= (int32_t)dt; refresh += dt;
-        if (runLeft <= 0 || refresh > REFRESH_MS) stop();   // se acabó el tiempo o nadie la mantiene
+        if (refresh > REFRESH_MS) { err(0x92); cmd = 0; set(AFTER); }   // nadie renueva la orden: avería 0x92
+        else if (runLeft <= 0) stop();                                     // se acabó el tiempo pedido
       }
       uint32_t d = ST_DUR[st];
       switch (st) {
@@ -82,17 +89,17 @@ struct Webasto {
           if (t >= d) {
             if (!env.noFuel) { fails = 0; set(STAB); }
             else if (++tries < 2) set(GLOW);                // segundo intento en el mismo arranque
-            else { err(0x02); cmd = 0; if (++fails >= 3) { err(0x07); set(LOCK); } else set(FAIL); }
+            else { err(0x02); if (++fails >= 3) { err(0x07); cmd = 0; set(LOCK); } else set(FAIL); }   // la orden, hasta apagarse
           }
           break;
         case STAB: case FULL: case PART:
-          if (env.flameOut) { err(0x03); cmd = 0; set(FAIL); env.flameOut = false; break; }   // se apagó la llama
+          if (env.flameOut) { err(0x03); set(FAIL); env.flameOut = false; break; }   // se apagó la llama (la orden, hasta apagarse)
           if (st == STAB && t >= d) set(temp >= T_PART ? PART : FULL);
           else if (st == FULL && temp >= T_PART) set(PART);
           else if (st == PART && temp >= T_PAUSE) set(PAUSE);
           break;
         case PAUSE: if (temp <= T_RESUME) { tries = 0; set(FAN); } break;
-        case AFTER: case FAIL: if (t >= d) set(OFF); break;
+        case AFTER: case FAIL: if (t >= d) { set(OFF); cmd = 0; } break;   // apagada del todo: suelta la orden
         default: break;
       }
     }
@@ -107,9 +114,9 @@ struct Webasto {
   // Una orden ya comprobada → datos de la respuesta (en out; devuelve cuántos), o -1 si no la entiende (no contesta)
   int handle(uint8_t c, const uint8_t* d, int n, uint8_t* out) {
     switch (c) {
-      case 0x10: stop(); return 0;
+      case 0x10: stop(); out[0] = 0; return 1;
       case 0x21: { uint8_t m = n ? d[0] : 0; on(m ? m : 1); out[0] = m; return 1; }
-      case 0x44: { bool ok = n && cmd == d[0] && active(st); if (ok) refresh = 0; out[0] = ok ? 0 : 1; return 1; }
+      case 0x44: { bool ok = n && cmd && cmd == d[0]; if (ok) refresh = 0; out[0] = ok ? 0 : 1; return 1; }
       case 0x50: {
         if (!n || d[0] != 0x05) return -1;
         int mv = (int)(volt() * 1000 + 0.5f), tt = (int)(temp + 0.5f) + 50, gpr = 1100 + (int)(temp * 6);

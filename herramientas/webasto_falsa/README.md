@@ -67,6 +67,7 @@ placa y súbelo. Abre el monitor serie a **115200**: verás las tramas que llega
 |---|---|---|
 | Encender 30 min | — | «Arrancando» → «Con llama» a los ~90 s (o ~9 s con `rapido 10`); gasoil contando; mantenimiento cada 5 s |
 | Apagar | — | «Apagada»; la falsa pasa a postbarrido 2 min |
+| Encender en el postbarrido | apagar y volver a encender enseguida | «La Webasto está terminando de apagarse: prueba en N s» (la falsa ignoraría la orden, como una de verdad) |
 | Sin gasoil | `fallo gasoil` y encender | a los ~3 min, «se apagó sola», avería 0x02 en «Leer averías» y aviso por Telegram; en Mis estadísticas, «Se apagó sola (avería)» |
 | Bloqueo | tres veces sin gasoil | avería 0x07; encender ya no prende hasta `borrar` |
 | Se apaga la llama | encender, esperar llama, `fallo llama` | «se apagó sola», avería 0x03 |

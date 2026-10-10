@@ -71,10 +71,11 @@ static void pruebasArranque() {
   CHECK(w.flame() == 1 && w.temp > 30);                     // diez minutos: calentando
   const uint8_t k[2] = {0x21, 0x00};
   CHECK(bus(w, 0x44, k, 2, r) == 1 && r[0] == 0x00);        // el mantenimiento dice «sigo»
-  CHECK(bus(w, 0x10, nullptr, 0, r) == 0);                  // apagar
-  CHECK(w.st == wf::AFTER && bus(w, 0x44, k, 2, r) == 1 && r[0] == 0x01);   // ya no tiene la orden
+  CHECK(bus(w, 0x10, nullptr, 0, r) == 1);                  // apagar
+  CHECK(w.st == wf::AFTER && bus(w, 0x44, k, 2, r) == 1 && r[0] == 0x00);   // en el postbarrido aún «sigue» (libwbus)
+  CHECK(bus(w, 0x21, m30, 1, r) == 1 && w.st == wf::AFTER); // encender en postbarrido: se ignora
   run(w, 121, false);
-  CHECK(w.st == wf::OFF);
+  CHECK(w.st == wf::OFF && bus(w, 0x44, k, 2, r) == 1 && r[0] == 0x01);     // apagada del todo: ya no tiene la orden
 }
 
 static void pruebasMantenimiento() {
@@ -82,8 +83,8 @@ static void pruebasMantenimiento() {
   bus(w, 0x21, m, 1, r);
   run(w, 19, false);
   CHECK(wf::active(w.st));
-  run(w, 2, false);                                         // 21 s sin mantenimiento: se apaga sola
-  CHECK(w.st == wf::AFTER && w.cmd == 0);
+  run(w, 2, false);                                         // 21 s sin mantenimiento: se apaga sola, avería 0x92
+  CHECK(w.st == wf::AFTER && w.cmd == 0 && w.errN == 1 && w.errCode[0] == 0x92);
 }
 
 static void pruebasTiempo() {
@@ -100,10 +101,13 @@ static void pruebasAverias() {
   w.env.noFuel = true;
   bus(w, 0x21, m, 1, r);
   run(w, 170, true);                                        // dos intentos sin prender: avería 02
-  CHECK(w.st == wf::FAIL && bus(w, 0x44, k, 2, r) == 1 && r[0] == 0x01);
+  CHECK(w.st == wf::FAIL && bus(w, 0x44, k, 2, r) == 1 && r[0] == 0x00);   // en el fallo aún «sigue» (libwbus)
   int n = bus(w, 0x56, lista, 1, r);
   CHECK(n == 4 && r[0] == 0x01 && r[1] == 1 && r[2] == 0x02 && r[3] == 1);   // como errorsJson() la lee
-  for (int i = 0; i < 2; i++) { run(w, 91, false); bus(w, 0x21, m, 1, r); run(w, 170, true); }
+  run(w, 91, false);                                        // fin del fallo: apagada del todo, suelta la orden
+  CHECK(w.st == wf::OFF && bus(w, 0x44, k, 2, r) == 1 && r[0] == 0x01);
+  bus(w, 0x21, m, 1, r); run(w, 170, true);
+  run(w, 91, false); bus(w, 0x21, m, 1, r); run(w, 170, true);
   CHECK(w.st == wf::LOCK);                                  // a la tercera, bloqueada (avería 07)
   bus(w, 0x21, m, 1, r);
   CHECK(w.st == wf::LOCK);                                  // bloqueada no arranca
@@ -116,7 +120,9 @@ static void pruebasAverias() {
   CHECK(w2.flame() == 1);
   w2.env.flameOut = true;                                   // se le apaga la llama: avería 03
   run(w2, 1, true);
-  CHECK(w2.st == wf::FAIL && w2.errN == 1 && w2.errCode[0] == 0x03 && w2.cmd == 0);
+  CHECK(w2.st == wf::FAIL && w2.errN == 1 && w2.errCode[0] == 0x03);
+  run(w2, 91, true);                                        // WTTC se entera al apagarse del todo: 0x44 → «ya no»
+  CHECK(w2.st == wf::OFF && bus(w2, 0x44, k, 2, r) == 1 && r[0] == 0x01);
 
   wf::Webasto w3; w3.env.mute = true;                       // (el emulador no contesta: eso lo hace el sketch)
   w3.env.noPower = true; bus(w3, 0x21, m, 1, r); w3.tick(1000);

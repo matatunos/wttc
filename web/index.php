@@ -757,15 +757,17 @@ function hSet(st) { H.st = st; H.t = 0; }
 function hErr(code) { H.errs.set(code, Math.min(255, (H.errs.get(code) || 0) + 1)); }
 function hFlame() { return ['STAB', 'FULL', 'PART'].includes(H.st) ? 1 : 0; }
 function hVolt() { return env.f.power ? 0 : Math.max(8, env.batt - AMPS[H.st] * 0.06); }
+// Como libwbus (y la Webasto falsa, webasto_modelo.h): la orden se mantiene hasta apagarse del todo (0x44 sigue
+// diciendo «sigo» en el postbarrido), encender solo cuenta desde apagada y sin renovación en 20 s → avería 0x92
 function hStop(reason) {
-  H.cmd = 0;
   if (['FAN', 'GLOW', 'IGN', 'STAB', 'FULL', 'PART', 'PAUSE'].includes(H.st)) hSet('AFTER');
   if (reason) H.lastStop = reason;
 }
 function hOn(min) {
-  H.cmd = 0x21; H.runLeft = min * 60000; H.refresh = 0;
   if (H.st === 'LOCK') { hErr(0x07); return; }
-  if (!ACTIVE.includes(H.st)) { H.tries = 0; hSet('FAN'); }
+  if (H.st !== 'OFF') return;                       // calentando, en postbarrido o en fallo: se ignora
+  H.cmd = 0x21; H.runLeft = min * 60000; H.refresh = 0;
+  H.tries = 0; hSet('FAN');
 }
 function hTick(dt) {
   if (env.f.power) { if (H.st !== 'LOCK') { H.st = 'OFF'; H.cmd = 0; } }
@@ -773,8 +775,8 @@ function hTick(dt) {
     H.t += dt;
     if (ACTIVE.includes(H.st) && H.cmd) {
       H.runLeft -= dt; H.refresh += dt;
-      if (H.runLeft <= 0) hStop(S.stopTime);
-      else if (H.refresh > REFRESH_MS) hStop(S.stopKa);
+      if (H.refresh > REFRESH_MS) { hErr(0x92); H.cmd = 0; hStop(S.stopKa); }
+      else if (H.runLeft <= 0) hStop(S.stopTime);
     }
     const d = ST[H.st].dur;
     switch (H.st) {
@@ -785,8 +787,8 @@ function hTick(dt) {
           if (!env.f.fuel) { H.fails = 0; hSet('STAB'); }
           else if (++H.tries < 2) hSet('GLOW');           // segundo intento dentro del mismo arranque
           else {
-            hErr(0x02); H.cmd = 0;
-            if (++H.fails >= 3) { hErr(0x07); hSet('LOCK'); } else hSet('FAIL');
+            hErr(0x02);
+            if (++H.fails >= 3) { hErr(0x07); H.cmd = 0; hSet('LOCK'); } else hSet('FAIL');
           }
         }
         break;
@@ -794,7 +796,7 @@ function hTick(dt) {
       case 'FULL':  if (H.temp >= T_PART) hSet('PART'); break;
       case 'PART':  if (H.temp >= T_PAUSE) hSet('PAUSE'); break;
       case 'PAUSE': if (H.temp <= T_RESUME) { H.tries = 0; hSet('FAN'); } break;
-      case 'AFTER': case 'FAIL': if (H.t >= d) hSet('OFF'); break;
+      case 'AFTER': case 'FAIL': if (H.t >= d) { hSet('OFF'); H.cmd = 0; } break;
     }
   }
   // Potencia y circuito de refrigeración (≈ 9 L + bloque; aproximado)
@@ -810,10 +812,10 @@ function hTick(dt) {
 // Procesa una trama válida dirigida a la Webasto; devuelve los datos de la respuesta o null
 function hHandle(cmd, d) {
   switch (cmd) {
-    case 0x10: hStop(S.stopCmd); return [];
+    case 0x10: hStop(S.stopCmd); return [0];
     case 0x21: hOn(Math.max(1, d[0] || 0)); return [d[0] || 0];
     case 0x44: {
-      const ok = H.cmd === d[0] && ACTIVE.includes(H.st);
+      const ok = !!H.cmd && H.cmd === d[0];
       if (ok) H.refresh = 0;
       return [ok ? 0 : 1];
     }
@@ -1145,6 +1147,9 @@ function depSet(m, tgt) {
   addLog(trf('T_LOG_DEP_SET', `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}` + (tgt ? ' · ' + degs(tgt, 0) : '')));
 }
 function heatOn(m, tg, src) {
+  // A mano durante el postbarrido: «espera» (como afterrunLeft() en el firmware; la Webasto ignoraría la orden)
+  const ar = !E.heaterOn && E.lastHeatOff && simMs - E.lastHeatOff < 150000 ? Math.floor((150000 - (simMs - E.lastHeatOff)) / 1000) + 1 : 0;
+  if (ar) return trf('T_E_AFTERRUN', ar);
   if (tg) {
     if (tg < 5 || tg > 25) return tf('T_E_TARGET');
     if (isNaN(E.cabT)) return tf('T_E_NOSENS');

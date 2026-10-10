@@ -166,7 +166,7 @@ const uint16_t MAX_SESSION  = 240;    // min: ventana máxima de «calentar hast
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.3.4"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.3.5"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -208,6 +208,12 @@ uint8_t warmC      = 0;               // °C del agua para el aviso «ya está c
 bool wifiActive = false;              // ¿está ahora mismo encendida la Wi-Fi?
 uint32_t wifiUntil = 0;               // millis() hasta el que se quiere encendida (arranque, petición, avisos)
 uint32_t lastHeatOff = 0, lastWeb = 0; // última vez que se apagó la calefacción / que alguien pidió la web
+// Postbarrido: tras apagarse, la Webasto sigue ~2 min soplando para enfriarse, e ignora una orden de encender (así lo
+// hace libwbus, la referencia del W-Bus). Si WTTC la mandara, creería que calienta y luego avisaría de una avería que no
+// es. A mano, se contesta «espera»; los programas y la salida esperan solos (ver pendStart)
+const uint32_t AFTERRUN_MS = 150000;
+// Encendido automático (programa u «Salgo a las…») aplazado por el postbarrido: se hace al terminar
+struct { bool on; uint16_t min; uint8_t tgt; bool dep; char src[12]; } pendStart = {};
 
 // ---------- Bluetooth ----------
 // Las órdenes que llegan por Bluetooth se copian en esta estructura y viajan por una cola de FreeRTOS
@@ -436,7 +442,7 @@ enum Txt {
   T_E_WARM, T_E_TOFF, T_E_VALUE, T_TG_TH_STALL, T_OTA_NOSTA, T_OTA_NETERR, T_LOG_OTA_AUTO, T_LOG_OTA_FAIL,
   T_LOG_AP_OFF, T_LOG_AP_ON, T_LOG_CRASH, T_LOG_NVS_ERR, T_LOG_NVS_FULL, T_LOG_TASK_ERR, T_LOG_AP_ERR,
   T_LOG_MDNS_ERR, T_WHY_REBOOT, T_LOG_LOWMEM, T_LOG_STACK, T_OTA_NOTIME, T_LOG_SENT, T_LOG_SENDFAIL, T_E_NOINET, T_SRC_BUTTON, T_D_BTN_ON, T_D_BTN_TGT, T_D_BTN_OFF, T_D_NOWBUS,
-  T_D_UPDATING, T_D_INSTALLING, T_D_REBOOT_OFF, T_LOG_BTN_STUCK, T_E_BTNMIN, T_LOG_CMD_OK, T_LOG_CMD_BAD, T_LOG_CMD_FAIL, T_LOG_CMD_RES, T_CMD_E_FORMAT,
+  T_D_UPDATING, T_D_INSTALLING, T_D_REBOOT_OFF, T_LOG_BTN_STUCK, T_E_BTNMIN, T_E_AFTERRUN, T_LOG_PEND, T_LOG_CMD_OK, T_LOG_CMD_BAD, T_LOG_CMD_FAIL, T_LOG_CMD_RES, T_CMD_E_FORMAT,
   T_CMD_E_SIG, T_CMD_E_BOARD, T_CMD_E_OLD, T_CMD_E_EXPIRED, T_CMD_E_UNKNOWN, T_CMD_E_HEAT, T_W_UPDATING, T_RR_POWER, T_RR_SW, T_RR_CRASH, T_RR_WDT, T_RR_BROWN, T_RR_RST, T_RR_OTHER, T_LOG_RESET, T_TG_RESET,
   T_W_LOGIN, T_W_LOGINBAD, T_W_LOGINLOCK, T_W_SETUPWEB, T_E_WEBUSER, T_E_WEBPASS, T_E_WEBDEF, T_LOG_LOGIN,
   T_E_IID, T_TG_IID, T_E_NOTG, T_LOG_IID,
@@ -598,6 +604,8 @@ const char* const TXT[T_COUNT][L_N] = {
   /* T_D_REBOOT_OFF */     {"Reinicio calentando: apagada", "Restart while heating: off", "Neustart beim Heizen: aus"},
   /* T_LOG_BTN_STUCK */    {"El botón de calentar (IO7) lleva más de 10 s pulsado: se ignora hasta que se suelte", "The heat button (IO7) has been pressed for over 10 s: ignored until released", "Die Heiztaste (IO7) ist seit über 10 s gedrückt: wird bis zum Loslassen ignoriert"},
   /* T_E_BTNMIN */         {"Minutos del botón: 0 (desactivado), 15, 30, 45 o 60.", "Button minutes: 0 (off), 15, 30, 45 or 60.", "Tastenminuten: 0 (aus), 15, 30, 45 oder 60."},
+  /* T_E_AFTERRUN */      {"La Webasto está terminando de apagarse (postbarrido): prueba en %d s.", "The Webasto is finishing switching off (after-run): try again in %d s.", "Die Webasto beendet gerade das Ausschalten (Nachlauf): in %d s erneut versuchen."},
+  /* T_LOG_PEND */         {"Encendido aplazado %d s: la Webasto está terminando de apagarse", "Start delayed %d s: the Webasto is finishing switching off", "Start um %d s verschoben: die Webasto beendet gerade das Ausschalten"},
   /* T_LOG_CMD_OK */       {"Orden remota: %s", "Remote command: %s", "Fernbefehl: %s"},
   /* T_LOG_CMD_BAD */      {"Orden remota rechazada (%s)", "Remote command rejected (%s)", "Fernbefehl abgelehnt (%s)"},
   /* T_LOG_CMD_FAIL */     {"La orden remota «%s» no se pudo hacer: %s", "The remote command “%s” could not be done: %s", "Fernbefehl „%s“ nicht ausführbar: %s"},
@@ -2098,6 +2106,7 @@ void depCheck(uint32_t depMin, uint8_t tgt, uint32_t& done, const char* src) {
   time_t dt = (time_t)depMin * 60; struct tm tm; localtime_r(&dt, &tm);
   char h[6]; strftime(h, sizeof h, "%H:%M", &tm);
   addLog(trf(T_LOG_DEP, h, (int)left, isnan(t) ? "?" : degs(t, 0).c_str()));
+  if (autoStartLater(left, tgt, true, src)) return;   // en postbarrido: al terminar
   runDep = true;
   if (tgt && !isnan(cabT)) startSession(left, tgt, src);
   else startHeater(min((uint16_t)left, MAX_MIN), src);
@@ -2127,7 +2136,34 @@ void depSet(uint32_t m, uint8_t tgt) {
 }
 
 // Encender desde la app, la web o la consola; con objetivo, termostato. Devuelve "" si va bien, o el error
+// Segundos que quedan de postbarrido (0 = nada)
+int afterrunLeft() {
+  if (!lastHeatOff || heaterOn) return 0;
+  uint32_t e = millis() - lastHeatOff;
+  return e < AFTERRUN_MS ? (int)((AFTERRUN_MS - e) / 1000) + 1 : 0;
+}
+// Programas y salida: si coincide con el postbarrido, se aplaza (y se hace en pendTick al terminar)
+bool autoStartLater(uint16_t min, uint8_t tgt, bool dep, const char* src) {
+  int left = afterrunLeft();
+  if (!left) return false;
+  pendStart.on = true; pendStart.min = min; pendStart.tgt = tgt; pendStart.dep = dep;
+  strlcpy(pendStart.src, src, sizeof pendStart.src);
+  addLog(trf(T_LOG_PEND, left));
+  return true;
+}
+void pendTick() {
+  if (!pendStart.on || afterrunLeft()) return;
+  pendStart.on = false;
+  if (heaterOn || thActive || !battOk()) return;  // ya calienta (alguien la encendió) o poca batería
+  runDep = pendStart.dep;
+  if (pendStart.tgt && !isnan(cabT)) startSession(pendStart.min, pendStart.tgt, pendStart.src);
+  else startHeater(min(pendStart.min, MAX_MIN), pendStart.src);
+  runDep = false;
+}
+
 String heatOn(int m, int tg, const char* src) {
+  int ar = afterrunLeft();                        // a mano durante el postbarrido: «espera»
+  if (ar) return trf(T_E_AFTERRUN, ar);
   if (tg) {
     if (tg < TGT_MIN || tg > TGT_MAX) return tr(T_E_TARGET);
     if (isnan(cabT)) return tr(T_E_NOSENS);
@@ -2616,6 +2652,7 @@ void checkSchedule() {
     if ((sch[i].days & (1 << wd)) && sch[i].start == m) {
       // Antes de encender se mira la batería: con poca tensión, no se arranca (para poder arrancar el motor)
       if (!battOk()) return;
+      if (autoStartLater(sch[i].dur, tgt, false, "programa")) return;   // en postbarrido: al terminar
       if (tgt && !isnan(cabT)) startSession(sch[i].dur, tgt, "programa");   // con objetivo: termostato
       else startHeater(min(sch[i].dur, MAX_MIN), "programa");
       return;
@@ -3804,6 +3841,7 @@ void loop() {
   statsPoll();                                    // estadísticas de esta placa (si están activadas)
   staTick();                                      // red con internet y Wi-Fi propia (ocultarla estando en casa)
   sntpTick();                                     // hora por internet, al tener dirección
+  pendTick();                                     // encendido automático aplazado por el postbarrido
   logSaveTick();                                  // el registro, a la flash (como mucho cada 2 s)
   healthTick();                                   // memoria y pila de las tareas (Diagnóstico)
   logPoll();                                      // resultado de «Enviar el registro»

@@ -6,6 +6,13 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.3.5 — 2026-10-10
+
+Versión de prueba (sin probar con una Webasto real).
+
+- **No se manda encender durante el postbarrido.** Tras apagarse, la Webasto sigue unos 2 min soplando para enfriarse e ignora una orden de encender (así lo hace libwbus, la referencia del protocolo W-Bus). WTTC la mandaba igual, creía que calentaba y, al acabar el postbarrido, avisaba de una avería que no era. Ahora, a mano (web, app, botón, consola) contesta «La Webasto está terminando de apagarse: prueba en N s»; los programas y «Salgo a las…» esperan solos y encienden al terminar.
+- **Webasto falsa** (`herramientas/webasto_falsa`): un segundo ESP32 que hace de Webasto en el W-Bus para probar WTTC en la mesa, con consola para provocar averías (sin gasoil, llama que se apaga, sin corriente, cable suelto, batería baja) y el tiempo acelerado. Su modelo se prueba en GitHub junto al código de WTTC que arma y comprueba las tramas, y se ha contrastado con libwbus: encender solo desde apagada, la orden se mantiene hasta apagarse del todo y sin renovación en 20 s apunta la avería 0x92. El simulador de la web usa ahora las mismas reglas.
+
 ## 0.3.4 — 2026-10-10
 
 Versión de prueba (sin probar con una Webasto real).
