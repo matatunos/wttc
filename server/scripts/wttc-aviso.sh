@@ -10,6 +10,9 @@ ENV_FILE=/root/.env
 # shellcheck disable=SC1090
 . "$ENV_FILE"
 text="${1:-$(cat)}"
+# Telegram rechaza (400) un texto con UTF-8 roto, por ejemplo si quien llama lo recortó por bytes a mitad de una
+# letra con tilde: se quitan los trozos sueltos. Y como mucho 4000 caracteres (el límite de Telegram es 4096)
+text=$(printf '%s' "$text" | python3 -c 'import sys; t = sys.stdin.buffer.read().decode("utf-8", "ignore"); print(t[:4000], end="")')
 [ -n "$text" ] || { echo "wttc-aviso.sh: sin texto" >&2; exit 1; }
 curl -fsS -X POST "https://api.telegram.org/bot${WTTC_BOT_TOKEN}/sendMessage" \
     -d chat_id="$WTTC_CHAT_ID" --data-urlencode text="$text" -o /dev/null
