@@ -399,14 +399,21 @@ function render() {
       'de media por encendido' + (reached != null ? ' · llega al objetivo el ' + Math.round(reached * 100) + ' %' : ''));
   $('price').onchange = e => { store.set('wttc_price', e.target.value); render(); };
 
-  // Registros enviados desde la placa (Diagnóstico → «Enviar el registro»)
+  // Registros enviados desde la placa (Diagnóstico → «Enviar el registro»). Hasta la 0.3.1 la placa los mandaba en una
+  // sola línea (cambiaba los saltos por espacios): se vuelven a partir antes de cada fecha del registro («10/10 08:08  »,
+  // «--/-- --:--  »), de cada separador de arranque y de cada trama del W-Bus («-123 s  TX …»)
+  const lines = t => !t || t.includes('\n') ? (t || '') : t
+    .replace(/ (?=(\d\d\/\d\d \d\d:\d\d|--\/-- --:--)  )/g, '\n')
+    .replace(/ ?(· (?:· ){10,}·?) ?/g, '\n$1\n')
+    .replace(/ (?=-\d+ s  TX )/g, '\n')
+    .replace(/\n{2,}/g, '\n');
   const LG = data.logs || [];
   $('logsCard').hidden = !LG.length;
   $('logs').innerHTML = LG.map((g, i) => { const d = g.d || {};
     return `<details class="log"${i ? '' : ' open'}><summary>${esc(g.at.replace(' ', ' · '))} UTC · firmware ${esc(g.fw || '?')}</summary>` +
       `<p class="muted">Encendida desde hacía ${d.up != null ? hm(d.up) : '?'} · arranque: ${esc(d.rr || '?')} · memoria ${d.heap && d.heap[0] != null ? Math.round(d.heap[0] / 1024) + ' KB (mínima ' + Math.round(d.heap[1] / 1024) + ' KB)' : '?'}` +
-      `${d.rssi ? ' · Wi-Fi ' + d.rssi + ' dBm' : ''}</p><pre>${esc(d.log || '')}</pre>` +
-      (d.wbus ? `<p class="muted" style="margin:8px 0 4px">Tramas del W-Bus</p><pre>${esc(d.wbus)}</pre>` : '') + '</details>'; }).join('');
+      `${d.rssi ? ' · Wi-Fi ' + d.rssi + ' dBm' : ''}</p><pre>${esc(lines(d.log))}</pre>` +
+      (d.wbus ? `<p class="muted" style="margin:8px 0 4px">Tramas del W-Bus</p><pre>${esc(lines(d.wbus))}</pre>` : '') + '</details>'; }).join('');
   $('noRuns').hidden = all.length > 0;
   $('charts').hidden = all.length === 0;
   if (!all.length) return;
