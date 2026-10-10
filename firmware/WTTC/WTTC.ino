@@ -110,6 +110,7 @@
 #include <mbedtls/md.h>         // SHA-256 de la actualización
 #include <mbedtls/platform.h>   // mbedtls_platform_set_calloc_free(): la memoria de las conexiones seguras, a la PSRAM
 #include <esp_heap_caps.h>
+#include <esp_netif_sntp.h>         // hora por internet con la API de la pila de red (ver sntpTick)
 #include <sys/time.h>           // settimeofday(): poner en hora desde el móvil
 #include <Wire.h>               // bus I2C: pantalla y termómetro opcionales
 #include <math.h>               // NAN / isnan(): «sin dato» del termómetro
@@ -165,7 +166,7 @@ const uint16_t MAX_SESSION  = 240;    // min: ventana máxima de «calentar hast
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.3.3"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.3.4"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -976,8 +977,8 @@ void tgTask(void*) {
   for (;;) {
     if (xQueueReceive(tgQueue, &x, portMAX_DELAY) != pdTRUE) continue;   // espera (dormida) a que haya un aviso
     // Espera a tener red (hasta 10 min: 120 × 5 s); si no llega, el aviso se pierde
-    for (int i = 0; i < 120 && WiFi.status() != WL_CONNECTED; i++) vTaskDelay(pdMS_TO_TICKS(5000));
-    if (WiFi.status() != WL_CONNECTED) { strlcpy(tgLast, trf(T_TG_NO_NET, x.t).c_str(), sizeof tgLast); continue; }
+    for (int i = 0; i < 120 && !netReady(); i++) vTaskDelay(pdMS_TO_TICKS(5000));
+    if (!netReady()) { strlcpy(tgLast, trf(T_TG_NO_NET, x.t).c_str(), sizeof tgLast); continue; }
     // Copia local del token y el chat: la configuración puede cambiar desde otra tarea mientras se envía
     char tok[64], chat[24];
     strlcpy(tok, tgToken, sizeof tok);
@@ -1287,7 +1288,7 @@ void statsPoll() {
     statsBody = "";
     return;
   }
-  if (!statsOn || statsBusy || otaNetBusy || netUse > 0 || !iid[0] || WiFi.status() != WL_CONNECTED || millis() < 180000) return;
+  if (!statsOn || statsBusy || otaNetBusy || netUse > 0 || !iid[0] || !netReady() || millis() < 180000) return;
   uint32_t wait = runSeq > runAck ? 600000UL : 86400000UL;
   if (statsLast && millis() - statsLast < wait) return;
   statsLast = millis();
@@ -1341,7 +1342,7 @@ void logTask(void*) {
 // Lanza el envío; devuelve el error (o "" si ha empezado). El resultado llega al registro (logPoll)
 String logSendStart() {
   if (!iid[0]) return tr(T_E_IID);
-  if (WiFi.status() != WL_CONNECTED) return tr(T_E_NOINET);
+  if (!netReady()) return tr(T_E_NOINET);
   if (!timeValid()) return tr(T_OTA_NOTIME);
   if (logBusy || otaNetBusy) return tr(T_OTA_BUSY);
   logBody = logReport();
@@ -3167,7 +3168,7 @@ void cmdRun(const String& body) {
 void cmdPoll() {
   if (cmdEnd) { cmdEnd = false; cmdBusy = false; if (cmdCode == 200) cmdRun(cmdBody); cmdBody = ""; }
   if (cmdLogAt && (int32_t)(millis() - cmdLogAt) >= 0 && !logBusy && !otaNetBusy) { cmdLogAt = 0; logSendStart(); }
-  if (!remoteOn || cmdBusy || otaNetBusy || logBusy || statsBusy || netUse > 0 || !iid[0] || WiFi.status() != WL_CONNECTED || !timeValid()) return;
+  if (!remoteOn || cmdBusy || otaNetBusy || logBusy || statsBusy || netUse > 0 || !iid[0] || !netReady() || !timeValid()) return;
   if (cmdLast && millis() - cmdLast < 120000) return;
   cmdLast = millis();
   cmdBusy = true;
@@ -3262,6 +3263,26 @@ void tlsMemSetup() {
 #if defined(MBEDTLS_PLATFORM_MEMORY) && !defined(MBEDTLS_PLATFORM_CALLOC_MACRO)
   if (psramFound() && ESP.getFreePsram() > 1024 * 1024) tlsInPsram = mbedtls_platform_set_calloc_free(tlsCalloc, tlsFree) == 0;
 #endif
+}
+
+// ¿Lleva la red con internet conectada un rato (NET_SETTLE_MS)? Las conexiones automáticas (órdenes, estadísticas,
+// actualizaciones, Telegram, registro) esperan a eso: así no coinciden con lo que la pila de red hace al conectarse
+// (DHCP, la primera consulta de la hora)
+#define NET_SETTLE_MS 20000
+bool netReady() { return WiFi.status() == WL_CONNECTED && staUpSince && millis() - staUpSince > NET_SETTLE_MS; }
+
+// Hora por internet: se arranca una vez, cuando la red con internet tiene dirección, con esp_netif_sntp (la API
+// pensada para ello, que respeta el bloqueo de la pila de red). Si falla, se apunta y se reintenta en 1 min
+void sntpTick() {
+  static bool on = false;
+  static uint32_t tryAt = 0;
+  if (on || WiFi.status() != WL_CONNECTED || !staUpSince || millis() - staUpSince < 3000) return;
+  if (tryAt && millis() - tryAt < 60000) return;
+  tryAt = millis();
+  esp_sntp_config_t c = ESP_NETIF_SNTP_DEFAULT_CONFIG_MULTIPLE(2, ESP_SNTP_SERVER_LIST("pool.ntp.org", "time.google.com"));
+  esp_err_t e = esp_netif_sntp_init(&c);
+  on = e == ESP_OK;
+  if (!on) addLog(trf(T_LOG_TASK_ERR, "sntp", (unsigned)(ESP.getFreeHeap() / 1024)));
 }
 
 void netBegin() {
@@ -3405,7 +3426,7 @@ String otaNetStart(bool install, bool autoCheck) {
 void otaNetPoll() {
   // Búsqueda automática (ajuste «otaauto»): con la red con internet ya conectada, a los 2 min de arrancar (ya confirmada
   // la versión que corre, ver otaConfirm) y luego una vez al día. Nunca calentando
-  if (otaAuto != OA_OFF && !otaNetBusy && netUse == 0 && WiFi.status() == WL_CONNECTED && !heaterOn && !thActive
+  if (otaAuto != OA_OFF && !otaNetBusy && netUse == 0 && netReady() && !heaterOn && !thActive
       && (otaAutoLast ? millis() - otaAutoLast > 86400000UL : millis() > 120000)) {
     otaAutoLast = millis();
     otaNetStart(false, true);
@@ -3599,7 +3620,11 @@ void setup() {
   if (xTaskCreatePinnedToCore(tgTask, "telegram", 10240, nullptr, 1, &tgTaskH, 0) != pdPASS)
     addLog(trf(T_LOG_TASK_ERR, "telegram", (unsigned)(ESP.getFreeHeap() / 1024)));   // sin avisos, pero todo lo demás sigue
 
-  configTzTime(TZ_INFO, "pool.ntp.org", "time.google.com");   // hora por internet cuando haya red
+  // Zona horaria ya; la hora por internet (SNTP), cuando la Wi-Fi tenga dirección (sntpTick). Antes se arrancaba aquí con
+  // configTzTime(): tras un reinicio pedido (el reloj conserva la hora) su primera consulta coincidía con las nuestras y
+  // la pila de red abortaba («udp_new_ip_type … lock TCPIP core»: dos cuelgues en una placa real, 10/10/2026)
+  setenv("TZ", TZ_INFO, 1);
+  tzset();
 
   // Rutas del servidor web
   // La página (desde la flash). Pedida con otro nombre (portal cautivo), se manda a la dirección de la placa: así la web
@@ -3778,6 +3803,7 @@ void loop() {
   otaNetPoll();                                   // ¿ha terminado una búsqueda o descarga por internet?
   statsPoll();                                    // estadísticas de esta placa (si están activadas)
   staTick();                                      // red con internet y Wi-Fi propia (ocultarla estando en casa)
+  sntpTick();                                     // hora por internet, al tener dirección
   logSaveTick();                                  // el registro, a la flash (como mucho cada 2 s)
   healthTick();                                   // memoria y pila de las tareas (Diagnóstico)
   logPoll();                                      // resultado de «Enviar el registro»

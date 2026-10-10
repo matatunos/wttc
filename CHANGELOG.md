@@ -6,6 +6,13 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.3.4 — 2026-10-10
+
+Versión de prueba (sin probar con una Webasto real).
+
+- **Arregla un cuelgue al arrancar tras un reinicio pedido** (actualización, orden «reiniciar», cambio de ajustes). El informe de cuelgues de una placa real (traducido con el `.elf` de la Release) señaló la puesta en hora por internet: se arrancaba al principio del arranque y, como tras un reinicio el reloj conserva la hora, su primera consulta coincidía con la de las órdenes remotas y la pila de red abortaba. Por eso la 0.3.3 se colgó al instalarse y la placa volvió sola a la 0.3.2. Ahora la hora por internet se arranca cuando la Wi-Fi tiene dirección, con la función de la pila de red pensada para ello, y ninguna conexión automática (órdenes, estadísticas, actualizaciones, Telegram, registro) empieza hasta que la Wi-Fi lleve 20 s conectada.
+- Incluye lo de la 0.3.3 (conexiones seguras en la PSRAM), que no llegó a funcionar en esa placa por este cuelgue.
+
 ## 0.3.3 — 2026-10-10
 
 Versión de prueba (sin probar con una Webasto real).
