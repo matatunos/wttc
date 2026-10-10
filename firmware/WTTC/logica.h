@@ -197,3 +197,37 @@ inline CmdErr cmdCheck(const Cmd& c, const char* myIid, uint32_t lastSeq, uint32
   if (nowEpoch > c.exp || c.exp > nowEpoch + CMD_MAX_LIFE) return CE_EXPIRED;
   return CE_OK;
 }
+
+// ---------- Hora de salida: antelación aprendida ----------
+// De los encendidos con objetivo que llegaron (registro de encendidos: dentro al empezar, objetivo, minutos hasta
+// llegar), a cuántos °C por minuto calienta esta furgoneta: la mediana de (objetivo − dentro) / minutos de los más
+// recientes que valen (subir 3 °C o más, en 3–240 min). Devuelve la tasa, o 0 si hay menos de LEARN_MIN encendidos
+const int LEARN_MIN = 3, LEARN_MAX = 10;
+inline float heatRate(const int8_t* cab0, const uint8_t* tgt, const uint8_t* treach, int n, int& used) {
+  float r[LEARN_MAX]; used = 0;
+  for (int i = n - 1; i >= 0 && used < LEARN_MAX; i--) {      // del más reciente al más antiguo
+    if (!tgt[i] || cab0[i] == -128 || treach[i] < 3 || treach[i] > 240) continue;
+    int d = (int)tgt[i] - cab0[i];
+    if (d < 3) continue;
+    r[used++] = (float)d / treach[i];
+  }
+  if (used < LEARN_MIN) return 0;
+  for (int a = 1; a < used; a++) for (int b = a; b > 0 && r[b] < r[b - 1]; b--) { float t = r[b]; r[b] = r[b - 1]; r[b - 1] = t; }
+  return used % 2 ? r[used / 2] : (r[used / 2 - 1] + r[used / 2]) / 2;
+}
+// Minutos de antelación para llegar a tgt desde tNow con esa tasa: +15 % y 5 min de margen (el arranque), entre 10 y
+// DEP_MAX_LEAD. Sin tasa aprendida o sin temperatura, la fórmula fija (depLeadMin)
+const int DEP_MAX_LEAD = 90;
+inline int depLeadLearned(float rate, float tNow, int tgt, int fallback) {
+  if (rate <= 0 || isnan(tNow) || !tgt) return fallback;
+  float need = tgt - tNow;
+  if (need <= 0) return 10;
+  long m = lround(need / rate * 1.15f) + 5;
+  return m < 10 ? 10 : m > DEP_MAX_LEAD ? DEP_MAX_LEAD : (int)m;
+}
+
+// ---------- Programas: «solo si hace frío» ----------
+// cold = umbral en °C (SCH_NOCOLD = sin condición); t = temperatura de dentro (o del agua sin termómetro; NAN = sin
+// dato). ¿Se salta? Solo si hay dato y no hace frío: sin dato se enciende (mejor gastar que quedarse sin calefacción)
+const int8_t SCH_NOCOLD = 127;
+inline bool coldSkip(int8_t cold, float t) { return cold != SCH_NOCOLD && !isnan(t) && t >= cold; }

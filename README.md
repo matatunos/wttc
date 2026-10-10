@@ -67,8 +67,10 @@ Hechas automáticamente: la web con el simulador y la app en un emulador Android
 | ![Estadísticas](docs/capturas/estadisticas.png) |
 
 ## Qué hace
-- Encender y apagar (15–60 min) y hasta 8 programas semanales.
-- **Hora de salida**: «salgo a las 8:00» (suelta o como programa) y la placa decide cuánto antes encender según el frío.
+- Encender y apagar (15–60 min) y hasta 8 programas semanales, con plantillas, duplicar, aviso si dos se pisan,
+  **«solo si hace frío»**, **saltar la próxima vez** y **pausa hasta un día** (vacaciones).
+- **Hora de salida**: «salgo a las 8:00» (suelta o como programa) y la placa decide cuánto antes encender según el frío;
+  con termómetro, **aprende cuánto tarda tu furgoneta** en calentarse y ajusta la antelación.
 - Con el termómetro opcional, **calentar hasta una temperatura** (5–25 °C): apaga al llegar y vuelve a encender si se
   enfría (cada encendido dura como mínimo 15 min con el motor frío y 5 con el agua ya templada, desde 30 °C); si dentro no sube, se
   rinde y avisa en vez de gastar en balde.

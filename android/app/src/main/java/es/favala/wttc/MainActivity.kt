@@ -105,7 +105,9 @@ class MainActivity : Activity(), BleLink.Listener {
 
     // Programas: [activo, días (bit0 = lunes), inicio en minutos, duración, opciones]. Opciones (firmware 0.2.0+):
     // objetivo en °C en los bits 0–5 (0 = sin termostato) y bit 7 = la hora es la de salida
-    private data class Prog(var en: Boolean, var days: Int, var start: Int, var dur: Int, var x: Int = 0)
+    // cold = «solo si hace frío» (°C; null = siempre) y skip = saltar la próxima vez: firmware 0.3.6+ (fwSch2)
+    private data class Prog(var en: Boolean, var days: Int, var start: Int, var dur: Int, var x: Int = 0, var cold: Int? = null, var skip: Boolean = false)
+    private val colds = intArrayOf(5, 8, 10, 12, 15, 18)
     // Programas en edición, interruptor general y si hay cambios sin guardar en la placa
     private val progs = mutableListOf<Prog>()
     private var progsAuto = true
@@ -176,6 +178,10 @@ class MainActivity : Activity(), BleLink.Listener {
     private var fwVer = ""                             // versión del firmware de la placa (de «cfg»)
     private var fwOta = false                          // ¿sabe actualizarse sola por internet? (firmware 0.1.5+)
     private var fwTh = false                           // ¿sabe termostato, hora de salida y pantalla? (firmware 0.2.0+)
+    private var fwSch2 = false                         // ¿sabe «sched2»: solo si hace frío, saltar y pausa? (0.3.6+)
+    private var progsPause = 0L                        // programas en pausa hasta (s UNIX; 0 = no)
+    private lateinit var bPause: Button
+    private lateinit var tProgWarn: TextView
     private lateinit var spOtaAuto: Spinner            // actualizaciones automáticas de la placa (firmware 0.2.15+)
     private var hasOtaAuto = false
     private var nvAsked = ""                           // versión nueva de la placa por la que ya se ha preguntado
@@ -367,8 +373,9 @@ class MainActivity : Activity(), BleLink.Listener {
                 // Primer uso: la Wi-Fi de la placa sigue con la clave de fábrica (pública). Se pide una vez por sesión
                 if (c.optBoolean("apdef") && !apAsked && !link.demo) { apAsked = true; askApPass() }
             }
-            "sched" -> parseSched(data)
-            "setsched" -> { if (err) toast(msg) else { progsDirty = false; bSaveProgs.text = getString(R.string.saved); refreshSaveBtn() } }
+            "sched" -> if (!fwSch2) parseSched(data)   // con 0.3.6+ vale la respuesta de «sched2», que lo trae todo
+            "sched2" -> parseSched(data)
+            "setsched", "setsched2" -> { if (err) toast(msg) else { progsDirty = false; bSaveProgs.text = getString(R.string.saved); refreshSaveBtn() } }
             "errors" -> tDiag.text = formatErrors(data)
             "log" -> tDiag.text = if (data.isBlank()) getString(R.string.log_empty) else data
             "wbuslog" -> tDiag.text = if (data.isBlank()) getString(R.string.log_empty) else data
@@ -670,8 +677,12 @@ class MainActivity : Activity(), BleLink.Listener {
         swAuto = Switch(this).apply { text = getString(R.string.programs_active); setTextColor(cInk); textSize = 16f }
         swAuto.setOnCheckedChangeListener { _: CompoundButton, c: Boolean -> if (c != progsAuto) { progsAuto = c; touchProgs() } }
         controls.addView(card().apply { addView(swAuto) }, lp(top = 10))
+        bPause = button(getString(R.string.prog_pause_btn)) { pickPause() }
+        controls.addView(card().apply { addView(bPause) }, lp(top = 10))
         progList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         controls.addView(progList)
+        tProgWarn = text("", 13f, Color.parseColor("#FFB4A8")).apply { visibility = View.GONE }
+        controls.addView(tProgWarn, lp(top = 8))
         bSaveProgs = button(getString(R.string.btn_save_programs), true) { saveProgs() }
         controls.addView(row(button(getString(R.string.btn_add_program)) { addProg() }, bSaveProgs), lp(top = 10))
         drawProgs()
@@ -1100,13 +1111,17 @@ class MainActivity : Activity(), BleLink.Listener {
     // Lee los programas que manda la placa ("auto|activo,días,inicio,duración;…"); no pisa cambios sin guardar
     private fun parseSched(s: String) {
         if (progsDirty) return
-        val parts = s.split("|", limit = 2)
+        // "auto|en,días,inicio,duración[,opciones[,frío]];…[|saltar|pausa]" (lo de detrás de la lista, solo «sched2»)
+        val parts = s.split("|")
         progsAuto = parts.getOrNull(0) == "1"
         progs.clear()
+        val skip = parts.getOrNull(2)?.trim()?.toIntOrNull() ?: 0
+        progsPause = parts.getOrNull(3)?.trim()?.toLongOrNull() ?: 0L
         parts.getOrNull(1)?.split(";")?.forEach { it ->
             val p = it.split(",").mapNotNull { x -> x.trim().toIntOrNull() }
-            if (p.size == 4 || p.size == 5) progs += Prog(p[0] == 1, p[1], p[2], p[3], p.getOrElse(4) { 0 })
+            if (p.size in 4..6) progs += Prog(p[0] == 1, p[1], p[2], p[3], p.getOrElse(4) { 0 }, p.getOrNull(5), (skip shr progs.size) and 1 == 1)
         }
+        drawPause()
         swAuto.isChecked = progsAuto
         drawProgs()
     }
@@ -1116,20 +1131,73 @@ class MainActivity : Activity(), BleLink.Listener {
         progsDirty = true
         bSaveProgs.text = getString(R.string.btn_save_programs)
         refreshSaveBtn()
+        progWarn()
+    }
+    private fun progWarn() {
+        if (!::tProgWarn.isInitialized) return
+        val w = overlapWarn(); tProgWarn.text = w; tProgWarn.visibility = if (w.isEmpty()) View.GONE else View.VISIBLE
     }
 
     // El botón de guardar se atenúa si no hay nada que guardar
     private fun refreshSaveBtn() { bSaveProgs.alpha = if (progsDirty) 1f else 0.6f }
 
     // Añade un programa: 07:00, 30 min, de lunes a viernes (31 = bits de lunes a viernes)
+    // Con firmware 0.3.6+, a elegir entre vacío y plantillas de uso habitual (con objetivo, solo si hay termómetro)
     private fun addProg() {
         if (progs.size >= 8) { toast(getString(R.string.max_programs)); return }
-        progs += Prog(true, 31, 7 * 60, 30)
-        touchProgs(); drawProgs()
+        if (!fwSch2) { progs += Prog(true, 31, 7 * 60, 30); touchProgs(); drawProgs(); return }
+        val tpl = listOf(Prog(true, 31, 7 * 60, 30), Prog(true, 31, 7 * 60 + 30, 30, 128, 10), Prog(true, 96, 9 * 60, 30), Prog(true, 127, 22 * 60, 120, 18, 12))
+        AlertDialog.Builder(this).setTitle(getString(R.string.prog_tpl_title))
+            .setItems(arrayOf(getString(R.string.prog_tpl_0), getString(R.string.prog_tpl_1), getString(R.string.prog_tpl_2), getString(R.string.prog_tpl_3))) { _, w ->
+                val p = tpl[w]
+                if (!hasSensor) { p.x = p.x and 128; if (p.dur > 60) p.dur = 60 } else if (p.x and 128 != 0) p.x = p.x or 20
+                progs += p; touchProgs(); drawProgs()
+            }.show()
+    }
+
+    // Pausa («vacaciones»): hasta un día, los programas no encienden; vuelven solos
+    private fun drawPause() {
+        if (!::bPause.isInitialized) return
+        (bPause.parent as? View)?.visibility = if (fwSch2) View.VISIBLE else View.GONE
+        bPause.text = if (progsPause * 1000 > System.currentTimeMillis())
+            getString(R.string.prog_paused, java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM).format(java.util.Date(progsPause * 1000)))
+        else getString(R.string.prog_pause_btn)
+    }
+    private fun pickPause() {
+        val cal = java.util.Calendar.getInstance()
+        if (progsPause * 1000 > System.currentTimeMillis()) cal.timeInMillis = progsPause * 1000 else cal.add(java.util.Calendar.DAY_OF_MONTH, 7)
+        android.app.DatePickerDialog(this, { _, y, m, d ->
+            val c = java.util.Calendar.getInstance().apply { set(y, m, d, 0, 0, 0); set(java.util.Calendar.MILLISECOND, 0) }
+            progsPause = if (c.timeInMillis > System.currentTimeMillis()) c.timeInMillis / 1000 else 0L
+            touchProgs(); drawPause()
+        }, cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH), cal.get(java.util.Calendar.DAY_OF_MONTH)).apply {
+            datePicker.minDate = System.currentTimeMillis()
+            if (progsPause > 0) setButton(android.content.DialogInterface.BUTTON_NEUTRAL, getString(R.string.prog_pause_clear)) { _, _ -> progsPause = 0L; touchProgs(); drawPause() }
+        }.show()
+    }
+
+    // Aviso si dos programas activos se pisan el mismo día (la salida cuenta desde una hora antes, cuando puede encender)
+    private fun overlapWarn(): String {
+        val a = progs.filter { it.en && it.days != 0 }
+        fun r(p: Prog) = if (p.x and 128 != 0) (p.start - 60) to p.start else p.start to (p.start + p.dur)
+        for (i in a.indices) for (j in i + 1 until a.size) {
+            val d = a[i].days and a[j].days
+            if (d == 0) continue
+            val x = r(a[i]); val y = r(a[j])
+            if (x.first < y.second && y.first < x.second)
+                return getString(R.string.prog_overlap, hm(a[i].start), hm(a[j].start), (0 until 7).filter { (d shr it) and 1 == 1 }.joinToString(", ") { dayLetters[it] })
+        }
+        return ""
     }
 
     // Manda los programas a la placa en el formato de texto del firmware
     private fun saveProgs() {
+        if (fwSch2) {
+            val list = progs.joinToString(";") { "${if (it.en) 1 else 0},${it.days},${it.start},${it.dur},${it.x}" + (it.cold?.let { c -> ",$c" } ?: "") }
+            val skip = progs.withIndex().fold(0) { m, (i, p) -> if (p.skip) m or (1 shl i) else m }
+            link.send("setsched2 ${if (progsAuto) 1 else 0}|$list|$skip|$progsPause")
+            return
+        }
         val list = progs.joinToString(";") { "${if (it.en) 1 else 0},${it.days},${it.start},${it.dur}" + (if (it.x != 0) ",${it.x}" else "") }
         link.send("setsched ${if (progsAuto) 1 else 0}|$list")
     }
@@ -1137,6 +1205,8 @@ class MainActivity : Activity(), BleLink.Listener {
     // Pinta la lista de programas: hora (abre un reloj), duración, activo, borrar y los 7 días
     private fun drawProgs() {
         progList.removeAllViews()
+        progWarn()
+        drawPause()
         if (progs.isEmpty()) {
             progList.addView(text(getString(R.string.no_programs), 14f, cMut), lp(top = 10))
             refreshSaveBtn(); return
@@ -1214,6 +1284,19 @@ class MainActivity : Activity(), BleLink.Listener {
                     }
                 }
                 if (hasSensor || p.x and 63 > 0) c.addView(row(mode, tsp), lp(top = 10)) else c.addView(mode, lp(top = 10))
+                // 0.3.6+: «solo si hace frío» (dentro, o el agua sin termómetro), saltar la próxima vez y duplicar
+                if (fwSch2) {
+                    val cl = listOf(getString(R.string.prog_cold_any)) + colds.map { getString(R.string.prog_cold_below, "$it °C") }
+                    c.addView(optSpinner(cl, colds.indexOf(p.cold ?: -99) + 1) { pos ->
+                        val v = if (pos == 0) null else colds[pos - 1]
+                        if (v != p.cold) { p.cold = v; touchProgs() }
+                    }, lp(top = 10))
+                    val skip = button(getString(if (p.skip) R.string.prog_skip_on else R.string.prog_skip), p.skip) { p.skip = !p.skip; touchProgs(); drawProgs() }
+                    val dup = button(getString(R.string.prog_dup)) {
+                        if (progs.size >= 8) toast(getString(R.string.max_programs)) else { progs.add(idx + 1, p.copy(skip = false)); touchProgs(); drawProgs() }
+                    }
+                    c.addView(row(skip, dup), lp(top = 10))
+                }
             }
             progList.addView(c, lp(top = 10))
         }
@@ -1295,6 +1378,8 @@ class MainActivity : Activity(), BleLink.Listener {
         if (hasOtaAuto) spOtaAuto.setSelection(c.optInt("otaauto", 1).coerceIn(0, 2))
         val th = c.optInt("th") == 1
         if (th != fwTh) { fwTh = th; drawProgs() }
+        val s2 = c.optInt("sch2") == 1                 // firmware 0.3.6+: pedir los programas con todo
+        if (s2 != fwSch2) { fwSch2 = s2; if (s2) link.send("sched2"); drawProgs() }
         hwBox.visibility = if (fwTh) View.VISIBLE else View.GONE
         if (fwTh) {
             eWarm.setText(c.optInt("warm").toString())

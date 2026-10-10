@@ -6,6 +6,16 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.3.6 — 2026-10-10
+
+Versión de prueba (sin probar con una Webasto real).
+
+- **La hora de salida aprende de tu furgoneta.** Con termómetro dentro y «hasta X °C», cada encendido apunta cuánto tardó en llegar. Tras 3 encendidos así, la placa calcula a cuántos °C por minuto se calienta tu furgoneta (la mediana de los 10 últimos) y enciende con esa antelación, más un 15 % y 5 min de margen (entre 10 y 90 min). Hasta entonces, o sin termómetro, usa la fórmula de siempre. La web dice cuánto ha aprendido y el registro, cada vez que lo usa.
+- **«Solo si hace frío»** en cada programa: encender solo si dentro hay menos de X °C (sin termómetro, el agua del motor). Sin dato, enciende igual. Si se lo salta, lo apunta en el registro.
+- **Saltar la próxima vez** un programa, sin desactivarlo, y **pausar los programas hasta un día** (vacaciones): vuelven solos. «Salgo a las…» suelta funciona aunque estén en pausa.
+- **Más cómodo de editar**: plantillas al añadir (laborables saliendo a las 7:30, fin de semana, noche hasta 18 °C), botón «Duplicar» y aviso si dos programas activos se pisan el mismo día.
+- En la web de la placa y en la app. Una app anterior sigue funcionando con la placa nueva, y al guardar programas no borra la condición de frío de los que no cambia.
+
 ## 0.3.5 — 2026-10-10
 
 Versión de prueba (sin probar con una Webasto real).

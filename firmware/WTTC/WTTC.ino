@@ -166,7 +166,7 @@ const uint16_t MAX_SESSION  = 240;    // min: ventana máxima de «calentar hast
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.3.5"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.3.6"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -289,6 +289,9 @@ Sched sch[MAX_SCHED];
 uint8_t schX[MAX_SCHED];
 const uint8_t SX_DEP = 0x80, SX_TGT = 0x3F;
 uint32_t depDone[MAX_SCHED];          // última salida ya atendida de cada programa (minuto absoluto), para no repetir
+int8_t schC[MAX_SCHED];               // «solo si hace frío»: encender solo con menos de estos °C dentro (SCH_NOCOLD = siempre)
+uint8_t schSkip = 0;                  // bit i: saltar la próxima vez el programa i (se borra al saltarlo)
+uint32_t schPause = 0;                // programas en pausa hasta este momento (segundos UNIX; 0 = no)
 uint8_t nSch = 0;                     // cuántos programas hay guardados
 bool autoOn = true;                   // interruptor general de los programas
 
@@ -442,7 +445,7 @@ enum Txt {
   T_E_WARM, T_E_TOFF, T_E_VALUE, T_TG_TH_STALL, T_OTA_NOSTA, T_OTA_NETERR, T_LOG_OTA_AUTO, T_LOG_OTA_FAIL,
   T_LOG_AP_OFF, T_LOG_AP_ON, T_LOG_CRASH, T_LOG_NVS_ERR, T_LOG_NVS_FULL, T_LOG_TASK_ERR, T_LOG_AP_ERR,
   T_LOG_MDNS_ERR, T_WHY_REBOOT, T_LOG_LOWMEM, T_LOG_STACK, T_OTA_NOTIME, T_LOG_SENT, T_LOG_SENDFAIL, T_E_NOINET, T_SRC_BUTTON, T_D_BTN_ON, T_D_BTN_TGT, T_D_BTN_OFF, T_D_NOWBUS,
-  T_D_UPDATING, T_D_INSTALLING, T_D_REBOOT_OFF, T_LOG_BTN_STUCK, T_E_BTNMIN, T_E_AFTERRUN, T_LOG_PEND, T_LOG_CMD_OK, T_LOG_CMD_BAD, T_LOG_CMD_FAIL, T_LOG_CMD_RES, T_CMD_E_FORMAT,
+  T_D_UPDATING, T_D_INSTALLING, T_D_REBOOT_OFF, T_LOG_BTN_STUCK, T_E_BTNMIN, T_E_AFTERRUN, T_LOG_PEND, T_LOG_SKIP_ONCE, T_LOG_SKIP_WARM, T_LOG_PAUSE_END, T_LOG_DEP_LEARN, T_LOG_CMD_OK, T_LOG_CMD_BAD, T_LOG_CMD_FAIL, T_LOG_CMD_RES, T_CMD_E_FORMAT,
   T_CMD_E_SIG, T_CMD_E_BOARD, T_CMD_E_OLD, T_CMD_E_EXPIRED, T_CMD_E_UNKNOWN, T_CMD_E_HEAT, T_W_UPDATING, T_RR_POWER, T_RR_SW, T_RR_CRASH, T_RR_WDT, T_RR_BROWN, T_RR_RST, T_RR_OTHER, T_LOG_RESET, T_TG_RESET,
   T_W_LOGIN, T_W_LOGINBAD, T_W_LOGINLOCK, T_W_SETUPWEB, T_E_WEBUSER, T_E_WEBPASS, T_E_WEBDEF, T_LOG_LOGIN,
   T_E_IID, T_TG_IID, T_E_NOTG, T_LOG_IID,
@@ -606,6 +609,10 @@ const char* const TXT[T_COUNT][L_N] = {
   /* T_E_BTNMIN */         {"Minutos del botón: 0 (desactivado), 15, 30, 45 o 60.", "Button minutes: 0 (off), 15, 30, 45 or 60.", "Tastenminuten: 0 (aus), 15, 30, 45 oder 60."},
   /* T_E_AFTERRUN */      {"La Webasto está terminando de apagarse (postbarrido): prueba en %d s.", "The Webasto is finishing switching off (after-run): try again in %d s.", "Die Webasto beendet gerade das Ausschalten (Nachlauf): in %d s erneut versuchen."},
   /* T_LOG_PEND */         {"Encendido aplazado %d s: la Webasto está terminando de apagarse", "Start delayed %d s: the Webasto is finishing switching off", "Start um %d s verschoben: die Webasto beendet gerade das Ausschalten"},
+  /* T_LOG_SKIP_ONCE */    {"Programa de las %s saltado (pedido «saltar la próxima vez»)", "Program at %s skipped (“skip next time” was set)", "Programm um %s übersprungen („nächstes Mal überspringen“)"},
+  /* T_LOG_SKIP_WARM */    {"Programa de las %s saltado: %s, sin frío (solo con menos de %d °C)", "Program at %s skipped: %s, not cold (only below %d °C)", "Programm um %s übersprungen: %s, nicht kalt (nur unter %d °C)"},
+  /* T_LOG_PAUSE_END */    {"Fin de la pausa: los programas vuelven a estar activos", "Pause over: the programs are active again", "Pause vorbei: die Programme sind wieder aktiv"},
+  /* T_LOG_DEP_LEARN */    {"Salida: antelación aprendida de %d encendidos (%s °C/min): %d min", "Departure: lead time learned from %d runs (%s °C/min): %d min", "Abfahrt: Vorlauf aus %d Heizläufen gelernt (%s °C/min): %d min"},
   /* T_LOG_CMD_OK */       {"Orden remota: %s", "Remote command: %s", "Fernbefehl: %s"},
   /* T_LOG_CMD_BAD */      {"Orden remota rechazada (%s)", "Remote command rejected (%s)", "Fernbefehl abgelehnt (%s)"},
   /* T_LOG_CMD_FAIL */     {"La orden remota «%s» no se pudo hacer: %s", "The remote command “%s” could not be done: %s", "Fernbefehl „%s“ nicht ausführbar: %s"},
@@ -1685,12 +1692,15 @@ String nextSched(bool& isDep) {
   isDep = false;
   if (!autoOn || !timeValid()) return "";
   time_t t = time(nullptr); struct tm tm; localtime_r(&t, &tm);
+  if (schPause && (uint32_t)t < schPause) return "";   // en pausa: ninguno
   int wd = (tm.tm_wday + 6) % 7, m = tm.tm_hour * 60 + tm.tm_min, best = -1, bi = -1, bd = 0;
   for (int i = 0; i < nSch; i++) {
     if (!sch[i].en) continue;
-    for (int k = 0; k < 8; k++) {
+    bool sk = (schSkip >> i) & 1;                 // «saltar la próxima vez»: cuenta la siguiente
+    for (int k = 0; k < 15; k++) {
       int d = (wd + k) % 7;
       if (!(sch[i].days >> d & 1) || (k == 0 && sch[i].start <= m)) continue;
+      if (sk) { sk = false; continue; }
       int dt = k * 1440 + sch[i].start - m;
       if (best < 0 || dt < best) { best = dt; bi = i; bd = d; }
       break;
@@ -2090,16 +2100,25 @@ float depTemp() {
 }
 
 // ¿Toca encender para una salida? depMin = minuto absoluto (time()/60) de la salida; done = la última ya atendida
-void depCheck(uint32_t depMin, uint8_t tgt, uint32_t& done, const char* src) {
+void depCheck(uint32_t depMin, uint8_t tgt, uint32_t& done, const char* src, int8_t cold) {
   uint32_t nowMin = time(nullptr) / 60;
   if (depMin <= nowMin || done == depMin) return;
   uint32_t left = depMin - nowMin;
-  if (left > 60) return;
+  if (left > (uint32_t)DEP_MAX_LEAD) return;
   if (isnan(cabT) && millis() - lastSensor > 300000) readSensors();   // sin termómetro: leer el agua (cada 5 min)
   float t = depTemp();
-  int lead = depLead(t);
+  // Antelación: la aprendida de esta furgoneta (con objetivo y termómetro, si ya hay bastantes encendidos) o la fórmula
+  int used = 0; float rate = learnRate(used);
+  int lead = depLeadLearned(rate, cabT, tgt, depLead(t));
   if (left > (uint32_t)lead) return;
   done = depMin;                                            // se atiende una sola vez, encienda o no
+  if (rate > 0 && tgt && !isnan(cabT)) addLog(trf(T_LOG_DEP_LEARN, used, num(rate, 2).c_str(), lead));
+  if (coldSkip(cold, t)) {                                  // «solo si hace frío» y no hace
+    time_t dt = (time_t)depMin * 60; struct tm tm; localtime_r(&dt, &tm);
+    char h[6]; strftime(h, sizeof h, "%H:%M", &tm);
+    addLog(trf(T_LOG_SKIP_WARM, h, degs(t, 1).c_str(), (int)cold));
+    return;
+  }
   if (heaterOn || thActive || left < 10) return;            // ya está calentando, o queda demasiado poco
   if (tgt && !isnan(cabT) && cabT >= tgt) { addLog(trf(T_LOG_TH_WAIT, degs(cabT, 1).c_str())); return; }
   if (!battOk()) return;
@@ -2111,6 +2130,21 @@ void depCheck(uint32_t depMin, uint8_t tgt, uint32_t& done, const char* src) {
   if (tgt && !isnan(cabT)) startSession(left, tgt, src);
   else startHeater(min((uint16_t)left, MAX_MIN), src);
   runDep = false;
+}
+
+// Minuto del día como texto: 450 → "07:30"
+String hm(uint16_t m) { char h[6]; snprintf(h, sizeof h, "%02u:%02u", (unsigned)(m / 60 % 24), (unsigned)(m % 60)); return String(h); }
+
+// Tasa de calentamiento aprendida del registro de encendidos (°C/min; 0 si aún no hay bastantes, ver heatRate)
+float learnRate(int& used) {
+  int8_t c0[RUNS] = {}; uint8_t tg[RUNS] = {}, trh[RUNS] = {}; int n = 0;
+  uint32_t from = runSeq > RUNS ? runSeq - RUNS + 1 : 1;
+  for (uint32_t q = from; q <= runSeq; q++) {     // del más antiguo al más reciente, solo los que están
+    const Run& x = runs[(q - 1) % RUNS];
+    if (x.seq != q) continue;
+    c0[n] = x.cab0; tg[n] = x.tgt == 255 ? 0 : x.tgt; trh[n] = x.treach == 255 ? 0 : x.treach; n++;   // 255 = sin dato
+  }
+  return heatRate(c0, tg, trh, n, used);
 }
 
 // Próxima vez que el reloj marque hh:mm (hoy o mañana), como minuto absoluto
@@ -2186,6 +2220,10 @@ void loadCfg() {
   if (nSch) prefs.getBytes("sch", sch, sizeof(Sched) * nSch);
   memset(schX, 0, sizeof schX);
   if (nSch && prefs.isKey("schx")) prefs.getBytes("schx", schX, nSch);
+  memset(schC, SCH_NOCOLD, sizeof schC);          // sin «solo si hace frío» (programas de antes de la 0.3.6)
+  if (nSch && prefs.isKey("schc") && prefs.getBytesLength("schc") == nSch) prefs.getBytes("schc", schC, nSch);
+  schSkip  = prefs.getUChar("skip", 0);
+  schPause = prefs.getUInt("pause", 0);
   for (int i = 0; i < nSch; i++) {
     int tg = schX[i] & SX_TGT;
     if (tg && (tg < TGT_MIN || tg > TGT_MAX)) schX[i] &= SX_DEP;  // objetivo fuera de rango: sin termostato
@@ -2272,26 +2310,38 @@ void loadCfg() {
 void saveSched() {
   nvsOpen(false);
   prefs.putUChar("n", nSch);
-  if (nSch) { prefs.putBytes("sch", sch, sizeof(Sched) * nSch); prefs.putBytes("schx", schX, nSch); }
-  else { prefs.remove("sch"); prefs.remove("schx"); }
+  if (nSch) { prefs.putBytes("sch", sch, sizeof(Sched) * nSch); prefs.putBytes("schx", schX, nSch); prefs.putBytes("schc", schC, nSch); }
+  else { prefs.remove("sch"); prefs.remove("schx"); prefs.remove("schc"); }
   prefs.putBool("auto", autoOn);
+  prefs.putUChar("skip", schSkip);
+  prefs.putUInt("pause", schPause);
   prefs.end();
 }
 
-// Programas en texto (los manda la web o la app): auto = "1"/"0"; lista = "en,días,inicio,duración[,opciones];..."
+// Programas en texto (los manda la web o la app): auto = "1"/"0"; lista = "en,días,inicio,duración[,opciones[,frío]];..."
 // opciones = schX (objetivo en °C en los bits 0–5, bit 7 = hora de salida); sin ellas, 0 (como en versiones anteriores).
+// frío = «solo si hace frío» (°C; sin él, siempre). skip = programas a saltar la próxima vez (bits); pause = pausa
+// hasta (s UNIX; 0 = no). Los dos últimos solo si vienen (las apps y webs anteriores no los mandan: se conservan)
 // Se descartan las entradas mal formadas o fuera de rango; la duración se limita a MAX_MIN (MAX_SESSION con objetivo).
-void applySched(const String& a, const String& L) {
+// full = false: viene de una app anterior a la 0.3.6 («setsched»), que no conoce «solo si hace frío»: los programas que
+// siguen igual (misma hora y días) conservan su condición
+void applySched(const String& a, const String& L, const String& skip, const String& pause, bool full) {
+  Sched oldS[MAX_SCHED]; int8_t oldC[MAX_SCHED]; uint8_t oldN = nSch;
+  memcpy(oldS, sch, sizeof oldS); memcpy(oldC, schC, sizeof oldC);
   autoOn = a == "1";
   nSch = 0;
+  if (skip.length()) schSkip = (uint8_t)skip.toInt();
+  if (pause.length()) { long p = pause.toInt(); schPause = p > (long)time(nullptr) ? (uint32_t)p : 0; }
   int p = 0;
   while (p < (int)L.length() && nSch < MAX_SCHED) {
     int q = L.indexOf(';', p);
     if (q < 0) q = L.length();
     String it = L.substring(p, q);
     p = q + 1;
-    int e, d, st, du, x = 0;
-    if (sscanf(it.c_str(), "%d,%d,%d,%d,%d", &e, &d, &st, &du, &x) >= 4 && st >= 0 && st < 1440 && du > 0) {
+    int e, d, st, du, x = 0, cold = SCH_NOCOLD;
+    if (sscanf(it.c_str(), "%d,%d,%d,%d,%d,%d", &e, &d, &st, &du, &x, &cold) >= 4 && st >= 0 && st < 1440 && du > 0) {
+      schC[nSch] = cold >= -20 && cold <= 30 ? (int8_t)cold : SCH_NOCOLD;   // fuera de rango: sin condición
+      if (!full) for (int o = 0; o < oldN; o++) if (oldS[o].start == st && oldS[o].days == (d & 0x7F)) { schC[nSch] = oldC[o]; break; }
       x &= SX_DEP | SX_TGT;
       int tg = x & SX_TGT;
       if (tg && (tg < TGT_MIN || tg > TGT_MAX)) x &= SX_DEP;   // objetivo fuera de rango: sin termostato
@@ -2304,18 +2354,22 @@ void applySched(const String& a, const String& L) {
       nSch++;
     }
   }
+  schSkip &= (1 << nSch) - 1;                     // solo los programas que hay
   saveSched();
   addLog(trf(T_LOG_SCHED, nSch));
 }
 
-// Los programas en el mismo formato de texto, para la app ("1|1,31,420,30;0,96,600,15,148"); las opciones solo si hay
-String schedText() {
+// Los programas en el mismo formato de texto, para la app ("1|1,31,420,30;0,96,600,15,148,8|2|0"): opciones y frío solo
+// si hay; detrás, los programas a saltar y la pausa. Sin full («sched», apps anteriores a la 0.3.6), como antes
+String schedText(bool full) {
   String s = autoOn ? "1|" : "0|";
   for (int i = 0; i < nSch; i++) {
     if (i) s += ";";
     s += sch[i].en; s += ","; s += sch[i].days; s += ","; s += sch[i].start; s += ","; s += sch[i].dur;
-    if (schX[i]) { s += ","; s += schX[i]; }
+    if (schX[i] || (full && schC[i] != SCH_NOCOLD)) { s += ","; s += schX[i]; }
+    if (full && schC[i] != SCH_NOCOLD) { s += ","; s += (int)schC[i]; }   // int8_t: como número, no como carácter
   }
+  if (full) { s += "|"; s += schSkip; s += "|"; s += schPause; }   // las apps anteriores a la 0.3.6 no lo entenderían
   return s;
 }
 
@@ -2452,6 +2506,7 @@ String cfgJson(bool withPin) {
   j += ",\"lang\":\"";  j += LANG_CODES[lang]; j += "\"";     // idioma de la placa (la app lo iguala al del móvil)
   j += ",\"ota\":1";                                            // sabe buscar y actualizar por internet
   j += ",\"th\":1";                                             // sabe termostato y hora de salida (0.2.0+)
+  j += ",\"sch2\":1";                                           // sabe «sched2»: frío, saltar y pausa (0.3.6+)
   j += ",\"otaauto\":"; j += (int)otaAuto;                      // actualizaciones automáticas (0.2.15+)
   j += ",\"webuser\":"; j += js(String(webUser));                // usuario de la web desde otra red (0.2.16+)
   j += ",\"webdef\":"; j += webDefault() ? "true" : "false";     // usuario y clave de fábrica
@@ -2629,10 +2684,14 @@ void checkSchedule() {
   uint32_t nowMin = t / 60;
   // Salida suelta: se atiende aunque los programas estén desactivados; pasada la hora se borra
   if (depOnce) {
-    depCheck(depOnce, depOnceT, depOnceDone, "app");
+    depCheck(depOnce, depOnceT, depOnceDone, "app", SCH_NOCOLD);
     if (nowMin >= depOnce) depSet(0, 0);
   }
   if (!autoOn) return;                            // programas apagados
+  if (schPause) {                                 // en pausa («vacaciones») hasta un día: vuelven solos
+    if ((uint32_t)t < schPause) return;
+    schPause = 0; saveSched(); addLog(tr(T_LOG_PAUSE_END));
+  }
 
   uint8_t wd = (tm.tm_wday + 6) % 7;             // día de la semana con 0 = lunes (tm_wday tiene 0 = domingo)
   uint16_t m = tm.tm_hour * 60 + tm.tm_min;      // minuto del día
@@ -2644,14 +2703,29 @@ void checkSchedule() {
       // decide cuánto antes encender según la temperatura
       for (int k = 0; k < 2; k++) {
         int32_t diff = k * 1440 + sch[i].start - m;
-        if ((sch[i].days >> ((wd + k) % 7) & 1) && diff > 0 && diff <= 60) depCheck(nowMin + diff, tgt, depDone[i], "programa");
+        if (!(sch[i].days >> ((wd + k) % 7) & 1) || diff <= 0 || diff > DEP_MAX_LEAD) continue;
+        if ((schSkip >> i) & 1) {                 // «saltar la próxima vez»: esta salida no
+          if (depDone[i] != nowMin + diff) {
+            depDone[i] = nowMin + diff; schSkip &= ~(1 << i); saveSched();
+            addLog(trf(T_LOG_SKIP_ONCE, hm(sch[i].start).c_str()));
+          }
+          continue;
+        }
+        depCheck(nowMin + diff, tgt, depDone[i], "programa", schC[i]);
       }
       continue;
     }
     if (heaterOn || thActive) continue;           // ya está calentando
     if ((sch[i].days & (1 << wd)) && sch[i].start == m) {
+      if ((schSkip >> i) & 1) {                   // «saltar la próxima vez»
+        schSkip &= ~(1 << i); saveSched();
+        addLog(trf(T_LOG_SKIP_ONCE, hm(sch[i].start).c_str()));
+        return;
+      }
       // Antes de encender se mira la batería: con poca tensión, no se arranca (para poder arrancar el motor)
       if (!battOk()) return;
+      float tn = !isnan(cabT) ? cabT : (tempC > -100 ? (float)tempC : NAN);   // battOk() acaba de leer el agua
+      if (coldSkip(schC[i], tn)) { addLog(trf(T_LOG_SKIP_WARM, hm(sch[i].start).c_str(), degs(tn, 1).c_str(), (int)schC[i])); return; }
       if (autoStartLater(sch[i].dur, tgt, false, "programa")) return;   // en postbarrido: al terminar
       if (tgt && !isnan(cabT)) startSession(sch[i].dur, tgt, "programa");   // con objetivo: termostato
       else startHeater(min(sch[i].dur, MAX_MIN), "programa");
@@ -2806,7 +2880,7 @@ String runCmd(String c) {
   String k = sp < 0 ? c : c.substring(0, sp), a = sp < 0 ? String("") : c.substring(sp + 1);
   k.toLowerCase();
   // Actualizando: solo apagar y consultar (la app también lo bloquea todo)
-  if (updating() && k != "off" && k != "cfg" && k != "errors" && k != "log" && k != "wbuslog" && k != "sched" && k != "report" && k != "runsack" && k != "time")
+  if (updating() && k != "off" && k != "cfg" && k != "errors" && k != "log" && k != "wbuslog" && k != "sched" && k != "sched2" && k != "report" && k != "runsack" && k != "time")
     return k + ":err " + tr(T_W_UPDATING);
   if (k == "on") {                                 // on [minutos] [objetivo °C]: con objetivo, termostato
     int m = a.toInt(), b = a.indexOf(' ');
@@ -2832,12 +2906,20 @@ String runCmd(String c) {
     addLog(tr(T_LOG_TIME_APP));
     return "time:ok";
   }
-  if (k == "sched") return "sched:" + schedText();
-  if (k == "setsched") {                           // setsched <auto>|<lista>
+  if (k == "sched") return "sched:" + schedText(false);
+  if (k == "sched2") return "sched2:" + schedText(true);   // apps 0.3.6+: con «solo si hace frío», saltar y pausa
+  if (k == "setsched" || k == "setsched2") {       // setsched <auto>|<lista> · setsched2 <auto>|<lista>|<saltar>|<pausa>
     int b = a.indexOf('|');
     if (b < 0) return String("setsched:err ") + tr(T_E_FORMAT);
-    applySched(a.substring(0, b), a.substring(b + 1));
-    return "setsched:ok";
+    String rest = a.substring(b + 1), list = rest, skip, pause;
+    int c = rest.indexOf('|');
+    if (c >= 0) {
+      list = rest.substring(0, c); skip = rest.substring(c + 1);
+      int d = skip.indexOf('|');
+      if (d >= 0) { pause = skip.substring(d + 1); skip = skip.substring(0, d); }
+    }
+    applySched(a.substring(0, b), list, skip, pause, k == "setsched2");
+    return k + ":ok";
   }
   if (k == "errors") return "errors:" + errorsJson();
   if (k == "iidtg") {                              // código de instalación por Telegram
@@ -2962,9 +3044,12 @@ void handleState() {
   for (int i = 0; i < nSch; i++) {
     if (i) j += ",";
     j += "["; j += sch[i].en; j += ","; j += sch[i].days; j += ",";
-    j += sch[i].start; j += ","; j += sch[i].dur; j += ","; j += (int)schX[i]; j += "]";
+    j += sch[i].start; j += ","; j += sch[i].dur; j += ","; j += (int)schX[i]; j += ",";
+    j += schC[i] == SCH_NOCOLD ? String("null") : String((int)schC[i]); j += ","; j += (schSkip >> i) & 1; j += "]";
   }
-  j += "],\"log\":[";                             // registro, del más reciente al más antiguo
+  j += "],\"pause\":"; j += schPause;            // programas en pausa hasta (s UNIX; 0 = no)
+  { int used; float r = learnRate(used); j += ",\"dlr\":"; j += (int)lroundf(r * 100); j += ",\"dln\":"; j += used; }   // salida aprendida
+  j += ",\"log\":[";                             // registro, del más reciente al más antiguo
   for (int i = logN - 1; i >= 0; i--) { j += js(logBuf[i]); if (i) j += ","; }
   j += "]}";
   server.send(200, "application/json", j);
@@ -3548,7 +3633,7 @@ void handleOff() {
 
 // POST /api/sched (auto, list): guardar programas
 void handleSched() {
-  applySched(server.arg("auto"), server.arg("list"));
+  applySched(server.arg("auto"), server.arg("list"), server.arg("skip"), server.arg("pause"), true);
   server.send(200, "text/plain", "ok");
 }
 

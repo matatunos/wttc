@@ -296,4 +296,19 @@
         <item>Zu dieser Zeit einschalten</item>
         <item>Abfahrt zu dieser Zeit</item>
     </string-array>
+    <string name="prog_cold_any">Immer</string>
+    <string name="prog_cold_below">Nur unter %1$s innen</string>
+    <string name="prog_skip">Nächstes überspringen</string>
+    <string name="prog_skip_on">Wird nächstes Mal übersprungen ✓</string>
+    <string name="prog_dup">Duplizieren</string>
+    <string name="prog_pause_btn">Pausieren bis…</string>
+    <string name="prog_pause_none">Programme nicht pausiert</string>
+    <string name="prog_paused">Pausiert bis %1$s (laufen danach von selbst weiter)</string>
+    <string name="prog_pause_clear">Pause aufheben</string>
+    <string name="prog_overlap">Achtung: die Programme um %1$s und um %2$s überschneiden sich (%3$s)</string>
+    <string name="prog_tpl_title">Neues Programm</string>
+    <string name="prog_tpl_0">Leer: 07:00, 30 min, werktags</string>
+    <string name="prog_tpl_1">Werktags: Abfahrt 7:30</string>
+    <string name="prog_tpl_2">Wochenende: 9:00, 30 min</string>
+    <string name="prog_tpl_3">Nacht: 22:00, bis 18 °C</string>
 </resources>

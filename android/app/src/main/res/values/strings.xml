@@ -297,4 +297,19 @@
         <item>Switch on at this time</item>
         <item>I leave at this time</item>
     </string-array>
+    <string name="prog_cold_any">Always</string>
+    <string name="prog_cold_below">Only below %1$s inside</string>
+    <string name="prog_skip">Skip next</string>
+    <string name="prog_skip_on">Will skip next time ✓</string>
+    <string name="prog_dup">Duplicate</string>
+    <string name="prog_pause_btn">Pause until…</string>
+    <string name="prog_pause_none">Programs not paused</string>
+    <string name="prog_paused">Paused until %1$s (they resume by themselves)</string>
+    <string name="prog_pause_clear">Remove pause</string>
+    <string name="prog_overlap">Note: the programs at %1$s and at %2$s overlap (%3$s)</string>
+    <string name="prog_tpl_title">New program</string>
+    <string name="prog_tpl_0">Empty: 07:00, 30 min, weekdays</string>
+    <string name="prog_tpl_1">Weekdays: leave at 7:30</string>
+    <string name="prog_tpl_2">Weekend: 9:00, 30 min</string>
+    <string name="prog_tpl_3">Night: 22:00, up to 18 °C</string>
 </resources>

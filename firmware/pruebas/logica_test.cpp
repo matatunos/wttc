@@ -202,6 +202,37 @@ static void pruebasOrdenes() {
   CHECK(cmdCheck(c, nullptr, 16, 1800000000) == CE_OTHER_BOARD);
 }
 
+// ---------- Programador ----------
+static void pruebasProgramador() {
+  // Cinco encendidos: de 2 a 20 °C en 36 min (0,5 °C/min), etc.
+  int8_t c0[6] = {2, 5, -128, 10, 0, 4}; uint8_t tg[6] = {20, 20, 20, 21, 0, 20}; uint8_t tr[6] = {36, 30, 40, 22, 30, 32};
+  int used = 0;
+  float r = heatRate(c0, tg, tr, 6, used);
+  CHECK(used == 4);                                         // sin termómetro (-128) y sin objetivo (0): no cuentan
+  CHECK(r > 0.49f && r < 0.51f);                            // mediana de 0,5 · 0,5 · 0,5 · 0,5
+  CHECK(depLeadLearned(r, 2, 20, 30) == 46);                // 18 °C / 0,5 × 1,15 + 5 = 46,4 → 46
+  CHECK(depLeadLearned(r, -10, 20, 30) == 74);              // 30 °C / 0,5 × 1,15 + 5
+  CHECK(depLeadLearned(r, -40, 20, 30) == DEP_MAX_LEAD);    // muchísimo frío: el máximo
+  CHECK(depLeadLearned(r, 19, 20, 30) == 10);               // casi: el mínimo
+  CHECK(depLeadLearned(r, 22, 20, 30) == 10);               // ya está caliente
+  CHECK(depLeadLearned(0, 2, 20, 33) == 33);                // sin aprender: la fórmula
+  CHECK(depLeadLearned(r, NAN, 20, 33) == 33);              // sin temperatura: la fórmula
+  CHECK(depLeadLearned(r, 2, 0, 33) == 33);                 // sin objetivo: la fórmula
+  int8_t c1[2] = {2, 3}; uint8_t t1[2] = {20, 20}, r1[2] = {30, 30};
+  CHECK(heatRate(c1, t1, r1, 2, used) == 0 && used == 2);   // menos de 3: no se aprende
+  int8_t c2[3] = {19, 18, 2}; uint8_t t2[3] = {20, 20, 20}, r2[3] = {5, 4, 255};
+  CHECK(heatRate(c2, t2, r2, 3, used) == 0 && used == 0);   // subir menos de 3 °C o «no llegó» (255): no cuentan
+  int8_t c3[12]; uint8_t t3[12], r3[12];
+  for (int i = 0; i < 12; i++) { c3[i] = 0; t3[i] = 20; r3[i] = (uint8_t)(i < 2 ? 200 : 40); }
+  heatRate(c3, t3, r3, 12, used);
+  CHECK(used == LEARN_MAX);                                 // solo los 10 más recientes
+
+  CHECK(!coldSkip(SCH_NOCOLD, 25));                         // sin condición: siempre
+  CHECK(coldSkip(10, 12) && coldSkip(10, 10));              // 10 °C o más dentro: no hace falta
+  CHECK(!coldSkip(10, 9.9f));
+  CHECK(!coldSkip(10, NAN));                                // sin dato: se enciende
+}
+
 int main() {
   pruebasWbus();
   pruebasVersiones();
@@ -209,6 +240,7 @@ int main() {
   pruebasSalida();
   pruebasTermostato();
   pruebasOrdenes();
+  pruebasProgramador();
   printf("%d pruebas, %d fallos\n", pruebas, fallos);
   return fallos ? 1 : 0;
 }

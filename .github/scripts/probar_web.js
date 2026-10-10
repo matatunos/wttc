@@ -19,7 +19,7 @@ const state = (o) => Object.assign({ on: true, remain: 1320, total: 1800, src: '
 let cur = state({}), noAuth = false;
 const sb = { document: { getElementById: el, querySelectorAll: () => [], documentElement: {}, hidden: false, body: el('body') }, navigator: { language: 'es-ES' },
   setTimeout: () => {}, setInterval: () => {}, alert: m => { throw new Error('alert: ' + m) }, confirm: () => false, URLSearchParams, Date, Math, JSON,
-  fetch: async (p) => noAuth ? { ok: false, status: 401, text: async () => 'login' } : ({ ok: true, status: 200, text: async () => JSON.stringify(p === '/api/cfg' ? { name: 'WTTC', pin: 123456, wifimode: 1, ssid: '', tgchat: '', minvolt: '12.0',
+  fetch: async (p, o) => (o && (sb.lastPost = { p, b: String(o.body) }), 0) || noAuth ? { ok: false, status: 401, text: async () => 'login' } : ({ ok: true, status: 200, text: async () => JSON.stringify(p === '/api/cfg' ? { name: 'WTTC', pin: 123456, wifimode: 1, ssid: '', tgchat: '', minvolt: '12.0',
     lang: cur.lang, ver: '0.2.1', bonds: 1, tg: false, th: 1, oled: 0, disp: 1, led: 1, toff: '0.0', warm: 50, sens: 'SHT31', scr: false,
     webuser: 'yo', webdef: false, iid: 'ABCD-2345-EFGH-6789', stats: 1, nruns: 12, rack: 10, stok: 300 } : cur) }),
   console, window: {} };
@@ -68,5 +68,20 @@ for (const lang of ['es', 'en', 'de']) {
   cur = state({ lang: 'es', on: false, dg: 1 }); W.st = cur; W.render();
   assert.ok(!el('diagAdv').hidden && el('diagOff').hidden, 'con modo diagnóstico no se ve el registro');
   console.log('modo diagnóstico: OK');
+  // Programador (0.3.6+): «solo si hace frío», saltar la próxima, pausa, solapes, antelación aprendida y lo que se guarda
+  cur = state({ lang: 'es', on: false, pause: now + 86400 * 3, dlr: 48, dln: 5,
+    sch: [[1, 31, 420, 30, 0, 10, 1], [1, 1, 435, 30, 0, null, 0], [1, 96, 480, 120, 148]] }); W.st = cur; W.render();
+  const P = el('list').innerHTML;
+  assert.strictEqual((P.match(/data-k="cold"/g) || []).length, 3, 'falta «solo si hace frío»');
+  assert.ok(/value="10" selected/.test(P) && /Se saltará la próxima vez/.test(P) && (P.match(/data-k="dup"/g) || []).length == 3, 'frío, saltar o duplicar mal pintados');
+  assert.ok(!el('schWarn').hidden && /07:00.*07:15/.test(el('schWarn').textContent), 'no avisa de que 07:00 y 07:15 se pisan el lunes');
+  assert.ok(el('pauseD').value.length == 10 && /pausa/.test(el('next').textContent), 'no se ve la pausa');
+  assert.ok(/5 encendidos.*0,48/.test(el('depLearn').textContent), 'no se ve la antelación aprendida: ' + el('depLearn').textContent);
+  console.log('programador: ' + el('schWarn').textContent + ' | ' + el('next').textContent + ' | ' + el('depLearn').textContent);
+  await el('save').onclick();
+  const q = new URLSearchParams(sb.lastPost.b);
+  assert.ok(sb.lastPost.p == '/api/sched' && q.get('list') == '1,31,420,30,0,10;1,1,435,30,0;1,96,480,120,148' && q.get('skip') == '1' && +q.get('pause') > now,
+    'guardar programas manda mal: ' + sb.lastPost.b);
+  console.log('programador: guardar OK (' + decodeURIComponent(sb.lastPost.b) + ')');
   console.log('Web de la placa: OK');
 })().catch(e => { console.error(e); process.exit(1); });

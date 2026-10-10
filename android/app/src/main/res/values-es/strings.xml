@@ -296,4 +296,19 @@
         <item>Encender a esta hora</item>
         <item>Salgo a esta hora</item>
     </string-array>
+    <string name="prog_cold_any">Siempre</string>
+    <string name="prog_cold_below">Solo con menos de %1$s dentro</string>
+    <string name="prog_skip">Saltar la próxima</string>
+    <string name="prog_skip_on">Se saltará la próxima vez ✓</string>
+    <string name="prog_dup">Duplicar</string>
+    <string name="prog_pause_btn">Pausar hasta…</string>
+    <string name="prog_pause_none">Programas sin pausa</string>
+    <string name="prog_paused">En pausa hasta el %1$s (vuelven solos)</string>
+    <string name="prog_pause_clear">Quitar la pausa</string>
+    <string name="prog_overlap">Ojo: los programas de las %1$s y de las %2$s se pisan (%3$s)</string>
+    <string name="prog_tpl_title">Programa nuevo</string>
+    <string name="prog_tpl_0">Vacío: 07:00, 30 min, laborables</string>
+    <string name="prog_tpl_1">Laborables: salir a las 7:30</string>
+    <string name="prog_tpl_2">Fin de semana: 9:00, 30 min</string>
+    <string name="prog_tpl_3">Noche: 22:00, hasta 18 °C</string>
 </resources>
