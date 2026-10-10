@@ -163,7 +163,7 @@ const uint16_t MAX_SESSION  = 240;    // min: ventana máxima de «calentar hast
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.3.1"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.3.2"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -265,6 +265,10 @@ volatile bool dnsOn = false;
 // Tareas que están saliendo a internet (actualizaciones, Telegram). Mientras haya alguna, loop() deja el portal
 // cautivo en pausa, para que su servidor de nombres no se cruce con las búsquedas de nombres de la propia placa
 std::atomic<int> netUse{0};
+// Las conexiones a internet (HTTPS) van de una en una: cada una necesita unos 35–45 KB de memoria interna y, si
+// coincidían varias al arrancar (actualizaciones, órdenes, estadísticas, Telegram), la memoria libre bajaba a 24 KB
+// (registro de una placa real, 10/10/2026). netBegin() espera su turno; netEnd() lo deja (ver ambas)
+SemaphoreHandle_t netMtx = nullptr;
 Preferences prefs;                    // acceso a la memoria no volátil (espacio de nombres "webasto")
 
 // Un programa semanal: activo, días (bit0 = lunes … bit6 = domingo), hora de inicio en minutos y duración
@@ -706,7 +710,8 @@ String js(const String& s) {
   for (unsigned i = 0; i < s.length(); i++) {
     char c = s[i];
     if (c == '"' || c == '\\') { o += '\\'; o += c; }   // \" y \\ en JSON
-    else if ((uint8_t)c < 0x20) o += ' ';              // saltos de línea y demás: un espacio
+    else if (c == '\n') o += "\\n";                    // salto de línea: \n en JSON (el registro, línea a línea)
+    else if ((uint8_t)c < 0x20) o += ' ';              // los demás de control: un espacio
     else o += c;
   }
   return o + "\"";
@@ -1279,7 +1284,7 @@ void statsPoll() {
     statsBody = "";
     return;
   }
-  if (!statsOn || statsBusy || otaNetBusy || !iid[0] || WiFi.status() != WL_CONNECTED || millis() < 180000) return;
+  if (!statsOn || statsBusy || otaNetBusy || netUse > 0 || !iid[0] || WiFi.status() != WL_CONNECTED || millis() < 180000) return;
   uint32_t wait = runSeq > runAck ? 600000UL : 86400000UL;
   if (statsLast && millis() - statsLast < wait) return;
   statsLast = millis();
@@ -3157,7 +3162,7 @@ void cmdRun(const String& body) {
 void cmdPoll() {
   if (cmdEnd) { cmdEnd = false; cmdBusy = false; if (cmdCode == 200) cmdRun(cmdBody); cmdBody = ""; }
   if (cmdLogAt && (int32_t)(millis() - cmdLogAt) >= 0 && !logBusy && !otaNetBusy) { cmdLogAt = 0; logSendStart(); }
-  if (!remoteOn || cmdBusy || otaNetBusy || logBusy || statsBusy || !iid[0] || WiFi.status() != WL_CONNECTED || !timeValid()) return;
+  if (!remoteOn || cmdBusy || otaNetBusy || logBusy || statsBusy || netUse > 0 || !iid[0] || WiFi.status() != WL_CONNECTED || !timeValid()) return;
   if (cmdLast && millis() - cmdLast < 120000) return;
   cmdLast = millis();
   cmdBusy = true;
@@ -3239,8 +3244,15 @@ void otaNetDone(bool ok, const String& msg) { if (otaNetHeld) { netEnd(); otaNet
 
 // Para salir a internet desde una tarea: pide la pausa del portal cautivo (y espera a que loop() la haga, 0,5 s como
 // mucho) y luego la devuelve. Cada netBegin() lleva su netEnd(); el contador no baja de cero por si acaso
-void netBegin() { netUse++; for (int i = 0; i < 20 && dnsOn; i++) vTaskDelay(pdMS_TO_TICKS(25)); }
-void netEnd() { int n = netUse.load(); while (n > 0 && !netUse.compare_exchange_weak(n, n - 1)) {} }
+void netBegin() {
+  if (netMtx) xSemaphoreTake(netMtx, portMAX_DELAY);   // de una en una (cada tarea da su netEnd() desde ella misma)
+  netUse++;
+  for (int i = 0; i < 20 && dnsOn; i++) vTaskDelay(pdMS_TO_TICKS(25));
+}
+void netEnd() {
+  int n = netUse.load(); while (n > 0 && !netUse.compare_exchange_weak(n, n - 1)) {}
+  if (netMtx) xSemaphoreGive(netMtx);
+}
 
 // Memoria libre, para los mensajes de error: « · memoria 123 KB (bloque 60 KB, PSRAM 8000 KB)»
 // Salud, cada vuelta (barato) y cada minuto (lo demás): memoria más baja, pila de Telegram y aviso si la memoria baja
@@ -3373,7 +3385,7 @@ String otaNetStart(bool install, bool autoCheck) {
 void otaNetPoll() {
   // Búsqueda automática (ajuste «otaauto»): con la red con internet ya conectada, a los 2 min de arrancar (ya confirmada
   // la versión que corre, ver otaConfirm) y luego una vez al día. Nunca calentando
-  if (otaAuto != OA_OFF && !otaNetBusy && WiFi.status() == WL_CONNECTED && !heaterOn && !thActive
+  if (otaAuto != OA_OFF && !otaNetBusy && netUse == 0 && WiFi.status() == WL_CONNECTED && !heaterOn && !thActive
       && (otaAutoLast ? millis() - otaAutoLast > 86400000UL : millis() > 120000)) {
     otaAutoLast = millis();
     otaNetStart(false, true);
@@ -3559,6 +3571,7 @@ void setup() {
   wbus.begin(2400, SERIAL_8E1, WBUS_RX, WBUS_TX);
   loadCfg();
   logLoad();                                      // el registro guardado (y lo de justo antes, si se colgó)
+  netMtx = xSemaphoreCreateMutex();               // conexiones a internet de una en una (ver netBegin)
   tgQueue = xQueueCreate(6, sizeof(Msg));         // hasta 6 avisos en espera
   bleQueue = xQueueCreate(4, sizeof(BleCmd));     // hasta 4 órdenes de la app en espera
   // Tarea de Telegram en el núcleo 0 (el del Wi-Fi); loop() corre en el núcleo 1
