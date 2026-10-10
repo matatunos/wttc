@@ -159,7 +159,7 @@ TXT,
 <tr><td>Tools</td><td>Multimeter, small screwdriver, PC with USB (Linux or Windows)</td><td>Identifying the connector's wires, adjusting the LM2596, flashing the ESP32 and the first test over the console</td></tr>
 </tbody></table>
 TXT,
-'hwHint' => 'Optional: a <b>switch</b> on the ESP32\'s +12 V if the vehicle will stand still for weeks (see “Power consumption” below) and a 1 A inline fuse if the connector\'s +12 V has none. You do not need VCDS to use it, but it is handy to read and clear faults on module 18 (auxiliary heater).',
+'hwHint' => 'Optional: a <b>switch</b> on the ESP32\'s +12 V if the vehicle will stand still for weeks (see “Power consumption” below) and a <b>1 A slow-blow inline fuse</b>. The +12 V of the control connector is permanent (with the ignition off), which is what is needed; its factory fuse varies (Webasto kits usually have a small one, often 1 A; on a factory-fitted T5 it comes from the vehicle fuse box and depends on the year), so fit the 1 A one even if there is a bigger one already: it protects the board\'s thin wires. The board draws about 0.1–0.2 A at 12 V (a little more in short bursts when transmitting); the W-Bus only carries data. You do not need VCDS to use it, but it is handy to read and clear faults on module 18 (auxiliary heater).',
 'instNeed' => <<<'TXT'
 <h2 class="sec">Flashing the firmware: what you need</h2>
 <ul class="pasos">

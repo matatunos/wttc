@@ -159,7 +159,7 @@ TXT,
 <tr><td>Werkzeug</td><td>Multimeter, kleiner Schraubendreher, PC mit USB (Linux oder Windows)</td><td>Kabel des Steckers bestimmen, LM2596 einstellen, ESP32 programmieren und erster Test über die Konsole</td></tr>
 </tbody></table>
 TXT,
-'hwHint' => 'Optional: ein <b>Schalter</b> im +12 V des ESP32, wenn das Fahrzeug wochenlang steht (siehe „Stromverbrauch“ unten), und eine 1-A-Sicherung in der Leitung, falls das +12 V des Steckers keine hat. VCDS ist für den Betrieb nicht nötig, hilft aber beim Auslesen und Löschen von Fehlern im Steuergerät 18 (Zusatzheizung).',
+'hwHint' => 'Optional: ein <b>Schalter</b> im +12 V des ESP32, wenn das Fahrzeug wochenlang steht (siehe „Stromverbrauch“ unten), und eine <b>träge 1-A-Sicherung</b> in der Leitung. Das +12 V am Stecker des Bedienteils ist Dauerplus (auch bei ausgeschalteter Zündung), genau das richtige; seine Werkssicherung ist unterschiedlich (bei Webasto-Nachrüstsätzen meist klein, oft 1 A; beim werksseitig eingebauten T5 kommt es aus dem Sicherungskasten des Fahrzeugs und hängt vom Baujahr ab), daher die 1-A-Sicherung auch dann einsetzen, wenn schon eine größere vorhanden ist: sie schützt die dünnen Leitungen der Platine. Die Platine braucht etwa 0,1–0,2 A bei 12 V (kurz etwas mehr beim Senden); über den W-Bus laufen nur Daten. VCDS ist für den Betrieb nicht nötig, hilft aber beim Auslesen und Löschen von Fehlern im Steuergerät 18 (Zusatzheizung).',
 'instNeed' => <<<'TXT'
 <h2 class="sec">Firmware aufspielen: was du brauchst</h2>
 <ul class="pasos">

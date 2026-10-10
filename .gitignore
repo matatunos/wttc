@@ -19,3 +19,4 @@ keystore.properties
 .env
 # Dependencias de las capturas (Playwright)
 node_modules/
+__pycache__/

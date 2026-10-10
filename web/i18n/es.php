@@ -174,7 +174,7 @@ TXT,
 </tbody></table>
 TXT,
 'hwHint' => <<<'TXT'
-Opcional: un <b>interruptor</b> en el +12 V del ESP32 si el vehículo va a estar parado semanas (ver «Consumo» más abajo) y un fusible de 1 A en línea si el +12 V del conector no lo lleva. No hace falta VCDS para usarlo, pero sirve para leer y borrar averías del módulo 18 (calefacción auxiliar).
+Opcional: un <b>interruptor</b> en el +12 V del ESP32 si el vehículo va a estar parado semanas (ver «Consumo» más abajo) y un <b>fusible de 1 A de acción lenta</b> en línea. El +12 V del conector del mando es permanente (con el contacto quitado), que es el que hace falta; el fusible que lleva de fábrica varía (en los kits Webasto suele ser pequeño, a menudo de 1 A; en la T5 de fábrica sale de la caja de fusibles del coche y depende del año), así que pon el de 1 A aunque ya haya otro mayor: protege los cables finos de la placa. La placa gasta unos 0,1–0,2 A a 12 V (algo más en picos breves al transmitir); por el W-Bus solo van datos. No hace falta VCDS para usarlo, pero sirve para leer y borrar averías del módulo 18 (calefacción auxiliar).
 TXT,
 'instNeed' => <<<'TXT'
 <h2 class="sec">Instalar el firmware: qué necesitas</h2>

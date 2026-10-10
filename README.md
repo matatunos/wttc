@@ -34,7 +34,8 @@ Extracto; el texto completo está en https://wttc.favala.es/#responsabilidad (ta
   que la ley no permite excluir, como la derivada de dolo o culpa grave.
 - **Responsabilidad del usuario.** Quien lo instala o lo usa lo hace bajo su exclusiva responsabilidad. **Nunca programes
   ni enciendas la calefacción con el vehículo en un garaje o recinto cerrado:** el monóxido de carbono no huele y puede ser
-  mortal. Instálalo solo si sabes trabajar con seguridad en 12 V, pon fusible y conserva siempre una forma de apagarla
+  mortal. Instálalo solo si sabes trabajar con seguridad en 12 V, pon un fusible de 1 A de acción lenta en el +12 V de la placa
+  (aunque el del mando ya lleve otro mayor) y conserva siempre una forma de apagarla
   sin el proyecto.
 - **Inteligencia artificial y marcas.** Todo el código y el contenido se han generado con Claude (Anthropic) y pueden
   contener errores no detectados. Webasto, Thermo Top, Volkswagen y el resto de marcas citadas son de sus titulares; el
