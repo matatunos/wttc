@@ -231,14 +231,6 @@ uint8_t bootWhy = 0;                  // motivo del último arranque (RR_*, ver 
 uint32_t heapMin = 0;                 // memoria libre más baja vista desde que arrancó (bytes)
 TaskHandle_t tgTaskH = nullptr;       // tarea de Telegram (la única que vive siempre): para medir su pila
 uint32_t stackLeft[3] = {0, 0, 0};    // pila que les sobró a las tareas stats, ota y telegram (bytes; 0 = sin medir)
-// Apunta cuánta pila le sobró a una tarea; por debajo de 1 KB, aviso en el registro (una vez por tarea)
-void stackMark(int i, uint32_t left) {
-  static const char* N[] = {"stats", "ota", "telegram"};
-  static bool warned[3];
-  if (i < 0 || i > 2) return;
-  if (!stackLeft[i] || left < stackLeft[i]) stackLeft[i] = left;
-  if (left < 1024 && !warned[i]) { warned[i] = true; addLog(trf(T_LOG_STACK, N[i], (unsigned)left)); }
-}
 volatile bool otaUploading = false;   // se está subiendo un .ota desde la web (Configuración → Actualizar)
 uint32_t otaUploadAt = 0;             // último trozo recibido (si la subida se corta sin aviso, a los 2 min deja de contar)
 volatile bool otaNetEnd = false;      // la tarea ha terminado: loop() responde y, si se instaló, reinicia
@@ -379,15 +371,6 @@ uint8_t oledAddr = 0x3C;              // dirección I2C de la pantalla (0x3C o 0
 // prefs.begin() puede fallar (memoria dañada o sin sitio): entonces Preferences no guarda ni lee nada (devuelve los
 // valores por defecto), y aquí se apunta una vez para que se sepa. nvsPut() comprueba que se ha guardado de verdad
 bool nvsErrLogged = false, nvsFullLogged = false;
-bool nvsOpen(bool readOnly) {
-  if (prefs.begin("webasto", readOnly)) return true;
-  if (!nvsErrLogged) { nvsErrLogged = true; addLog(tr(T_LOG_NVS_ERR)); }
-  return false;
-}
-// Tras un put: si devolvió 0 bytes con algo que guardar, la memoria está llena (o falla)
-void nvsCheck(size_t wrote, size_t want, const char* what) {
-  if (want && !wrote && !nvsFullLogged) { nvsFullLogged = true; addLog(trf(T_LOG_NVS_FULL, what)); }
-}
 
 // Registro de los LOG_N últimos eventos. Se guarda en la flash (NVS, clave "log2"): sobrevive a reinicios, cuelgues y
 // cortes de corriente. Las líneas aún sin guardar (se guarda como mucho cada 2 s, ver logSaveTick) van también a la
@@ -639,6 +622,25 @@ const char* const TXT[T_COUNT][L_N] = {
 
 // Texto en el idioma elegido
 const char* tr(Txt t) { return TXT[t][lang]; }
+
+// (Funciones de salud y de la memoria de ajustes: aquí, tras los textos, que usan; sus variables están arriba)
+// Apunta cuánta pila le sobró a una tarea; por debajo de 1 KB, aviso en el registro (una vez por tarea)
+void stackMark(int i, uint32_t left) {
+  static const char* N[] = {"stats", "ota", "telegram"};
+  static bool warned[3];
+  if (i < 0 || i > 2) return;
+  if (!stackLeft[i] || left < stackLeft[i]) stackLeft[i] = left;
+  if (left < 1024 && !warned[i]) { warned[i] = true; addLog(trf(T_LOG_STACK, N[i], (unsigned)left)); }
+}
+bool nvsOpen(bool readOnly) {
+  if (prefs.begin("webasto", readOnly)) return true;
+  if (!nvsErrLogged) { nvsErrLogged = true; addLog(tr(T_LOG_NVS_ERR)); }
+  return false;
+}
+// Tras un put: si devolvió 0 bytes con algo que guardar, la memoria está llena (o falla)
+void nvsCheck(size_t wrote, size_t want, const char* what) {
+  if (want && !wrote && !nvsFullLogged) { nvsFullLogged = true; addLog(trf(T_LOG_NVS_FULL, what)); }
+}
 
 // Texto con datos (printf), en el idioma elegido. t es int y no Txt: va_start no admite un enum como último parámetro
 String trf(int t, ...) {
