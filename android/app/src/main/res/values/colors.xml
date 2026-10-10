@@ -3,4 +3,6 @@
     <color name="bg">#0F1A2A</color>
     <color name="icon_bg">#172437</color>
     <color name="flame">#FF9F1C</color>
+    <color name="bg_light">#EEF2F7</color>
+    <color name="flame_light">#E08600</color>
 </resources>

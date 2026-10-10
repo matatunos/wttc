@@ -312,4 +312,11 @@
     <string name="prog_tpl_1">Weekdays: leave at 7:30</string>
     <string name="prog_tpl_2">Weekend: 9:00, 30 min</string>
     <string name="prog_tpl_3">Night: 22:00, up to 18 °C</string>
+    <string name="theme_title">App theme</string>
+    <string name="theme_help">Automatic follows night mode on the phone or car radio (many Android head units switch it with the lights).</string>
+    <string-array name="theme_modes">
+        <item>Automatic (follows the system)</item>
+        <item>Always dark</item>
+        <item>Always light</item>
+    </string-array>
 </resources>

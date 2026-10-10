@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 8.1+: barra de navegación clara con iconos oscuros -->
+    <style name="Theme.WTTC.Light" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorAccent">@color/flame_light</item>
+        <item name="android:windowBackground">@color/bg_light</item>
+        <item name="android:statusBarColor">@color/bg_light</item>
+        <item name="android:navigationBarColor">@color/bg_light</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+</resources>

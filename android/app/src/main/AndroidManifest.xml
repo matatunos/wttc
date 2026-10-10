@@ -34,7 +34,7 @@
         android:theme="@style/Theme.WTTC">
         <activity
             android:name=".MainActivity"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
             android:exported="true"
             android:launchMode="singleTask">
             <intent-filter>

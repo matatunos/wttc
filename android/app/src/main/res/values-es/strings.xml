@@ -311,4 +311,11 @@
     <string name="prog_tpl_1">Laborables: salir a las 7:30</string>
     <string name="prog_tpl_2">Fin de semana: 9:00, 30 min</string>
     <string name="prog_tpl_3">Noche: 22:00, hasta 18 °C</string>
+    <string name="theme_title">Tema de la app</string>
+    <string name="theme_help">Automático sigue el modo noche del móvil o de la radio del coche (muchas radios Android lo cambian con las luces).</string>
+    <string-array name="theme_modes">
+        <item>Automático (sigue al sistema)</item>
+        <item>Siempre oscuro</item>
+        <item>Siempre claro</item>
+    </string-array>
 </resources>

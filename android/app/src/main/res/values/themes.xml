@@ -6,4 +6,12 @@
         <item name="android:statusBarColor">@color/bg</item>
         <item name="android:navigationBarColor">@color/bg</item>
     </style>
+    <!-- Claro (tema «claro», o automático con el sistema o la radio en modo día) -->
+    <style name="Theme.WTTC.Light" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorAccent">@color/flame_light</item>
+        <item name="android:windowBackground">@color/bg_light</item>
+        <item name="android:statusBarColor">@color/bg_light</item>
+        <item name="android:navigationBarColor">#16233A</item>   <!-- oscura: en Android 8.0 sus iconos son siempre blancos -->
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
 </resources>

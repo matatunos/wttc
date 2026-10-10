@@ -62,16 +62,27 @@ class MainActivity : Activity(), BleLink.Listener {
         private var appUpdPostponed = false
     }
 
-    // Colores (los mismos que la web del ESP32)
-    private val cBg = Color.parseColor("#0F1A2A")
-    private val cSf = Color.parseColor("#172437")
-    private val cSf2 = Color.parseColor("#22344D")
-    private val cInk = Color.parseColor("#E8EEF6")
-    private val cMut = Color.parseColor("#8C9BB0")
-    private val cFl = Color.parseColor("#FF9F1C")
-    private val cIce = Color.parseColor("#5BC0EB")
-    private val cOk = Color.parseColor("#3ECF8E")
-    private val cBad = Color.parseColor("#FF6B6B")
+    // Colores, oscuros o claros (los mismos que la web del ESP32). dark se decide al crear la pantalla (themeDark())
+    private var dark = true
+    private fun pal(d: String, l: String) = Color.parseColor(if (dark) d else l)
+    private val cBg: Int get() = pal("#0F1A2A", "#EEF2F7")
+    private val cSf: Int get() = pal("#172437", "#FFFFFF")
+    private val cSf2: Int get() = pal("#22344D", "#E1E8F0")
+    private val cInk: Int get() = pal("#E8EEF6", "#16233A")
+    private val cMut: Int get() = pal("#8C9BB0", "#5B6B82")
+    private val cFl: Int get() = pal("#FF9F1C", "#E08600")
+    private val cIce: Int get() = pal("#5BC0EB", "#2A8BC0")
+    private val cOk: Int get() = pal("#3ECF8E", "#1FA971")
+    private val cBad: Int get() = pal("#FF6B6B", "#D64545")
+
+    // Tema: 0 = automático (sigue el modo noche del sistema; en las radios Android de coche suele ir con las luces),
+    // 1 = siempre oscuro, 2 = siempre claro. Se guarda en el móvil, no en la placa
+    private fun themeMode() = getSharedPreferences("wttc", MODE_PRIVATE).getInt("theme", 0)
+    private fun themeDark(): Boolean = when (themeMode()) {
+        1 -> true
+        2 -> false
+        else -> (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) != android.content.res.Configuration.UI_MODE_NIGHT_NO
+    }
 
     // Duraciones que se ofrecen (el firmware no admite más de 60 min) y letras de los días (lunes primero). Con objetivo
     // de temperatura (termostato) la duración es la ventana máxima, hasta 4 h. Objetivos (el firmware admite 5–25 °C)
@@ -216,6 +227,9 @@ class MainActivity : Activity(), BleLink.Listener {
     // Al girar la pantalla o cambiar de tamaño (la actividad no se recrea): se recolocan las columnas
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
+        // El sistema (o la radio, al encender las luces) cambia de modo noche: con el tema automático, se repinta
+        // (recreate() vuelve a conectar con la placa en unos segundos; los programas sin guardar se pierden)
+        if (themeDark() != dark && !progsDirty) { recreate(); return }
         arrange()
     }
 
@@ -250,14 +264,21 @@ class MainActivity : Activity(), BleLink.Listener {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        dark = themeDark()
+        if (!dark) setTheme(R.style.Theme_WTTC_Light)   // antes de super.onCreate: diálogos y barras del sistema en claro
         super.onCreate(savedInstanceState)
         link = BleLink(this, this)
-        demoMode = intent.getBooleanExtra("demo", false)
+        demoMode = savedInstanceState?.getBoolean("demo") ?: intent.getBooleanExtra("demo", false)   // al repintar por el tema, sigue igual
         demoHeating = intent.getBooleanExtra("demo_on", false)
         capturas = intent.getBooleanExtra("capturas", false)
         buildUi()
         createChannel()
         if (Stats.consent(this) == null && !capturas) askStats()
+    }
+
+    override fun onSaveInstanceState(out: Bundle) {
+        super.onSaveInstanceState(out)
+        out.putBoolean("demo", demoMode)
     }
 
     // Al volver a primer plano: permisos y conexión; y el informe de estadísticas del día si toca (y hay permiso)
@@ -604,7 +625,7 @@ class MainActivity : Activity(), BleLink.Listener {
 
         // Franja del modo demostración
         demoBar = card().apply {
-            background = rounded(Color.parseColor("#3A2A0A"), 14)
+            background = rounded(pal("#3A2A0A", "#FFF1D6"), 14)
             addView(text(getString(R.string.demo_bar), 14f, cInk))
             addView(button(getString(R.string.btn_exit_demo)) { exitDemo() }, lp(top = 10))
             visibility = View.GONE
@@ -681,7 +702,7 @@ class MainActivity : Activity(), BleLink.Listener {
         controls.addView(card().apply { addView(bPause) }, lp(top = 10))
         progList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         controls.addView(progList)
-        tProgWarn = text("", 13f, Color.parseColor("#FFB4A8")).apply { visibility = View.GONE }
+        tProgWarn = text("", 13f, pal("#FFB4A8", "#B3261E")).apply { visibility = View.GONE }
         controls.addView(tProgWarn, lp(top = 8))
         bSaveProgs = button(getString(R.string.btn_save_programs), true) { saveProgs() }
         controls.addView(row(button(getString(R.string.btn_add_program)) { addProg() }, bSaveProgs), lp(top = 10))
@@ -828,6 +849,25 @@ class MainActivity : Activity(), BleLink.Listener {
             addView(swAppUpd)
             addView(text(getString(R.string.app_upd_help), 13f, cMut), lp(top = 6))
             addView(button(getString(R.string.app_upd_btn)) { checkAppUpdate(silent = false) }, lp(top = 10))
+        }, lp(top = 10))
+        // Tema de la app: automático (modo noche del sistema o de la radio), oscuro o claro
+        val spTheme = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, resources.getStringArray(R.array.theme_modes).toList())
+            background = rounded(cSf2, 10)
+            setSelection(themeMode().coerceIn(0, 2))
+            onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                    if (pos == themeMode()) return
+                    getSharedPreferences("wttc", MODE_PRIVATE).edit().putInt("theme", pos).apply()
+                    if (themeDark() != dark) recreate()
+                }
+                override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+            }
+        }
+        root.addView(card().apply {
+            addView(text(getString(R.string.theme_title), 15f, cInk))
+            addView(spTheme, lp(top = 6))
+            addView(text(getString(R.string.theme_help), 13f, cMut), lp(top = 6))
         }, lp(top = 10))
         // Acceso rápido (ajustes rápidos de Android y widget): duración con la que enciende
         val qPrefs = getSharedPreferences("wttc", MODE_PRIVATE)

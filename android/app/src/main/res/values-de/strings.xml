@@ -311,4 +311,11 @@
     <string name="prog_tpl_1">Werktags: Abfahrt 7:30</string>
     <string name="prog_tpl_2">Wochenende: 9:00, 30 min</string>
     <string name="prog_tpl_3">Nacht: 22:00, bis 18 °C</string>
+    <string name="theme_title">App-Design</string>
+    <string name="theme_help">Automatisch folgt dem Nachtmodus von Handy oder Autoradio (viele Android-Radios schalten ihn mit dem Licht um).</string>
+    <string-array name="theme_modes">
+        <item>Automatisch (folgt dem System)</item>
+        <item>Immer dunkel</item>
+        <item>Immer hell</item>
+    </string-array>
 </resources>
