@@ -227,7 +227,7 @@ wttc_visit('mi');
   </div>
 </div>
 
-<script src="/vendor/chartjs/4.4.1/chart.umd.min.js"></script>
+<script src="/vendor/chartjs/4.4.3/chart.umd.min.js"></script>
 <script src="/charts.js"></script>
 <script>
 "use strict";
