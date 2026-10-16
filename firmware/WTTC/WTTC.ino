@@ -339,19 +339,6 @@ uint32_t snLast = 0, snTrig = 0, hwProbeAt = 0;
 bool snWait = false;                  // medida pedida, esperando a que el sensor la termine
 int snFails = 0;
 
-// ---------- sensor de monóxido de carbono (opcional, ZE07-CO por la UART1; ver coTick) ----------
-HardwareSerial coSer(1);
-CoRx coRx = {};
-CoAlarm coAl = {};                    // nivel de alarma (logica.h, con pruebas)
-float coPpm = NAN, coAlPpm = 0;       // última lectura (NAN = sin dato) y la que disparó la alarma
-uint32_t coLast = 0, coSeenAt = 0, coBlockAt = 0;
-bool coSeen = false;                  // manda datos ahora
-bool coHad = false;                   // alguna vez lo tuvo (NVS "coh"): si falta, los encendidos sin nadie no se hacen
-bool coLostSent = false;              // ya se avisó de que falta
-bool coManual = false;                // el encendido en curso lo pide alguien delante (heatOn): sin sensor, se deja
-const uint32_t CO_PREHEAT = 180000;   // ms: lo que tarda en dar lecturas buenas tras conectarlo
-const uint32_t CO_LOST_MS = 30000;    // ms sin tramas = no está
-
 // ---------- «calentar hasta X °C» (termostato) ----------
 // Una sesión tiene una ventana (thUntil) y una temperatura objetivo: dentro de ella la calefacción se enciende si
 // hace frío y se apaga al llegar, cada vez como mínimo TH_MINRUN. Los encendidos sueltos siguen sin sesión.
@@ -738,6 +725,21 @@ const char* const TXT[T_COUNT][L_N] = {
 };
 
 // Texto en el idioma elegido
+// ---------- sensor de monóxido de carbono (opcional, ZE07-CO por la UART1; ver coTick) ----------
+// Aquí, tras los textos, y no con el resto: declarados arriba, el generador de prototipos del IDE los ponía antes del
+// enum de textos y no compilaba (CI de la 0.3.9)
+HardwareSerial coSer(1);
+CoRx coRx = {};
+CoAlarm coAl = {};                    // nivel de alarma (logica.h, con pruebas)
+float coPpm = NAN, coAlPpm = 0;       // última lectura (NAN = sin dato) y la que disparó la alarma
+uint32_t coLast = 0, coSeenAt = 0, coBlockAt = 0;
+bool coSeen = false;                  // manda datos ahora
+bool coHad = false;                   // alguna vez lo tuvo (NVS "coh"): si falta, los encendidos sin nadie no se hacen
+bool coLostSent = false;              // ya se avisó de que falta
+bool coManual = false;                // el encendido en curso lo pide alguien delante (heatOn): sin sensor, se deja
+const uint32_t CO_PREHEAT = 180000;   // ms: lo que tarda en dar lecturas buenas tras conectarlo
+const uint32_t CO_LOST_MS = 30000;    // ms sin tramas = no está
+
 const char* tr(Txt t) { return TXT[t][lang]; }
 
 // (Funciones de salud y de la memoria de ajustes: aquí, tras los textos, que usan; sus variables están arriba)
