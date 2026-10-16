@@ -79,6 +79,10 @@ Hechas automáticamente: la web con el simulador y la app en un emulador Android
 - Temperatura del agua, tensión de batería, llama y potencia.
 - No arranca un programa si la batería está por debajo del mínimo configurado, y **apaga si baja calentando**.
 - Aviso de **«ya está caliente»** cuando el agua llega a la temperatura elegida.
+- **Chequeo de la Webasto** al conectar la placa (y a mano): bus, batería, agua, bujía, horas, arranques y averías con
+  su nombre, con veredicto y consejos, también por Telegram. Botón para borrar averías (desbloquearla).
+- Con el **sensor de CO opcional** (ZE07-CO): si el monóxido sube, **apaga la Webasto, avisa y no deja encender**; si el
+  sensor deja de mandar datos, no enciende sola (a mano, sí). **No sustituye a un detector de CO homologado**.
 - **Bluetooth LE** con emparejamiento por PIN (generado al azar en cada placa) como vía principal.
 - **Wi-Fi** propia como segunda opción, con portal cautivo (al conectarse, el móvil abre solo la web de la placa): siempre, solo mientras calienta o solo a petición (para gastar menos).
 - Avisos opcionales por **Telegram** (bot propio) si el ESP32 llega a una red con internet.
@@ -96,10 +100,12 @@ Hechas automáticamente: la web con el simulador y la app en un emulador Android
 | Alimentación | Regulador **LM2596** ajustado a **5,0 V** | 5 V para el ESP32 desde el +12 V permanente |
 | *Opcional:* pantalla | OLED I2C **SSD1327 de 1,5"** (128×128, 16 grises; recomendada) o de 128×64: 1,3" (SH1106) o 0,96" (SSD1306) | Estado, temperatura de dentro, agua, batería y lo siguiente que va a pasar |
 | *Opcional:* termómetro | Módulo I2C **SHT31** o **AHT20** | Temperatura y humedad de dentro; «calentar hasta X °C» |
+| *Opcional:* sensor de CO | **Winsen ZE07-CO** (electroquímico, salida serie en ppm; un MQ-7 no vale) | Apagar y avisar si sube el monóxido. Además, siempre, un detector de CO homologado con su propia alarma |
 
 Conexiones: +12 V permanente y masa del conector a la placa TJA1020 y al LM2596; W-Bus a la borna LIN; TX de la placa
 a IO16, RX a IO17, SLP a 3V3. El cable de contacto (borne 15) no se usa. Opcionales, en el mismo bus I2C: pantalla y
-termómetro a 3V3, GND, **IO4 (SDA)** e **IO5 (SCL)**; la placa los detecta sola. **Mide los cables con el polímetro**: los
+termómetro a 3V3, GND, **IO4 (SDA)** e **IO5 (SCL)**; la placa los detecta sola. Sensor de CO: VIN a los 5 V del
+regulador, GND y su **TXD a IO15**. El esquema completo, para imprimir: [PDF](https://wttc.favala.es/descargas/WTTC-esquema-es.pdf). **Mide los cables con el polímetro**: los
 colores cambian entre vehículos.
 
 **Antes de montar, comprueba que tu calefacción habla W-Bus.** La de las T5 con temporizador de fábrica lo hace, pero se

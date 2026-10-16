@@ -26,8 +26,12 @@
     Opcional:     pantalla OLED I2C: SSD1327 de 1,5" (128×128, 16 grises), SH1106 de 1,3" o SSD1306 de 0,96" (128×64),
                   y termómetro I2C (SHT31 o AHT20),
                   los dos en el mismo bus: SDA -> IO4, SCL -> IO5, más 3V3 y GND. La placa los detecta al arrancar
-                  (y cada medio minuto si faltan); sin ellos funciona igual. El LED RGB de la placa (IO48) da el
-                  estado de un vistazo y el botón BOOT (IO0) enciende la pantalla.
+                  (y cada medio minuto si faltan); sin ellos funciona igual.
+                  Sensor de monóxido de carbono Winsen ZE07-CO (UART, 9600): VIN -> 5 V, GND, su TXD -> IO15.
+                  Si el CO sube, apaga la Webasto, avisa y no deja encender (ver coTick). No sustituye a un
+                  detector de CO homologado.
+                  El LED RGB de la placa (IO48) da el estado de un vistazo (rojo y azul rápido: monóxido) y el
+                  botón BOOT (IO0) enciende la pantalla.
 
   Código y documentación
   ----------------------
@@ -149,6 +153,8 @@
 #define LED_PIN 48                    // LED RGB WS2812 de la placa ESP32-S3 N16R8
 #define BTN_PIN 0                     // botón BOOT de la placa: enciende la pantalla un minuto
 #define HEAT_BTN_PIN 7                // botón «calentar» opcional (pulsador entre IO7 y GND): enciende o apaga
+#define CO_RX 15                      // sensor de CO opcional (ZE07-CO): su TXD → IO15 (RX de la UART1)
+#define CO_TX 6                       // TX de la UART1: no hace falta conectarlo (el sensor manda solo)
 const char*    HOSTNAME     = "wttc";                 // nombre en la red: http://wttc.local
 const char*    TZ_INFO      = "CET-1CEST,M3.5.0,M10.5.0/3";  // zona horaria POSIX de Europe/Madrid (horario de verano incluido)
 const uint16_t MAX_MIN      = 60;     // duración máxima por encendido (y por programa), en minutos
@@ -167,7 +173,7 @@ const uint16_t MAX_SESSION  = 240;    // min: ventana máxima de «calentar hast
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.3.8"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.3.9"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -333,6 +339,19 @@ uint32_t snLast = 0, snTrig = 0, hwProbeAt = 0;
 bool snWait = false;                  // medida pedida, esperando a que el sensor la termine
 int snFails = 0;
 
+// ---------- sensor de monóxido de carbono (opcional, ZE07-CO por la UART1; ver coTick) ----------
+HardwareSerial coSer(1);
+CoRx coRx = {};
+CoAlarm coAl = {};                    // nivel de alarma (logica.h, con pruebas)
+float coPpm = NAN, coAlPpm = 0;       // última lectura (NAN = sin dato) y la que disparó la alarma
+uint32_t coLast = 0, coSeenAt = 0, coBlockAt = 0;
+bool coSeen = false;                  // manda datos ahora
+bool coHad = false;                   // alguna vez lo tuvo (NVS "coh"): si falta, los encendidos sin nadie no se hacen
+bool coLostSent = false;              // ya se avisó de que falta
+bool coManual = false;                // el encendido en curso lo pide alguien delante (heatOn): sin sensor, se deja
+const uint32_t CO_PREHEAT = 180000;   // ms: lo que tarda en dar lecturas buenas tras conectarlo
+const uint32_t CO_LOST_MS = 30000;    // ms sin tramas = no está
+
 // ---------- «calentar hasta X °C» (termostato) ----------
 // Una sesión tiene una ventana (thUntil) y una temperatura objetivo: dentro de ella la calefacción se enciende si
 // hace frío y se apaga al llegar, cada vez como mínimo TH_MINRUN. Los encendidos sueltos siguen sin sesión.
@@ -367,7 +386,7 @@ uint32_t loginLockUntil = 0;
 // (clave "runs2"; hasta la 0.2.16 eran 20 bytes en "runs", y al arrancar se pasan al formato nuevo).
 // seq numera los encendidos desde 1; los ya enviados al servidor llegan hasta runAck.
 #define RUNS 48
-enum { RE_TIME, RE_USER, RE_TARGET, RE_BATT, RE_FAULT, RE_NOCOMM, RE_STALL, RE_NOWBUS };   // por qué se apagó (RE_NOWBUS: ni arrancó, la Webasto no contestó)
+enum { RE_TIME, RE_USER, RE_TARGET, RE_BATT, RE_FAULT, RE_NOCOMM, RE_STALL, RE_NOWBUS, RE_CO };   // RE_CO: monóxido (0.3.9)   // por qué se apagó (RE_NOWBUS: ni arrancó, la Webasto no contestó)
 enum { RS_WEB, RS_APP, RS_PROG, RS_CONSOLE, RS_DEP, RS_OTHER, RS_BUTTON };   // quién la encendió (+0x80: con termostato)
 struct Run {
   uint32_t seq, t0;                   // número de encendido y hora de inicio (segundos UNIX; 0 = sin hora)
@@ -455,6 +474,8 @@ enum Txt {
   T_D_OFF, T_D_START, T_D_HEAT, T_D_PAUSE, T_D_LOST, T_D_WAIT, T_D_WATER, T_D_IN, T_D_NEXT, T_D_DEP, T_D_UNTIL,
   T_D_DAYS, T_D_NOTE,
   T_CHK_TITLE, T_CHK_V_OK, T_CHK_V_WARN, T_CHK_V_BAD, T_CHK_BUS_OK, T_CHK_NOBUS_ECHO, T_CHK_NOBUS_NOECHO, T_CHK_DEV, T_CHK_MADE, T_CHK_BATT, T_CHK_WATER, T_CHK_GLOW, T_CHK_USE, T_CHK_NOFAULTS, T_CHK_FAULTS, T_CHK_FAULT, T_CHK_FWHEN, T_CHK_FUNK, T_CHK_TIPS, T_CHK_T_LOCK, T_CHK_T_START, T_CHK_T_BATT, T_CHK_T_WATER, T_CHK_T_GLOW, T_CHK_T_FLAME, T_CHK_T_IDLE, T_CHK_HEATING, T_LOG_CHK, T_CHK_CLEARED, T_E_CLR_HEAT, T_E_CLR_FAIL,
+  T_CO_WARN, T_CO_ALARM, T_CO_OFF, T_CO_CLEAR, T_CO_LOST, T_CO_BACK, T_E_CO, T_LOG_CO_NOSENS, T_WHY_CO, T_NOTE_CO, T_D_CO,
+  T_CHK_CO, T_CHK_CO_LOST, T_CHK_CO_HEAT, T_CO_FORGOT,
   T_COUNT
 };
 
@@ -699,6 +720,21 @@ const char* const TXT[T_COUNT][L_N] = {
   /* T_CHK_CLEARED */ {"Averías borradas de la Webasto", "Faults cleared from the Webasto", "Fehler in der Webasto gelöscht"},
   /* T_E_CLR_HEAT */ {"No se borran las averías mientras calienta", "Faults are not cleared while heating", "Fehler werden beim Heizen nicht gelöscht"},
   /* T_E_CLR_FAIL */ {"La Webasto no confirmó el borrado", "The Webasto did not confirm clearing", "Die Webasto hat das Löschen nicht bestätigt"},
+  /* T_CO_WARN */ {"⚠️ Monóxido de carbono dentro: %s ppm desde hace 2 minutos. Ventila y mira la calefacción y el escape.", "⚠️ Carbon monoxide inside: %s ppm for 2 minutes. Ventilate and check the heater and the exhaust.", "⚠️ Kohlenmonoxid im Innenraum: %s ppm seit 2 Minuten. Lüften und Heizung und Auspuff prüfen."},
+  /* T_CO_ALARM */ {"🚨 ¡MONÓXIDO DE CARBONO! %s ppm dentro. Sal de la furgo y ventila. No vuelvas a encender la calefacción hasta revisar el escape.", "🚨 CARBON MONOXIDE! %s ppm inside. Get out of the van and ventilate. Do not use the heater again until the exhaust has been checked.", "🚨 KOHLENMONOXID! %s ppm im Innenraum. Raus aus dem Bus und lüften. Die Heizung erst wieder benutzen, wenn der Auspuff geprüft ist."},
+  /* T_CO_OFF */ {"La calefacción está apagada y no se puede encender hasta que baje.", "The heater has been switched off and cannot be started until it drops.", "Die Heizung ist ausgeschaltet und lässt sich erst wieder einschalten, wenn der Wert sinkt."},
+  /* T_CO_CLEAR */ {"✅ El monóxido ha bajado (%s ppm desde hace 5 minutos). La calefacción se puede volver a encender; revisa antes el escape.", "✅ Carbon monoxide is down (%s ppm for 5 minutes). The heater can be started again; check the exhaust first.", "✅ Kohlenmonoxid gesunken (%s ppm seit 5 Minuten). Die Heizung kann wieder eingeschaltet werden; vorher den Auspuff prüfen."},
+  /* T_CO_LOST */ {"⚠️ El sensor de CO no manda datos. Mientras falte, los programas, «Salgo a las…» y el termostato no encenderán la calefacción (a mano, sí). Si lo has quitado a propósito: Configuración → «Ya no tengo sensor de CO».", "⚠️ The CO sensor is not sending data. While it is missing, schedules, «Leaving at…» and the thermostat will not start the heater (by hand they will). If you removed it on purpose: Settings → «I no longer have a CO sensor».", "⚠️ Der CO-Sensor sendet keine Daten. Solange er fehlt, schalten Zeitpläne, «Abfahrt um…» und das Thermostat die Heizung nicht ein (von Hand schon). Absichtlich entfernt: Einstellungen → «Ich habe keinen CO-Sensor mehr»."},
+  /* T_CO_BACK */ {"✅ El sensor de CO vuelve a mandar datos.", "✅ The CO sensor is sending data again.", "✅ Der CO-Sensor sendet wieder Daten."},
+  /* T_E_CO */ {"Monóxido de carbono alto (%s ppm): no se enciende. Ventila y revisa el escape.", "High carbon monoxide (%s ppm): not starting. Ventilate and check the exhaust.", "Kohlenmonoxid hoch (%s ppm): kein Einschalten. Lüften und Auspuff prüfen."},
+  /* T_LOG_CO_NOSENS */ {"No se enciende sola: el sensor de CO no manda datos (a mano, sí)", "Not starting on its own: the CO sensor is not sending data (by hand it will)", "Kein automatisches Einschalten: der CO-Sensor sendet keine Daten (von Hand schon)"},
+  /* T_WHY_CO */ {"monóxido de carbono alto (%s ppm)", "high carbon monoxide (%s ppm)", "Kohlenmonoxid hoch (%s ppm)"},
+  /* T_NOTE_CO */ {"Apagada por monóxido de carbono: %s ppm dentro. Revisa el escape antes de volver a usarla.", "Switched off because of carbon monoxide: %s ppm inside. Check the exhaust before using it again.", "Wegen Kohlenmonoxid ausgeschaltet: %s ppm im Innenraum. Vor dem nächsten Einsatz den Auspuff prüfen."},
+  /* T_D_CO */ {"CO ALTO %d ppm", "HIGH CO %d ppm", "CO HOCH %d ppm"},
+  /* T_CHK_CO */ {"Monóxido (CO) dentro: %s ppm %s", "Carbon monoxide inside: %s ppm %s", "Kohlenmonoxid innen: %s ppm %s"},
+  /* T_CHK_CO_LOST */ {"Sensor de CO: no manda datos ⚠️", "CO sensor: no data ⚠️", "CO-Sensor: keine Daten ⚠️"},
+  /* T_CHK_CO_HEAT */ {"Sensor de CO: calentándose (3 min tras conectarlo)", "CO sensor: warming up (3 min after connecting)", "CO-Sensor: wärmt sich auf (3 Min. nach dem Anschließen)"},
+  /* T_CO_FORGOT */ {"Sensor de CO olvidado: ya no se echa en falta", "CO sensor forgotten: it is no longer expected", "CO-Sensor vergessen: er wird nicht mehr erwartet"},
 };
 
 // Texto en el idioma elegido
@@ -1419,6 +1455,7 @@ void logPoll() {
 // Enciende la calefacción durante «minutes» minutos (máximo MAX_MIN). src dice quién la enciende.
 // Lo intenta 3 veces; devuelve true si la Webasto aceptó la orden.
 bool startHeater(uint16_t minutes, const char* src) {
+  if (!coAllows()) return false;                  // monóxido alto, o falta el sensor de CO y no hay nadie delante
   minutes = constrain(minutes, 1, MAX_MIN);
   uint8_t d[1] = {(uint8_t)minutes}, r[64], n;
   for (int i = 0; i < 3; i++) {
@@ -1579,6 +1616,75 @@ void snTick() {
   snFails = 0;
   cabT = t + tOff;
   cabH = constrain(h, 0.0f, 100.0f);
+}
+
+// ============================================================================================================
+// Sensor de monóxido de carbono (opcional): Winsen ZE07-CO, electroquímico, alimentado a 5 V, su TXD a IO15.
+// Manda una lectura por segundo; logica.h la entiende (coFeed) y decide la alarma (coStep). Con alarma: apaga la
+// Webasto, avisa y no deja encender (ni a mano) hasta 5 min seguidos por debajo de 20 ppm. Si lo tuvo y deja de
+// mandar datos, los encendidos sin nadie delante (programas, salida, termostato) no se hacen. NO sustituye a un
+// detector de CO homologado con su propia alarma: si la placa falla, este sensor no sirve de nada.
+// ============================================================================================================
+bool coMissing() { return coHad && !coSeen; }
+
+void coChange(uint8_t from, uint8_t to) {
+  String v = num(coPpm, 0);
+  if (to == CO_ALARM) {
+    coAlPpm = coPpm;
+    dispMsg(trf(T_D_CO, (int)lround(coPpm)), 600000);
+    pendStart.on = false;                         // nada aplazado por el postbarrido
+    bool was = heaterOn || thActive;
+    endSession(true);
+    if (heaterOn) { runEnd = RE_CO; stopHeater(trf(T_WHY_CO, v.c_str()).c_str(), false); }
+    stopNote = hhmm() + trf(T_NOTE_CO, v.c_str());
+    addLog(trf(T_WHY_CO, v.c_str()));
+    notify(trf(T_CO_ALARM, v.c_str()) + (was ? String("\n") + tr(T_CO_OFF) : String("")));
+  } else if (to == CO_WARN && from == CO_OK) {
+    addLog(trf(T_CO_WARN, v.c_str()));
+    notify(trf(T_CO_WARN, v.c_str()));
+  } else if (to == CO_OK && from == CO_ALARM) {
+    addLog(trf(T_CO_CLEAR, v.c_str()));
+    notify(trf(T_CO_CLEAR, v.c_str()));
+  }
+}
+
+void coTick() {
+  uint32_t now = millis();
+  float p;
+  for (int budget = 64; budget > 0 && coSer.available(); budget--) {
+    if (!coFeed(coRx, (uint8_t)coSer.read(), p)) continue;
+    uint32_t dt = coLast ? now - coLast : 1000;
+    coLast = now; coPpm = p;
+    if (!coSeen) {
+      coSeen = true; coSeenAt = now;
+      addLog(trf(T_LOG_HW, "ZE07-CO"));
+      if (!coHad) { coHad = true; nvsOpen(false); prefs.putBool("coh", true); prefs.end(); }
+      if (coLostSent) { coLostSent = false; addLog(tr(T_CO_BACK)); notify(tr(T_CO_BACK)); }
+    }
+    if (now - coSeenAt < CO_PREHEAT) continue;    // calentándose: sus primeras lecturas no valen
+    uint8_t from = coAl.lvl, to = coStep(coAl, p, dt);
+    if (to != from) coChange(from, to);
+  }
+  // Sin tramas: no está (la alarma, si la había, se queda: solo la quitan lecturas bajas o un reinicio)
+  if (coSeen && now - coLast > CO_LOST_MS) { coSeen = false; coPpm = NAN; }
+  if (coMissing() && !coLostSent && (coLast || now > 90000)) {
+    coLostSent = true;
+    addLog(tr(T_CO_LOST));
+    notify(tr(T_CO_LOST));
+  }
+}
+
+// ¿Se puede encender? Con la alarma, nunca; sin el sensor que tenía, solo a mano. Lo apunta (cada 10 min como mucho)
+bool coAllows() {
+  bool alarm = coAl.lvl == CO_ALARM;
+  if (!alarm && (coManual || !coMissing())) return true;
+  if (!coBlockAt || millis() - coBlockAt > 600000) {
+    coBlockAt = millis();
+    String m = alarm ? trf(T_E_CO, num(coAlPpm, 0).c_str()) : String(tr(T_LOG_CO_NOSENS));
+    addLog(m);
+    notify(m);
+  }
+  return false;
 }
 
 // ============================================================================================================
@@ -1997,7 +2103,8 @@ void ledTick() {
   last = now;
   bool blink = (now / 500) & 1;
   uint8_t r = 0, g = 0, b = 0;
-  if (heaterOn && (phase == PH_LOST || busState == 0)) { if (blink) r = 255; }
+  if (coAl.lvl == CO_ALARM) { if ((now / 150) & 1) r = 255; else b = 255; }   // monóxido: rojo y azul, rápido
+  else if (heaterOn && (phase == PH_LOST || busState == 0)) { if (blink) r = 255; }
   else if (heaterOn && warmSent) g = 255;
   else if (heaterOn && phase == PH_START) { if (blink) { r = 255; g = 70; } }
   else if (heaterOn) { r = 255; g = 70; }
@@ -2232,7 +2339,16 @@ void pendTick() {
   runDep = false;
 }
 
+String heatOnDo(int m, int tg, const char* src);
+// Encender a mano (app, web, botón, consola): con el monóxido alto, no; sin el sensor de CO, sí (hay alguien delante)
 String heatOn(int m, int tg, const char* src) {
+  if (coAl.lvl == CO_ALARM) return trf(T_E_CO, num(coAlPpm, 0).c_str());
+  coManual = true;
+  String r = heatOnDo(m, tg, src);
+  coManual = false;
+  return r;
+}
+String heatOnDo(int m, int tg, const char* src) {
   int ar = afterrunLeft();                        // a mano durante el postbarrido: «espera»
   if (ar) return trf(T_E_AFTERRUN, ar);
   if (tg) {
@@ -2283,6 +2399,7 @@ void loadCfg() {
   diagOn   = prefs.getBool("diag", false);
   btnMin   = prefs.getUChar("bmin", 30);
   remoteOn = prefs.getBool("remo", false);
+  coHad    = prefs.getBool("coh", false);
   cmdSeqLast = prefs.getUInt("cseq", 0);
   btnTgt   = prefs.getUChar("btgt", 0);
   if (prefs.isKey("runs2") && prefs.getBytesLength("runs2") == sizeof runs) prefs.getBytes("runs2", runs, sizeof runs);
@@ -2487,6 +2604,8 @@ int cfgSet(String k, String v, String& err) {
       statsLast = 0;
       addLog(tr(T_LOG_IID));
     }
+  } else if (k == "co") {                         // co=0: «ya no tengo sensor de CO» (deja de echarlo en falta)
+    if (v == "0" && coHad) { coHad = false; coLostSent = false; prefs.remove("coh"); addLog(tr(T_CO_FORGOT)); }
   } else if (k == "remote") {                     // permitir órdenes remotas (firmadas): 1 / 0
     bool on = v == "1" || v == "true";
     if (on != remoteOn) { remoteOn = on; prefs.putBool("remo", remoteOn); cmdLast = 0; }
@@ -2523,7 +2642,7 @@ int cfgSet(String k, String v, String& err) {
 // Ajustes que admite el formulario de configuración de la web (en este orden)
 const char* CFG_KEYS[] = {"lang", "name", "appass", "pin", "wifimode", "ssid", "pass", "tgtok", "tgchat", "minvolt",
                           "oled", "disp", "led", "toff", "warm", "otaauto",
-                          "webuser", "webpass", "iid", "stats", "apauto", "diag", "btnmin", "btntgt", "remote"};
+                          "webuser", "webpass", "iid", "stats", "apauto", "diag", "btnmin", "btntgt", "remote", "co"};
 
 // ¿Sigue la Wi-Fi propia con la clave de fábrica? Entonces cualquiera cerca puede entrar: la web obliga a cambiarla
 bool apDefault() { return strcmp(cfgApPass, AP_PASS_DEFAULT) == 0; }
@@ -2553,6 +2672,7 @@ String cfgJson(bool withPin) {
   j += ",\"diag\":";  j += diagOn ? 1 : 0;                        // modo diagnóstico (0.2.20+)
   j += ",\"btnmin\":"; j += btnMin; j += ",\"btntgt\":"; j += btnTgt;   // botón «calentar» (0.3.0+)
   j += ",\"remote\":"; j += remoteOn ? 1 : 0;                     // órdenes remotas (0.3.1+)
+  j += ",\"co\":";    j += coHad ? (coSeen ? 2 : 1) : 0;          // sensor de CO: 0 nunca, 1 lo tuvo y falta, 2 está (0.3.9+)
   j += ",\"nruns\":"; j += runSeq; j += ",\"rack\":"; j += runAck;   // encendidos apuntados y ya enviados
   j += ",\"stok\":"; if (statsOkAt) j += (millis() - statsOkAt) / 1000; else j += "-1";   // s desde el último envío
   j += ",\"oled\":";   j += (int)oledType;
@@ -2802,6 +2922,7 @@ String stateJson() {
   j += ",\"up\":";   j += (uint32_t)(millis() / 1000);   // segundos encendida (la app nota así los reinicios)
   j += ",\"ct\":";   j += isnan(cabT) ? -999 : (int)lround(cabT * 10);   // °C × 10 de dentro (-999 = sin termómetro)
   j += ",\"ch\":";   j += isnan(cabH) ? -1 : (int)lround(cabH);          // humedad (%)
+  if (coHad) { j += ",\"co\":"; j += coSeen ? (int)lround(coPpm) : -1; j += ",\"ca\":"; j += coAl.lvl; }   // CO: ppm (-1 sin dato) y alarma
   j += ",\"tg\":";   j += thActive ? (int)thTarget : 0;                   // termostato: objetivo (0 = sin él)
   j += ",\"tu\":";   j += thActive ? (int32_t)(thUntil - millis()) / 1000 : 0;   // y segundos que le quedan
   j += ",\"dp\":";   j += depOnce * 60;            // salida suelta (segundos desde 1970; 0 = ninguna)
@@ -3068,6 +3189,11 @@ void handleState() {
   j += ",\"wdef\":";   j += (!viaAp() && webDefault()) ? "true" : "false";   // y con el usuario y la clave de fábrica
   j += ",\"ct\":";     j += isnan(cabT) ? String("null") : String(cabT, 1);   // dentro (°C); null = sin termómetro
   j += ",\"ch\":";     j += isnan(cabH) ? String("null") : String((int)lround(cabH));
+  // Sensor de CO: ppm (null = sin dato), alarma (CO_*), lo tuvo, y si aún se está calentando
+  j += ",\"co\":";     j += coSeen ? String(coPpm, 0) : String("null");
+  j += ",\"coa\":";    j += coAl.lvl;
+  j += ",\"coh\":";    j += coHad ? "true" : "false";
+  j += ",\"cop\":";    j += (coSeen && millis() - coSeenAt < CO_PREHEAT) ? "true" : "false";
   j += ",\"tgt\":";    j += thActive ? (int)thTarget : 0;                     // termostato: objetivo y segundos que quedan
   j += ",\"tun\":";    j += thActive ? (int32_t)(thUntil - now) / 1000 : 0;
   j += ",\"dep\":";    j += depOnce * 60;                                     // salida suelta (0 = ninguna) y su objetivo
@@ -3758,6 +3884,13 @@ int runCheck() {
     if (g == CHK_BAD) tips += String("• ") + tr(T_CHK_T_GLOW) + "\n";
   }
   if (chkFlameIdle(s.flame, running) == CHK_WARN) { lvl = chkWorst(lvl, CHK_WARN); tips += String("• ") + tr(T_CHK_T_FLAME) + "\n"; }
+  // Sensor de CO (si lo hay o lo hubo)
+  if (coSeen && millis() - coSeenAt < CO_PREHEAT) o += String(tr(T_CHK_CO_HEAT)) + "\n";
+  else if (coSeen) {
+    int cv = coAl.lvl == CO_ALARM ? CHK_BAD : coAl.lvl == CO_WARN ? CHK_WARN : CHK_OK;
+    lvl = chkWorst(lvl, cv);
+    o += trf(T_CHK_CO, num(coPpm, 0).c_str(), chkIcon(cv)) + "\n";
+  } else if (coHad) { lvl = chkWorst(lvl, CHK_WARN); o += String(tr(T_CHK_CO_LOST)) + "\n"; }
   // 4) Contadores de uso
   uint8_t d06[1] = {0x06}; WbCounters c{};
   if (wbusCmd(0x50, d06, 1, r, n) && wbParseCounters(r, n, c)) o += trf(T_CHK_USE, c.opH, c.starts) + "\n";
@@ -3900,6 +4033,7 @@ void setup() {
   Serial.setTimeout(200);                         // readStringUntil() no espera más de 200 ms
   setCpuFrequencyMhz(80);             // suficiente para W-Bus, web y Bluetooth; gasta menos que a 240 MHz
   wbus.begin(2400, SERIAL_8E1, WBUS_RX, WBUS_TX);
+  coSer.begin(9600, SERIAL_8N1, CO_RX, CO_TX);    // sensor de CO (opcional): sin él no llega nada y no pasa nada
   loadCfg();
   logLoad();                                      // el registro guardado (y lo de justo antes, si se colgó)
   netMtx = xSemaphoreCreateMutex();               // conexiones a internet de una en una (ver netBegin)
@@ -4088,6 +4222,7 @@ void loop() {
     if (readSensors() && heaterOn) { gasTick(); evalHeater(); battRunCheck(); warmCheck(); }
   }
   snTick();                                       // termómetro de dentro (si lo hay)
+  coTick();                                       // sensor de monóxido (si lo hay)
   thermoTick();                                   // «calentar hasta X °C»
   if ((!oledOk || snType == SN_NONE) && millis() - hwProbeAt > 30000) hwProbe();   // ¿se ha conectado algo?
   dispTick();                                     // pantalla

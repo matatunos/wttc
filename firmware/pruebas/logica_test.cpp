@@ -313,7 +313,63 @@ static void pruebasAverias() {
   CHECK(averiaTexto(0x07, 1) != nullptr && averiaTexto(0x07, 2) != nullptr);
 }
 
+// Sensor de CO: tramas del ZE07-CO y alarma
+static void coTrama(uint8_t* f, int decimas) {
+  const uint8_t b[9] = {0xFF, 0x04, 0x03, 0x01, (uint8_t)(decimas >> 8), (uint8_t)decimas, 0x13, 0x88, 0};
+  for (int i = 0; i < 9; i++) f[i] = b[i];
+  f[8] = coSum(f);
+}
+static void pruebasCo() {
+  uint8_t f[9]; float ppm = -1;
+  coTrama(f, 123);
+  CHECK(coParse(f, ppm) && fabs(ppm - 12.3f) < 0.01f);
+  f[5] ^= 1; CHECK(!coParse(f, ppm));                        // suma mal
+  coTrama(f, 20000); CHECK(!coParse(f, ppm));                // 2000 ppm: fuera de escala
+  coTrama(f, 0); f[1] = 0x86; f[8] = coSum(f); CHECK(!coParse(f, ppm));   // otra trama
+  // Lector: basura delante, una trama cortada y luego una buena
+  CoRx rx{}; int ok = 0;
+  const uint8_t basura[] = {0x12, 0x00, 0xFF, 0x04, 0x03};
+  for (uint8_t c : basura) ok += coFeed(rx, c, ppm);
+  coTrama(f, 456);
+  for (uint8_t c : f) ok += coFeed(rx, c, ppm);
+  CHECK(ok == 1 && fabs(ppm - 45.6f) < 0.01f);
+  coTrama(f, 7); ok = 0;
+  for (uint8_t c : f) ok += coFeed(rx, c, ppm);
+  CHECK(ok == 1 && fabs(ppm - 0.7f) < 0.01f);
+  // Alarma (una lectura por segundo)
+  CoAlarm a{};
+  for (int i = 0; i < 600; i++) coStep(a, 5, 1000);
+  CHECK(a.lvl == CO_OK);
+  for (int i = 0; i < 119; i++) coStep(a, 35, 1000);
+  CHECK(a.lvl == CO_OK);
+  coStep(a, 35, 1000); CHECK(a.lvl == CO_WARN);              // 2 min por encima de 30
+  for (int i = 0; i < 59; i++) coStep(a, 10, 1000);
+  CHECK(a.lvl == CO_WARN);
+  coStep(a, 10, 1000); CHECK(a.lvl == CO_OK);                // 1 min por debajo de 20
+  a = CoAlarm{};
+  coStep(a, 350, 1000); CHECK(a.lvl == CO_OK);               // un pico suelto no basta
+  coStep(a, 350, 1000); CHECK(a.lvl == CO_ALARM);            // dos seguidas de 300 o más
+  for (int i = 0; i < 299; i++) coStep(a, 10, 1000);
+  CHECK(a.lvl == CO_ALARM);
+  coStep(a, 25, 1000); for (int i = 0; i < 299; i++) coStep(a, 10, 1000);
+  CHECK(a.lvl == CO_ALARM);                                  // una lectura de 25 reinicia la cuenta
+  coStep(a, 10, 1000); CHECK(a.lvl == CO_OK);                // 5 min seguidos por debajo de 20
+  a = CoAlarm{};
+  for (int i = 0; i < 29; i++) coStep(a, 120, 1000);
+  CHECK(a.lvl != CO_ALARM);
+  coStep(a, 120, 1000); CHECK(a.lvl == CO_ALARM);            // 100 ppm 30 s
+  a = CoAlarm{};
+  for (int i = 0; i < 179; i++) coStep(a, 60, 1000);
+  CHECK(a.lvl == CO_WARN);
+  coStep(a, 60, 1000); CHECK(a.lvl == CO_ALARM);             // 50 ppm 3 min
+  a = CoAlarm{};
+  coStep(a, 350, 1000); coStep(a, 350, 600000); CHECK(a.lvl == CO_ALARM);  // un hueco largo cuenta como 5 s
+  a = CoAlarm{};
+  coStep(a, 60, 1000); coStep(a, 60, 3600000); CHECK(a.lvl == CO_OK);       // y no dispara la de 3 min
+}
+
 int main() {
+  pruebasCo();
   pruebasAverias();
   pruebasChequeo();
   pruebasWbus();

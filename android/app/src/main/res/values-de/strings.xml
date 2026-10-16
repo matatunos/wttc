@@ -146,6 +146,10 @@
     <string name="upd_demo">Im Demomodus gibt es nichts zu aktualisieren.</string>
     <string name="cabin">Innen: %1$s</string>
     <string name="cabin_hum"> · Feuchte %1$d %%</string>
+    <string name="co_val">Kohlenmonoxid innen: %1$d ppm</string>
+    <string name="co_warn"> · lüften</string>
+    <string name="co_lost">⚠️ Der CO-Sensor sendet keine Daten: Zeitpläne schalten die Heizung nicht ein (von Hand schon).</string>
+    <string name="co_alarm">🚨 KOHLENMONOXID! Raus aus dem Bus und lüften. Die Heizung ist aus und lässt sich erst wieder einschalten, wenn der Wert sinkt.</string>
     <string name="tgt_label">Bis</string>
     <string name="tgt_none">Ohne Temperaturgrenze</string>
     <string name="waiting">Wartet</string>

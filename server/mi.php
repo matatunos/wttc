@@ -241,7 +241,7 @@ const store = { get: k => { try { return localStorage.getItem(k) } catch (e) { r
 const SRC = ['Web de la placa', 'App', 'Programa', 'Consola', 'Hora de salida', 'Otro', 'Botón'];
 const SRCC = ['#5bc0eb', '#3a8ee0', '#a78bfa', '#7a84a8', '#ff8a3d', '#4b5275', '#3ecf8e'];
 // El último (7) no es un apagado: el arranque falló porque la Webasto no contestó por el W-Bus (firmware 0.2.19+)
-const END = ['Se acabó el tiempo', 'Apagada a mano', 'Llegó a la temperatura', 'Batería baja', 'Se apagó sola (avería)', 'Sin comunicación', 'Dentro no subía', 'No respondió (W-Bus)'];
+const END = ['Se acabó el tiempo', 'Apagada a mano', 'Llegó a la temperatura', 'Batería baja', 'Se apagó sola (avería)', 'Sin comunicación', 'Dentro no subía', 'No respondió (W-Bus)', 'Monóxido (CO) alto'];
 const ENDC = ['#5bc0eb', '#7a84a8', '#3ecf8e', '#ffcc4d', '#ff5d5d', '#ff8f9a', '#ff8a3d', '#c2185b'];
 const NOWBUS = 7;
 const WD = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -666,7 +666,7 @@ function render() {
     last.map(r => `<tr><td>${r.t0 ? fdate(r.t0) : 'sin hora'}</td><td>${r.end === NOWBUS ? '—' : hm(r.dur)}</td><td>${nf(r.ml / 1000, 2)} L</td>` +
       `<td>${r.cab0 > -128 ? r.cab0 + ' → ' + (r.cab1 > -128 ? r.cab1 : '?') + ' °C' : '—'}</td><td>${r.cmax != null ? r.cmax + ' °C' : '—'}</td><td>${r.pw != null ? nf(r.pw / 1000, 1) + ' kW' : '—'}</td>` +
       `<td>${SRC[Math.min(r.src, SRC.length - 1)]}${r.th ? ' · termostato' : ''}</td>` +
-      `<td><span class="tag ${r.end === 4 || r.end === 5 || r.end === NOWBUS ? 'bad' : r.end === 2 ? 'ok' : ''}">${END[r.end] || '?'}${r.err ? ' 0x' + r.err.toString(16).toUpperCase().padStart(2, '0') : ''}</span></td></tr>`).join('');
+      `<td><span class="tag ${r.end === 4 || r.end === 5 || r.end === 8 || r.end === NOWBUS ? 'bad' : r.end === 2 ? 'ok' : ''}">${END[r.end] || '?'}${r.err ? ' 0x' + r.err.toString(16).toUpperCase().padStart(2, '0') : ''}</span></td></tr>`).join('');
 }
 
 // Arranque: el código del «#» de la dirección, o el recordado

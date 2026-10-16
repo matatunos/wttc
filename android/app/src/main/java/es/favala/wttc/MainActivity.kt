@@ -148,6 +148,7 @@ class MainActivity : Activity(), BleLink.Listener {
     private lateinit var tGas: TextView
     private lateinit var tNote: TextView
     private lateinit var tCabin: TextView              // temperatura y humedad de dentro (con termómetro)
+    private lateinit var tCo: TextView                 // monóxido de carbono (con el sensor de CO, firmware 0.3.9+)
     private lateinit var tgtRow: LinearLayout          // «Hasta X °C» (con termómetro)
     private lateinit var spTgt: Spinner
     private lateinit var bDepTime: Button              // hora de salida y botón de programarla o cancelarla
@@ -455,6 +456,19 @@ class MainActivity : Activity(), BleLink.Listener {
             val ch = j.optInt("ch", -1)
             tCabin.text = getString(R.string.cabin, String.format(numLocale, "%.1f °C", ct / 10.0)) + (if (ch >= 0) getString(R.string.cabin_hum, ch) else "")
         } else if (tgt != 0) { tgt = 0; spTgt.setSelection(0); drawSeg() }
+        // Sensor de CO: "co" en ppm (-1 = sin dato) y "ca" la alarma (0 bien, 1 aviso, 2 alarma); sin "co", no lo hay
+        val co = j.optInt("co", -2)
+        val ca = j.optInt("ca", 0)
+        tCo.visibility = if (co > -2) View.VISIBLE else View.GONE
+        if (co > -2) {
+            tCo.text = when {
+                ca == 2 -> getString(R.string.co_alarm)
+                co < 0 -> getString(R.string.co_lost)
+                else -> getString(R.string.co_val, co) + (if (ca == 1) getString(R.string.co_warn) else "")
+            }
+            tCo.setTextColor(if (ca == 2) Color.WHITE else if (ca == 1 || co < 0) cFl else cInk)
+            tCo.setBackgroundColor(if (ca == 2) cBad else Color.TRANSPARENT)
+        }
         // Salida suelta programada
         val dp = j.optLong("dp")
         tDep.text = if (dp > 0) depText(dp, j.optInt("dt"), j.optLong("time")) else getString(R.string.dep_help)
@@ -650,6 +664,8 @@ class MainActivity : Activity(), BleLink.Listener {
         st.addView(tGas, lp(top = 6))
         tCabin = text("", 17f, cInk).apply { gravity = Gravity.CENTER; visibility = View.GONE }
         st.addView(tCabin, lp(top = 10))
+        tCo = text("", 16f, cInk).apply { gravity = Gravity.CENTER; visibility = View.GONE; setPadding(dp(8), dp(6), dp(8), dp(6)) }
+        st.addView(tCo, lp(top = 6))
         controls.addView(st, lp(top = 14))
 
         tNote = text("", 14f, cInk).apply {

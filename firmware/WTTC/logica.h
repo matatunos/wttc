@@ -324,3 +324,54 @@ inline int chkGlow(long mOhm) { if (mOhm < 0) return CHK_NA; return (mOhm < 100 
 inline int chkFlameIdle(int flame, bool running) { return (!running && flame > 0) ? CHK_WARN : CHK_OK; }
 // Peor de dos (CHK_NA no empeora)
 inline int chkWorst(int a, int b) { if (a == CHK_NA) return b; if (b == CHK_NA) return a; return a > b ? a : b; }
+
+// ============================================================================================================
+// Sensor de monóxido de carbono (0.3.9, opcional): Winsen ZE07-CO, electroquímico, por UART a 9600 8N1.
+// De fábrica manda una trama de 9 bytes por segundo («subida activa»):
+//   FF 04 03 01 HH LL RH RL CS   04 = CO · 03 = ppm · 01 = un decimal · ppm = (HH·256 + LL) · 0,1 · RH RL = escala
+//   CS = (~(byte1 + … + byte7)) + 1
+// ============================================================================================================
+inline uint8_t coSum(const uint8_t* f) { uint8_t s = 0; for (int i = 1; i < 8; i++) s += f[i]; return (uint8_t)(~s + 1); }
+
+// Una trama completa → ppm. false si no es una trama de CO válida
+inline bool coParse(const uint8_t* f, float& ppm) {
+  if (f[0] != 0xFF || f[1] != 0x04 || f[2] != 0x03 || coSum(f) != f[8]) return false;
+  ppm = ((f[4] << 8) | f[5]) * 0.1f;
+  return ppm <= 1000;                               // la escala del ZE07-CO es 0–500 ppm
+}
+
+// Lector byte a byte: se sincroniza con el 0xFF de cabecera y, si una trama sale mal, vuelve a buscarla dentro
+// de lo ya recibido (un byte perdido no hace perder más de una trama)
+struct CoRx { uint8_t b[9]; int n; };
+inline bool coFeed(CoRx& r, uint8_t c, float& ppm) {
+  if (r.n == 0 && c != 0xFF) return false;
+  r.b[r.n++] = c;
+  if (r.n < 9) return false;
+  if (coParse(r.b, ppm)) { r.n = 0; return true; }
+  int k = 1;
+  while (k < 9 && r.b[k] != 0xFF) k++;
+  r.n = 9 - k;
+  for (int i = 0; i < r.n; i++) r.b[i] = r.b[k + i];
+  return false;
+}
+
+// Alarma. Umbrales inspirados en la norma de los detectores domésticos (EN 50291: 50 ppm en 60–90 min, 100 ppm en
+// 10–40 min, 300 ppm en menos de 3 min), pero mucho más rápidos: aquí se apaga la Webasto, no solo se pita.
+//   aviso:  30 ppm o más durante 2 min                              → aviso por Telegram
+//   alarma: 300 ppm dos lecturas seguidas, 100 ppm 30 s o 50 ppm 3 min → se apaga y no deja encender
+// La alarma se quita con menos de 20 ppm durante 5 min seguidos; el aviso, con menos de 20 ppm 1 min.
+enum { CO_OK = 0, CO_WARN = 1, CO_ALARM = 2 };
+struct CoAlarm { uint8_t lvl; uint32_t o30, o50, o100, o300, low; };
+inline uint8_t coStep(CoAlarm& a, float ppm, uint32_t dt) {
+  if (dt > 5000) dt = 5000;                         // tras un hueco sin datos no se cuenta el hueco entero
+  a.o30  = ppm >= 30  ? a.o30 + dt  : 0;
+  a.o50  = ppm >= 50  ? a.o50 + dt  : 0;
+  a.o100 = ppm >= 100 ? a.o100 + dt : 0;
+  a.o300 = ppm >= 300 ? a.o300 + dt : 0;
+  a.low  = ppm < 20   ? a.low + dt  : 0;
+  if (a.o300 >= 2000 || a.o100 >= 30000 || a.o50 >= 180000) { a.lvl = CO_ALARM; return a.lvl; }
+  if (a.lvl == CO_ALARM) { if (a.low >= 300000) a.lvl = CO_OK; return a.lvl; }
+  if (a.o30 >= 120000) a.lvl = CO_WARN;
+  else if (a.lvl == CO_WARN && a.low >= 60000) a.lvl = CO_OK;
+  return a.lvl;
+}

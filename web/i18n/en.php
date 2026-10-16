@@ -82,10 +82,14 @@ TXT,
 'svgWbus' => 'W-Bus loose',
 'svgSlp' => 'SLP floating: ⑩ is missing',
 'svgCross' => '⑧ and ⑨ swapped',
-'svgOpt' => 'Optional: display and thermometer (I2C bus) and “heat” button',
+'svgOpt' => 'Optional: display and thermometer (I2C bus), “heat” button and CO sensor',
 'svgOptSub' => 'dashed wires: the build works without them',
 'svgOled' => 'I2C OLED display (SSD1327 1.5")',
 'svgSens' => 'SHT31 or AHT20 thermometer',
+'wirePdf' => 'Download the wiring diagram as PDF',
+'wirePdfSub' => 'drawing, wire list and steps, to print and take to the van',
+'svgCo' => 'ZE07-CO CO sensor',
+'svgCoSub' => 'TXD → IO15 · VIN to 5 V',
 'svgBtn' => '“heat” button (push button)',
 'wfTitle' => 'Testing without a van: a fake Webasto',
 'wfIntro' => 'A <b>second ESP32</b> (any, the classic or an S3) can pretend to be the Webasto on the W-Bus: it starts, ignites, regulates, runs on after switching off and reports faults like a real one (the same model as the simulator above, checked against libwbus). That way all of WTTC can be tested on the bench, without diesel or a van. Its USB console triggers faults (no fuel, flame going out, no power, loose wire, low battery) and speeds up time. The sketch, instructions and test list: <a href="https://github.com/matatunos/wttc/tree/main/herramientas/webasto_falsa" target="_blank" rel="noopener">herramientas/webasto_falsa</a>.',
@@ -110,7 +114,7 @@ TXT,
 'wfPsuSub' => '(+ and −)',
 'wfFoot' => 'In both cases: the fake Webasto is driven from its USB console (faults, battery, temperature, faster time)',
 'wireHint' => <<<'TXT'
-Boards may come with the terminals in other places: <b>go by what is printed next to each terminal or pin</b>, not by its position in the drawing. The drawing shows the <b>ESP32-S3 DevKitC-1</b>: all the pins WTTC uses are on the same side. Screw-terminal bases have them labelled (the 5 V one sometimes says “5Vin”). Since version 0.2.0 only the <b>ESP32-S3</b> is supported. What is inside the <b>dashed box</b> (display and thermometer, wires ⑫–⑮, and “heat” button, ⑯–⑰) is <b>optional</b>: the build works without it.
+Boards may come with the terminals in other places: <b>go by what is printed next to each terminal or pin</b>, not by its position in the drawing. The drawing shows the <b>ESP32-S3 DevKitC-1</b>: all the pins WTTC uses are on the same side. Screw-terminal bases have them labelled (the 5 V one sometimes says “5Vin”). Since version 0.2.0 only the <b>ESP32-S3</b> is supported. What is inside the <b>dashed box</b> (display and thermometer, wires ⑫–⑮; “heat” button, ⑯–⑰, and CO sensor, ⑱–⑳) is <b>optional</b>: the build works without it.
   The colours of wires ⑥–⑪ are a suggestion (dupont wires). Those of the van's connector are <b>unconfirmed: measure them with a multimeter</b>.
 TXT,
 'cables' => <<<'TXT'
@@ -137,6 +141,10 @@ TXT,
 <tr><td>15</td><td><span class="sw-c" style="background:#e9c46a"></span>gold</td><td>ESP32, pin <b>IO5</b> (SCL)</td><td>Display <b>SCL</b> and thermometer <b>SCL</b></td></tr>
 <tr><td>16</td><td><span class="sw-c" style="background:#f15bb5"></span>magenta</td><td>ESP32, pin <b>IO7</b></td><td>“Heat” button: one leg</td></tr>
 <tr><td>17</td><td><span class="sw-c" style="background:#9aa3b5"></span>grey</td><td>“Heat” button: the other leg</td><td>Ground: splice of ⑬ (or a <b>GND</b> pin)</td></tr>
+<tr class="opt"><td colspan="4"><b>Optional</b>: <b>Winsen ZE07-CO</b> carbon monoxide sensor (electrochemical, the kind that gives ppm over serial; an MQ-7 will not do). If CO rises, the board switches the Webasto off, sends a Telegram alert and blocks starting. <b>It does not replace a certified CO detector with its own alarm</b>: fit one too.</td></tr>
+<tr><td>18</td><td><span class="sw-c" style="background:#ff9f1c"></span>orange</td><td>Splice of ⑥ (5 V from the LM2596)</td><td>CO sensor, <b>VIN</b> (5 V)</td></tr>
+<tr><td>19</td><td><span class="sw-c" style="background:#9aa3b5"></span>grey</td><td>Splice of ⑬ (ground)</td><td>CO sensor, <b>GND</b></td></tr>
+<tr><td>20</td><td><span class="sw-c" style="background:#a3e635"></span>lime</td><td>CO sensor, <b>TXD</b></td><td>ESP32, pin <b>IO15</b></td></tr>
 </tbody></table>
 TXT,
 'steps' => <<<'TXT'
@@ -149,6 +157,7 @@ TXT,
 <li>Finally, ⑥ and ⑦ to the ESP32. For the <b>first test</b> leave them off: power the ESP32 over USB from your laptop (on the ESP32-S3, through the USB port marked UART or COM) and type <code>status</code> in the console.</li>
 <li>If the console does not even show the echo, <b>swap ⑧ and ⑨</b> (it often happens with the TX/RX labels on these boards). If there is an echo but “sin respuesta” (no answer), check ② and the ground.</li>
 <li><b>Optional, once the basics work:</b> the OLED display and the thermometer (SHT31 or AHT20) with ⑫–⑮, and the “heat” button with ⑯–⑰ (any push button; set it up in Settings). The board detects them by itself at boot (or 30 s after plugging them in). Keep the thermometer a hand's width away from the board and the regulator, which get warm. Without a thermometer everything works the same, except “heat up to X °C”.</li>
+<li><b>Optional: CO sensor</b> (Winsen ZE07-CO) with ⑱–⑳: 5 V from the regulator, ground and its <b>TXD to IO15</b> (its RXD and other pins stay free). Its output is 3.3 V: it goes straight to the ESP32. The board detects it as soon as it sends data, and its first 3 minutes do not count (it is warming up). Place it inside, at head height where you sleep and away from the cooker; not next to the hot-air outlet. If it ever stops sending data, schedules will not start on their own until it is back (or until you choose «I no longer have a CO sensor» in Settings). <b>Also fit a certified CO detector (EN 50291) with its own alarm</b>: if the board fails, this sensor is useless.</li>
 </ol>
 TXT,
 'dlTitle' => 'Downloads',

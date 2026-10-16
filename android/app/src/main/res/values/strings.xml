@@ -147,6 +147,10 @@
     <string name="upd_demo">There is nothing to update in demo mode.</string>
     <string name="cabin">Inside: %1$s</string>
     <string name="cabin_hum"> · humidity %1$d %%</string>
+    <string name="co_val">Carbon monoxide inside: %1$d ppm</string>
+    <string name="co_warn"> · ventilate</string>
+    <string name="co_lost">⚠️ The CO sensor is not sending data: schedules will not start the heater (by hand they will).</string>
+    <string name="co_alarm">🚨 CARBON MONOXIDE! Get out of the van and ventilate. The heater is off and cannot be started until it drops.</string>
     <string name="tgt_label">Up to</string>
     <string name="tgt_none">No temperature limit</string>
     <string name="waiting">Waiting</string>

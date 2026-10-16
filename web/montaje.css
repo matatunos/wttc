@@ -1,0 +1,22 @@
+/* montaje.css — Estilos del esquema de conexiones (montaje.inc.php), comunes a la portada y a esquema.php.
+   Código generado íntegramente con Claude (Anthropic). Usa las variables de color de la página que lo incluye:
+   --bg-inner, --bg-card, --text, --muted, --border y --bad. */
+.wirebox{overflow-x:auto;border-radius:10px;}
+svg.wire{width:100%;min-width:900px;height:auto;display:block;background:var(--bg-inner);border-radius:10px;}
+svg.wire text{fill:var(--text);font-size:12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;}
+svg.wire text.t{font-size:14px;font-weight:700;}
+svg.wire text.m{fill:var(--muted);font-size:11px;}
+svg.wire text.silk{fill:#fff;font-size:11px;font-weight:700;}
+svg.wire text.pin{fill:#c9cfe0;font-size:8.5px;font-family:ui-monospace,monospace;}
+svg.wire text.pin.use{fill:#fff;font-size:9.5px;font-weight:800;}
+svg.wire text.bad{fill:var(--bad);font-weight:700;}
+svg.wire text.tag{font-size:11px;font-weight:800;text-anchor:middle;dominant-baseline:central;}
+svg.wire .halo{fill:none;stroke:var(--bg-inner);stroke-width:10;stroke-linejoin:round;}
+svg.wire .cw{fill:none;stroke-width:5;stroke-linecap:round;stroke-linejoin:round;}
+svg.wire .xx{stroke:var(--bad);stroke-width:4;}
+.hide{display:none;}
+table.cables td:first-child{font-weight:800;text-align:center;width:34px;}
+table.cables tr.opt td{font-weight:400;text-align:left;width:auto;color:var(--muted);border-top:2px dashed var(--border);padding-top:12px;}
+.sw-c{display:inline-block;width:26px;height:8px;border-radius:4px;vertical-align:middle;margin-right:6px;border:1px solid rgba(255,255,255,.25);}
+.pasos{padding-left:20px;font-size:.84rem;line-height:1.55;}
+.pasos li{margin-bottom:6px;}

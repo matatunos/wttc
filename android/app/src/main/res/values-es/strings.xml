@@ -146,6 +146,10 @@
     <string name="upd_demo">En el modo demostración no hay nada que actualizar.</string>
     <string name="cabin">Dentro: %1$s</string>
     <string name="cabin_hum"> · humedad %1$d %%</string>
+    <string name="co_val">Monóxido (CO) dentro: %1$d ppm</string>
+    <string name="co_warn"> · ventila</string>
+    <string name="co_lost">⚠️ El sensor de CO no manda datos: los programas no encenderán la calefacción (a mano, sí).</string>
+    <string name="co_alarm">🚨 ¡MONÓXIDO DE CARBONO! Sal de la furgo y ventila. La calefacción está apagada y no se puede encender hasta que baje.</string>
     <string name="tgt_label">Hasta</string>
     <string name="tgt_none">Sin límite de temperatura</string>
     <string name="waiting">En espera</string>

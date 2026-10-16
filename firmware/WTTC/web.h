@@ -48,7 +48,7 @@ header b{color:var(--ink);font-size:17px}
 .stats{display:flex;justify-content:center;gap:22px;color:var(--mut);font-size:14px;font-variant-numeric:tabular-nums;margin-bottom:18px}
 .stats b{color:var(--ink);font-weight:600}
 .gas{text-align:center;color:var(--mut);font-size:13px;margin:-10px 0 18px}
-.cab{text-align:center;font-size:17px;margin:-8px 0 16px}.cab b{font-weight:600}
+.cab{text-align:center;font-size:17px;margin:-8px 0 16px}.cab b{font-weight:600}.co.wn{color:var(--fl)}.co.al{background:var(--bad);color:#fff;border-radius:12px;padding:12px;font-weight:700;margin-top:0}
 .line select,.line input[type=time]{font:inherit;font-size:15px;background:var(--sf2);color:var(--ink);border:0;border-radius:8px;padding:6px 8px}
 .dlg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:9}
 .dlg[hidden]{display:none}.dlg>div{background:var(--sf);border-radius:16px;padding:18px;max-width:420px;width:100%}
@@ -116,6 +116,8 @@ details h3{font-size:15px;margin:18px 0 0}
 <div class="gas" id="gas"></div>
 <!-- Temperatura y humedad de dentro: solo con el termómetro opcional (SHT31 o AHT20) -->
 <div class="cab" id="cab" hidden></div>
+<!-- Monóxido de carbono: solo con el sensor opcional (ZE07-CO); con alarma, en grande y en rojo -->
+<div class="cab" id="coBox" hidden></div>
 <!-- Avisos: se apagó sola (con sus averías), el W-Bus no responde, la placa no está en hora -->
 <div id="warn"></div>
 <!-- Duración elegida (15–60 min) y botón grande de encender / apagar -->
@@ -183,7 +185,7 @@ details h3{font-size:15px;margin:18px 0 0}
 <div id="hwBox" hidden>
 <p class="sub" data-t="minvHelp">Calentando, se apaga sola si la batería baja medio voltio por debajo de esta.</p>
 <label class="f"><span data-t="fWarm">Avisar cuando el agua llegue a (°C; 0 = no avisar)</span><input id="c_warm" type="number" step="1" min="0" max="80"></label>
-<h3 data-t="hwT">Pantalla, LED y termómetro (opcionales)</h3>
+<h3 data-t="hwT">Pantalla, LED, termómetro y sensor de CO (opcionales)</h3>
 <p class="sub" id="hw"></p>
 <!-- Cada ajuste solo aparece si su pieza está conectada (la placa la detecta) -->
 <label class="f" id="lb_oled"><span data-t="fOled">Tipo de pantalla</span><select id="c_oled"><option value="0" data-t="oled0">OLED 1,3" (SH1106)</option><option value="1" data-t="oled1">OLED 0,96" (SSD1306)</option><option value="2" data-t="oled2">OLED 1,5" grises (SSD1327)</option></select></label>
@@ -193,7 +195,9 @@ details h3{font-size:15px;margin:18px 0 0}
 <!-- Botón «calentar» opcional: un pulsador entre IO7 y GND (no se detecta: los ajustes se ven siempre) -->
 <div id="btnBox" hidden><label class="f"><span data-t="fBtnMin">Botón «calentar» (pulsador entre IO7 y GND)</span><select id="c_bmin"><option value="0" data-t="btnOff">Desactivado</option><option value="15">15 min</option><option value="30">30 min</option><option value="45">45 min</option><option value="60">60 min</option></select></label>
 <label class="f"><span data-t="fBtnTgt">Con termómetro, calentar hasta</span><select id="c_btgt"></select></label>
-<p class="sub" data-t="btnHelp"></p></div></div>
+<p class="sub" data-t="btnHelp"></p></div>
+<!-- Sensor de CO que tuvo y ya no manda datos: «ya no lo tengo» para que deje de echarlo en falta (0.3.9+) -->
+<div id="coCfg" hidden><p class="sub" data-t="coCfgH"></p><button class="btn" id="coForget" data-t="coForget">Ya no tengo sensor de CO</button></div></div>
 <div class="acts" style="margin-top:14px"><button class="btn pri" id="csave" data-t="save">Guardar</button><button class="btn" id="tgtest" data-t="tgTest">Probar Telegram</button></div>
 <div class="acts" style="margin-top:10px"><button class="btn" id="forget" data-t="forget">Borrar emparejamientos</button><button class="btn" id="tsync" data-t="setClock">Poner en hora</button><button class="btn" id="logout" data-t="logout" hidden>Salir</button></div>
 <!-- Mis estadísticas: código de instalación (para verlas en wttc.favala.es/mi.php) y si se envían -->
@@ -246,7 +250,7 @@ es:{loc:'es-ES',coldAny:"Siempre",coldBelow:"Solo con menos de {0} dentro",skipN
  warmOk:' · agua caliente',turnOnTgt:'Encender hasta {0} (máx. {1})',depL:'Salgo a las',depGo:'Programar',depCancel:'Cancelar',
  depSet:'Salida: {0} a las {1}{2}. Enciende antes, según el frío que haga.',depTgt:' (hasta {0})',mStart:'Encender a esta hora',mDep:'Salgo a esta hora',
  sTgt:'Sin termostato',nextDep:'Próxima salida: {0} a las {1}.',minvHelp:'Calentando, se apaga sola si la batería baja medio voltio por debajo de esta.',
- fWarm:'Avisar cuando el agua llegue a (°C; 0 = no avisar)',hwT:'Pantalla, LED y termómetro (opcionales)',fOled:'Tipo de pantalla',oled0:'OLED 1,3" (SH1106)',
+ fWarm:'Avisar cuando el agua llegue a (°C; 0 = no avisar)',hwT:'Pantalla, LED, termómetro y sensor de CO (opcionales)',coName:'sensor de CO ZE07-CO',coVal:'Monóxido (CO) dentro: {0}',coWarn:' · ventila',coHeat:'Sensor de CO calentándose (3 min)…',coLost:'⚠️ El sensor de CO no manda datos: los programas no encenderán la calefacción (a mano, sí).',coAlarm:'🚨 ¡MONÓXIDO DE CARBONO! Sal de la furgo y ventila. La calefacción está apagada y no se puede encender hasta que baje.',coCfgH:'Esta placa tuvo un sensor de CO y ahora no manda datos. Mientras falte, los programas, «Salgo a las…» y el termostato no encienden la calefacción. Si lo has quitado a propósito, díselo:',coForget:'Ya no tengo sensor de CO',coForgetAsk:'¿Seguro? Sin sensor de CO, la placa encenderá la calefacción sin nadie delante sin vigilar el monóxido. Ten siempre un detector de CO homologado con su propia alarma.',fOled:'Tipo de pantalla',oled0:'OLED 1,3" (SH1106)',
  oled1:'OLED 0,96" (SSD1306)',oled2:'OLED 1,5" grises (SSD1327)',fDisp:'Pantalla',disp0:'Apagada (solo con el botón BOOT)',disp1:'Automática (se apaga al minuto)',disp2:'Siempre encendida',fLed:'LED de la placa',
  led0:'Apagado',led1:'Bajo',led2:'Medio',led3:'Alto',fToff:'Corrección del termómetro (°C)',hwDet:'Detectado: {0}.',scr:'pantalla',
  hwNone:'No se detecta pantalla ni termómetro (bus I2C: SDA a IO4, SCL a IO5, más 3V3 y GND).',updCheck:'Buscar actualizaciones',updHelp2:'Con la placa unida a una red con internet, «Buscar actualizaciones» lo hace todo: busca, te pregunta y la descarga e instala sola.',updSearching:'Buscando… (hasta un minuto)',updAsk:'¿Actualizar ahora? La placa la descarga, la instala y se reinicia sola.',updDownloading:'Descargando e instalando… {0} %',updTimeout:'La placa no ha contestado a tiempo.',updTitle:'Actualizar firmware',updHelp:'Descarga el fichero .ota de la última versión (github.com/matatunos/wttc/releases) y súbelo aquí. Solo se instalan actualizaciones oficiales (con firma) y nunca mientras calienta; si la nueva no arranca bien, la placa vuelve sola a la anterior.',updFile:'Fichero .ota',updBtn:'Actualizar',updNoFile:'Elige primero el fichero .ota.',updSending:'Subiendo… {0} %',updChecking:'Comprobando la firma e instalando…',updSim:'En el simulador no se puede actualizar: es la web de una placa de verdad.',updNet:'Se cortó la conexión con la placa.',setupTitle:'Primer uso: protege la Wi-Fi de la placa',setupText:'La clave de fábrica es pública: cualquiera cerca podría manejar la calefacción. Elige una nueva (mínimo 8 caracteres); la placa se reinicia y tendrás que volver a conectarte a su Wi-Fi con la clave nueva.',setupLabel:'Clave nueva de la Wi-Fi',setupShort:'La clave debe tener al menos 8 caracteres.',water:'agua del motor',connecting:'Conectando…',battery:'Batería',flame:'Llama',power:'Potencia',turnOn:'Encender',turnOff:'Apagar',
@@ -276,7 +280,7 @@ en:{loc:'en-GB',coldAny:"Always",coldBelow:"Only below {0} inside",skipNext:"Ski
  warmOk:' · water is warm',turnOnTgt:'Heat up to {0} (max {1})',depL:'I leave at',depGo:'Set',depCancel:'Cancel',
  depSet:'Departure: {0} at {1}{2}. It switches on earlier, depending on how cold it is.',depTgt:' (up to {0})',mStart:'Switch on at this time',mDep:'I leave at this time',
  sTgt:'No thermostat',nextDep:'Next departure: {0} at {1}.',minvHelp:'While heating, it switches itself off if the battery drops half a volt below this.',
- fWarm:'Notify when the water reaches (°C; 0 = no notice)',hwT:'Display, LED and thermometer (optional)',fOled:'Display type',oled0:'OLED 1.3" (SH1106)',
+ fWarm:'Notify when the water reaches (°C; 0 = no notice)',hwT:'Display, LED, thermometer and CO sensor (optional)',coName:'ZE07-CO CO sensor',coVal:'Carbon monoxide inside: {0}',coWarn:' · ventilate',coHeat:'CO sensor warming up (3 min)…',coLost:'⚠️ The CO sensor is not sending data: schedules will not start the heater (by hand they will).',coAlarm:'🚨 CARBON MONOXIDE! Get out of the van and ventilate. The heater is off and cannot be started until it drops.',coCfgH:'This board had a CO sensor and it is not sending data now. While it is missing, schedules, «Leaving at…» and the thermostat do not start the heater. If you removed it on purpose, tell it:',coForget:'I no longer have a CO sensor',coForgetAsk:'Sure? Without a CO sensor the board will start the heater with nobody around and without watching carbon monoxide. Always keep a certified CO detector with its own alarm.',fOled:'Display type',oled0:'OLED 1.3" (SH1106)',
  oled1:'OLED 0.96" (SSD1306)',oled2:'OLED 1.5" greyscale (SSD1327)',fDisp:'Display',disp0:'Off (only with the BOOT button)',disp1:'Automatic (off after a minute)',disp2:'Always on',fLed:'Board LED',
  led0:'Off',led1:'Low',led2:'Medium',led3:'High',fToff:'Thermometer correction (°C)',hwDet:'Detected: {0}.',scr:'display',
  hwNone:'No display or thermometer detected (I2C bus: SDA to IO4, SCL to IO5, plus 3V3 and GND).',updCheck:'Check for updates',updHelp2:'With the board joined to a network with internet, “Check for updates” does it all: it checks, asks you, and downloads and installs it by itself.',updSearching:'Checking… (up to a minute)',updAsk:'Update now? The board downloads it, installs it and restarts by itself.',updDownloading:'Downloading and installing… {0} %',updTimeout:'The board did not answer in time.',updTitle:'Update firmware',updHelp:'Download the .ota file of the latest version (github.com/matatunos/wttc/releases) and upload it here. Only official (signed) updates are installed, and never while heating; if the new one does not start properly, the board goes back to the previous one by itself.',updFile:'.ota file',updBtn:'Update',updNoFile:'Choose the .ota file first.',updSending:'Uploading… {0} %',updChecking:'Checking the signature and installing…',updSim:'Updating is not possible in the simulator: this is the web page of a real board.',updNet:'The connection to the board was lost.',setupTitle:'First use: protect the board\'s Wi-Fi',setupText:'The factory password is public: anyone nearby could control the heater. Choose a new one (at least 8 characters); the board restarts and you will have to reconnect to its Wi-Fi with the new password.',setupLabel:'New Wi-Fi password',setupShort:'The password must be at least 8 characters long.',water:'engine coolant',connecting:'Connecting…',battery:'Battery',flame:'Flame',power:'Power',turnOn:'Switch on',turnOff:'Switch off',
@@ -306,7 +310,7 @@ de:{loc:'de-DE',coldAny:"Immer",coldBelow:"Nur unter {0} innen",skipNext:"Nächs
  warmOk:' · Wasser ist warm',turnOnTgt:'Heizen bis {0} (max. {1})',depL:'Abfahrt um',depGo:'Einstellen',depCancel:'Löschen',
  depSet:'Abfahrt: {0} um {1}{2}. Schaltet je nach Kälte früher ein.',depTgt:' (bis {0})',mStart:'Zu dieser Zeit einschalten',mDep:'Abfahrt zu dieser Zeit',
  sTgt:'Ohne Thermostat',nextDep:'Nächste Abfahrt: {0} um {1}.',minvHelp:'Während des Heizens schaltet sie sich ab, wenn die Batterie ein halbes Volt darunter fällt.',
- fWarm:'Melden, wenn das Wasser erreicht (°C; 0 = keine Meldung)',hwT:'Display, LED und Thermometer (optional)',fOled:'Displaytyp',oled0:'OLED 1,3" (SH1106)',
+ fWarm:'Melden, wenn das Wasser erreicht (°C; 0 = keine Meldung)',hwT:'Display, LED, Thermometer und CO-Sensor (optional)',coName:'CO-Sensor ZE07-CO',coVal:'Kohlenmonoxid innen: {0}',coWarn:' · lüften',coHeat:'CO-Sensor wärmt sich auf (3 Min.)…',coLost:'⚠️ Der CO-Sensor sendet keine Daten: Zeitpläne schalten die Heizung nicht ein (von Hand schon).',coAlarm:'🚨 KOHLENMONOXID! Raus aus dem Bus und lüften. Die Heizung ist aus und lässt sich erst wieder einschalten, wenn der Wert sinkt.',coCfgH:'Diese Platine hatte einen CO-Sensor, der jetzt keine Daten sendet. Solange er fehlt, schalten Zeitpläne, «Abfahrt um…» und das Thermostat die Heizung nicht ein. Absichtlich entfernt? Dann hier melden:',coForget:'Ich habe keinen CO-Sensor mehr',coForgetAsk:'Sicher? Ohne CO-Sensor schaltet die Platine die Heizung ein, ohne dass jemand da ist und ohne Kohlenmonoxid zu überwachen. Immer einen zugelassenen CO-Melder mit eigenem Alarm haben.',fOled:'Displaytyp',oled0:'OLED 1,3" (SH1106)',
  oled1:'OLED 0,96" (SSD1306)',oled2:'OLED 1,5" Graustufen (SSD1327)',fDisp:'Display',disp0:'Aus (nur mit der BOOT-Taste)',disp1:'Automatisch (nach einer Minute aus)',disp2:'Immer an',fLed:'LED der Platine',
  led0:'Aus',led1:'Niedrig',led2:'Mittel',led3:'Hoch',fToff:'Thermometerkorrektur (°C)',hwDet:'Erkannt: {0}.',scr:'Display',
  hwNone:'Kein Display und kein Thermometer erkannt (I2C-Bus: SDA an IO4, SCL an IO5, dazu 3V3 und GND).',updCheck:'Nach Updates suchen',updHelp2:'Ist die Platine mit einem Netz mit Internet verbunden, erledigt „Nach Updates suchen“ alles: sucht, fragt dich und lädt und installiert es selbst.',updSearching:'Suche… (bis zu einer Minute)',updAsk:'Jetzt aktualisieren? Die Platine lädt es herunter, installiert es und startet selbst neu.',updDownloading:'Lade herunter und installiere… {0} %',updTimeout:'Die Platine hat nicht rechtzeitig geantwortet.',updTitle:'Firmware aktualisieren',updHelp:'Die .ota-Datei der neuesten Version herunterladen (github.com/matatunos/wttc/releases) und hier hochladen. Es werden nur offizielle (signierte) Updates installiert und nie während des Heizens; startet die neue nicht richtig, kehrt die Platine von selbst zur vorherigen zurück.',updFile:'.ota-Datei',updBtn:'Aktualisieren',updNoFile:'Zuerst die .ota-Datei wählen.',updSending:'Lade hoch… {0} %',updChecking:'Prüfe die Signatur und installiere…',updSim:'Im Simulator kann nicht aktualisiert werden: das ist die Webseite einer echten Platine.',updNet:'Die Verbindung zur Platine ist abgebrochen.',setupTitle:'Erste Nutzung: WLAN der Platine schützen',setupText:'Das Passwort ab Werk ist öffentlich: jeder in der Nähe könnte die Heizung steuern. Wähle ein neues (mindestens 8 Zeichen); die Platine startet neu und du musst dich mit dem neuen Passwort wieder mit ihrem WLAN verbinden.',setupLabel:'Neues WLAN-Passwort',setupShort:'Das Passwort muss mindestens 8 Zeichen lang sein.',water:'Kühlwasser',connecting:'Verbinde…',battery:'Batterie',flame:'Flamme',power:'Leistung',turnOn:'Einschalten',turnOff:'Ausschalten',
@@ -401,6 +405,10 @@ function render(){if(!st)return;
   st.on?(st.ph==3?T('hotWater'):'')+T('left',fmtRem(st.remain))+(st.src=='programa'?T('bySched'):'')+(st.wa?T('warmOk'):''):'';
  const hasT=hasSens();
  $('cab').hidden=!hasT;if(hasT)$('cab').innerHTML=T('cabin','<b>'+deg(st.ct,1)+'</b>')+(st.ch!==null?T('hum',st.ch):'');
+ // Sensor de CO (0.3.9+): lo que mide, si falta o se calienta, y la alarma
+ const coOn=st.coh||(st.co!=null);$('coBox').hidden=!coOn;
+ if(coOn){const b=$('coBox');b.className='cab co'+(st.coa==2?' al':st.coa==1||st.co==null?' wn':'');
+  b.innerHTML=st.coa==2?T('coAlarm'):st.co==null?T('coLost'):st.cop?T('coHeat'):T('coVal','<b>'+st.co+' ppm</b>')+(st.coa==1?T('coWarn'):'')}
  $('tgtRow').hidden=!hasT;if(!hasT&&tgt){tgt=0;seg()}
  if(st.dep){const d=new Date(st.dep*1000),k=Math.round((new Date(d).setHours(0,0,0,0)-new Date(st.time*1000).setHours(0,0,0,0))/864e5);
   $('depSt').textContent=T('depSet',k<=0?T('today'):k==1?T('tomorrow'):T('daysL')[(d.getDay()+6)%7],pad(d.getHours())+':'+pad(d.getMinutes()),st.dept?T('depTgt',deg(st.dept,0)):'')}
@@ -501,6 +509,8 @@ $('logSend').onclick=async()=>{if(!await ask(T('logSendAsk'),true))return;try{aw
 // Chequeo de la Webasto (0.3.8): conexión, batería, agua, bujía, averías y consejos; el informe llega también por Telegram
 $('chkBtn').onclick=async()=>{const o=$('errout');o.textContent=T('chkRun');try{const r=await api('/api/check',{tg:'1'});o.textContent=r.txt||'—'}catch(e){o.textContent=e.message}};
 $('clrBtn').onclick=async()=>{if(!await ask(T('clrAsk'),true))return;const o=$('errout');try{o.textContent=await api('/api/clearfaults',{})}catch(e){o.textContent=T('error')+e.message}};
+// «Ya no tengo sensor de CO»: deja de echarlo en falta (sin él, los encendidos sin nadie delante no se hacían)
+$('coForget').onclick=async()=>{if(!await ask(T('coForgetAsk'),true))return;try{await api('/api/cfg',{co:'0'});$('coCfg').hidden=true;say(T('saved'))}catch(e){say(e.message)}};
 // Leer las averías guardadas en la Webasto
 $('errs').onclick=async()=>{$('errout').textContent=T('reading');try{const r=await api('/api/errors');
  $('errout').textContent=(!r.ok?T('noAnswer'):r.codes.length?r.codes.map(c=>T('code',c.c,c.n)).join('\n'):T('noFaults'))+T('raw')+r.raw}catch(e){$('errout').textContent=T('error')+e.message}};
@@ -521,7 +531,7 @@ async function loadCfg(){try{const c=await api('/api/cfg');
  $('btnBox').hidden=c.btnmin==null;
  if(c.btnmin!=null){$('c_bmin').value=c.btnmin;$('c_btgt').innerHTML='<option value="0">'+T('btnTgtNone')+'</option>'+TGTS.map(t=>`<option value="${t}">${t} °C</option>`).join('');$('c_btgt').value=c.btntgt||0}
  if(c.th){$('c_oled').value=c.oled;$('c_disp').value=c.disp;$('c_led').value=c.led;$('c_toff').value=c.toff;$('c_warm').value=c.warm;
-  const h=[c.sens,c.scr?T('scr'):''].filter(x=>x).join(', ');$('hw').textContent=h?T('hwDet',h):T('hwNone')}
+  const h=[c.sens,c.scr?T('scr'):'',c.co==2?T('coName'):''].filter(x=>x).join(', ');$('coCfg').hidden=c.co!=1;$('hw').textContent=h?T('hwDet',h):T('hwNone')}
  $('c_tok').value='';$('c_ap').value='';$('c_pass').value='';$('c_tok').placeholder=T(c.tg?'stored':'notSet');
  $('c_bonds').textContent=c.bonds?T('bonds',c.bonds):T('noBonds');
  $('c_ver').textContent=T('ver',c.ver)}catch(e){say(T('cfgFail')+e.message)}}

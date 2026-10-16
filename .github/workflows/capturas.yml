@@ -8,7 +8,7 @@ name: Capturas
 on:
   push:
     branches: [main]
-    paths: ['docs/capturas/capturar.mjs', 'docs/capturas/capturar-app.sh', '.github/workflows/capturas.yml', 'android/app/src/**']
+    paths: ['docs/capturas/capturar.mjs', 'docs/capturas/capturar-app.sh', '.github/workflows/capturas.yml', 'android/app/src/**', 'web/montaje.inc.php']
   workflow_dispatch:
 
 permissions:

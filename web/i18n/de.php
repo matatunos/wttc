@@ -82,10 +82,14 @@ TXT,
 'svgWbus' => 'W-Bus lose',
 'svgSlp' => 'SLP offen: ⑩ fehlt',
 'svgCross' => '⑧ und ⑨ vertauscht',
-'svgOpt' => 'Optional: Display und Thermometer (I2C-Bus) und „Heizen“-Taste',
+'svgOpt' => 'Optional: Display und Thermometer (I2C-Bus), „Heizen“-Taste und CO-Sensor',
 'svgOptSub' => 'gestrichelte Kabel: der Aufbau funktioniert ohne sie',
 'svgOled' => 'I2C-OLED-Display (SSD1327 1,5")',
 'svgSens' => 'Thermometer SHT31 oder AHT20',
+'wirePdf' => 'Schaltplan als PDF herunterladen',
+'wirePdfSub' => 'Zeichnung, Kabelliste und Schritte, zum Ausdrucken und Mitnehmen in den Bus',
+'svgCo' => 'CO-Sensor ZE07-CO',
+'svgCoSub' => 'TXD → IO15 · VIN an 5 V',
 'svgBtn' => '„Heizen“-Taste (Taster)',
 'wfTitle' => 'Testen ohne Bus: eine falsche Webasto',
 'wfIntro' => 'Ein <b>zweiter ESP32</b> (beliebig, der klassische oder ein S3) kann sich am W-Bus als Webasto ausgeben: er startet, zündet, regelt, läuft nach und meldet Störungen wie eine echte (dasselbe Modell wie der Simulator oben, abgeglichen mit libwbus). So lässt sich ganz WTTC auf dem Tisch testen, ohne Diesel und ohne Bus. Über seine USB-Konsole löst man Fehler aus (kein Diesel, Flammabriss, kein Strom, loses Kabel, schwache Batterie) und beschleunigt die Zeit. Sketch, Anleitung und Testliste: <a href="https://github.com/matatunos/wttc/tree/main/herramientas/webasto_falsa" target="_blank" rel="noopener">herramientas/webasto_falsa</a>.',
@@ -110,7 +114,7 @@ TXT,
 'wfPsuSub' => '(+ und −)',
 'wfFoot' => 'In beiden Fällen: die falsche Webasto wird über ihre USB-Konsole bedient (Fehler, Batterie, Temperatur, schnellere Zeit)',
 'wireHint' => <<<'TXT'
-Die Platinen können die Klemmen an anderen Stellen haben: <b>richte dich nach der Beschriftung neben jeder Klemme bzw. jedem Pin</b>, nicht nach der Position in der Zeichnung. Die Zeichnung zeigt den <b>ESP32-S3 DevKitC-1</b>: alle Pins, die WTTC nutzt, liegen auf derselben Seite. Auf Basisplatinen mit Schraubklemmen sind sie beschriftet (der 5-V-Pin heißt manchmal „5Vin“). Seit Version 0.2.0 wird nur der <b>ESP32-S3</b> unterstützt. Was im <b>gestrichelten Kasten</b> steht (Display und Thermometer, Kabel ⑫–⑮, und „Heizen“-Taste, ⑯–⑰), ist <b>optional</b>: der Aufbau funktioniert auch ohne.
+Die Platinen können die Klemmen an anderen Stellen haben: <b>richte dich nach der Beschriftung neben jeder Klemme bzw. jedem Pin</b>, nicht nach der Position in der Zeichnung. Die Zeichnung zeigt den <b>ESP32-S3 DevKitC-1</b>: alle Pins, die WTTC nutzt, liegen auf derselben Seite. Auf Basisplatinen mit Schraubklemmen sind sie beschriftet (der 5-V-Pin heißt manchmal „5Vin“). Seit Version 0.2.0 wird nur der <b>ESP32-S3</b> unterstützt. Was im <b>gestrichelten Kasten</b> steht (Display und Thermometer, Kabel ⑫–⑮; „Heizen“-Taste, ⑯–⑰, und CO-Sensor, ⑱–⑳), ist <b>optional</b>: der Aufbau funktioniert auch ohne.
   Die Farben der Kabel ⑥–⑪ sind ein Vorschlag (Dupont-Kabel). Die des Fahrzeugsteckers sind <b>unbestätigt: mit dem Multimeter messen</b>.
 TXT,
 'cables' => <<<'TXT'
@@ -137,6 +141,10 @@ TXT,
 <tr><td>15</td><td><span class="sw-c" style="background:#e9c46a"></span>gold</td><td>ESP32, Pin <b>IO5</b> (SCL)</td><td>Display <b>SCL</b> und Thermometer <b>SCL</b></td></tr>
 <tr><td>16</td><td><span class="sw-c" style="background:#f15bb5"></span>magenta</td><td>ESP32, Pin <b>IO7</b></td><td>„Heizen“-Taste: ein Bein</td></tr>
 <tr><td>17</td><td><span class="sw-c" style="background:#9aa3b5"></span>grau</td><td>„Heizen“-Taste: das andere Bein</td><td>Masse: Abzweig von ⑬ (oder ein <b>GND</b>-Pin)</td></tr>
+<tr class="opt"><td colspan="4"><b>Optional</b>: Kohlenmonoxid-Sensor <b>Winsen ZE07-CO</b> (elektrochemisch, gibt ppm seriell aus; ein MQ-7 reicht nicht). Steigt das CO, schaltet die Platine die Webasto aus, meldet es per Telegram und sperrt das Einschalten. <b>Er ersetzt keinen zugelassenen CO-Melder mit eigenem Alarm</b>: zusätzlich einbauen.</td></tr>
+<tr><td>18</td><td><span class="sw-c" style="background:#ff9f1c"></span>orange</td><td>Abzweig von ⑥ (5 V vom LM2596)</td><td>CO-Sensor, <b>VIN</b> (5 V)</td></tr>
+<tr><td>19</td><td><span class="sw-c" style="background:#9aa3b5"></span>grau</td><td>Abzweig von ⑬ (Masse)</td><td>CO-Sensor, <b>GND</b></td></tr>
+<tr><td>20</td><td><span class="sw-c" style="background:#a3e635"></span>hellgrün</td><td>CO-Sensor, <b>TXD</b></td><td>ESP32, Pin <b>IO15</b></td></tr>
 </tbody></table>
 TXT,
 'steps' => <<<'TXT'
@@ -149,6 +157,7 @@ TXT,
 <li>Zum Schluss ⑥ und ⑦ an den ESP32. Für den <b>ersten Test</b> weglassen: den ESP32 per USB vom Laptop versorgen (beim ESP32-S3 über den mit UART oder COM beschrifteten USB-Anschluss) und in der Konsole <code>status</code> eingeben.</li>
 <li>Zeigt die Konsole nicht einmal das Echo, <b>⑧ und ⑨ tauschen</b> (passiert oft wegen der TX/RX-Beschriftung dieser Platinen). Kommt ein Echo, aber „sin respuesta“ (keine Antwort), ② und die Masse prüfen.</li>
 <li><b>Optional, wenn das Grundlegende läuft:</b> das OLED-Display und das Thermometer (SHT31 oder AHT20) mit ⑫–⑮, und die „Heizen“-Taste mit ⑯–⑰ (beliebiger Taster; einstellen unter Einstellungen). Die Platine erkennt sie beim Start selbst (oder 30 s nach dem Anschließen). Das Thermometer eine Handbreit von Platine und Regler entfernt anbringen, die warm werden. Ohne Thermometer funktioniert alles gleich, außer „Heizen bis X °C“.</li>
+<li><b>Optional: CO-Sensor</b> (Winsen ZE07-CO) mit ⑱–⑳: 5 V vom Regler, Masse und sein <b>TXD an IO15</b> (sein RXD und die anderen Pins bleiben frei). Sein Ausgang hat 3,3 V: direkt an den ESP32. Die Platine erkennt ihn, sobald er Daten sendet; seine ersten 3 Minuten zählen nicht (er wärmt sich auf). Innen anbringen, auf Kopfhöhe beim Schlafen und weg vom Kocher; nicht neben dem Warmluftaustritt. Sendet er einmal keine Daten mehr, schalten Zeitpläne nicht mehr selbst ein, bis er zurück ist (oder bis du in den Einstellungen «Ich habe keinen CO-Sensor mehr» wählst). <b>Zusätzlich einen zugelassenen CO-Melder (EN 50291) mit eigenem Alarm einbauen</b>: fällt die Platine aus, nützt dieser Sensor nichts.</li>
 </ol>
 TXT,
 'dlTitle' => 'Downloads',

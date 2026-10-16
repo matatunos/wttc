@@ -96,4 +96,35 @@ if ready:
 PY
 install -m 644 "$REPO/CHANGELOG.md" "$WEB/descargas/CHANGELOG.md"
 chmod 644 "$WEB/movil.php" "$WEB/descargas/WTTC-firmware.zip"
+# Esquema de conexiones en PDF (descargas/WTTC-esquema-<idioma>.pdf, botón de la sección «Montaje»): la página para
+# imprimir (esquema.php, que incluye montaje.inc.php) se genera con el PHP del contenedor «tools» y la pasa a PDF el
+# Gotenberg que ya corre con Paperless (Chromium; sin publicar puertos: se le habla por su IP de la red de Docker).
+# Solo se rehacen si cambia el esquema, sus textos o la versión. Si falla, se quedan los anteriores (no se aborta).
+esquema_pdf() {
+    local sum gip l tmp
+    sum=$(cat "$WEB/montaje.inc.php" "$WEB/montaje.css" "$WEB/esquema.php" "$WEB"/i18n/*.php "$WEB/descargas/VERSION" | sha256sum | cut -c1-16)
+    [ "$sum" = "$(cat "$WEB/descargas/.esquema.sum" 2>/dev/null)" ] && [ -s "$WEB/descargas/WTTC-esquema-es.pdf" ] && return 0
+    gip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' paperless-vps-gotenberg-1 | awk '{print $1}')
+    [ -n "$gip" ] || { echo "esquema PDF: Gotenberg no está en marcha" >&2; return 1; }
+    tmp=$(mktemp -d)
+    for l in es en de; do
+        docker exec -w /var/www/tools/wttc tools php -r "\$_GET['l']='$l'; include 'esquema.php';" > "$tmp/page.html"
+        # El CSS va dentro de la página: Gotenberg recibe un solo fichero y no puede pedir /montaje.css
+        python3 - "$tmp/page.html" "$WEB/montaje.css" "$tmp/index.html" <<'PY'
+import sys
+page, css, out = sys.argv[1:]
+h = open(page, encoding='utf-8').read()
+link = '<link rel="stylesheet" href="/montaje.css">'
+assert link in h, 'esquema.php sin montaje.css'
+open(out, 'w', encoding='utf-8').write(h.replace(link, '<style>' + open(css, encoding='utf-8').read() + '</style>'))
+PY
+        curl -sf --max-time 90 -F files=@"$tmp/index.html" -F printBackground=true -F preferCssPageSize=true \
+             -o "$tmp/out.pdf" "http://$gip:3000/forms/chromium/convert/html"
+        [ "$(head -c 5 "$tmp/out.pdf")" = "%PDF-" ] || { echo "esquema PDF ($l): Gotenberg no devolvió un PDF" >&2; rm -rf "$tmp"; return 1; }
+        install -m 644 "$tmp/out.pdf" "$WEB/descargas/WTTC-esquema-$l.pdf"
+    done
+    rm -rf "$tmp"
+    echo "$sum" > "$WEB/descargas/.esquema.sum"
+}
+esquema_pdf || echo "esquema PDF: no se ha rehecho (se quedan los anteriores)" >&2
 echo "Publicado: $(cd "$REPO" && git log -1 --format='%h %s')"

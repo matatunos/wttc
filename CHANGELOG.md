@@ -6,6 +6,18 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.3.9 — 2026-10-17
+
+Versión de prueba (sin probar con una Webasto real ni con el sensor de CO).
+
+- **Sensor de monóxido de carbono opcional** (Winsen ZE07-CO, electroquímico): 5 V del regulador, masa y su TXD a IO15; la placa lo detecta sola, como el termómetro. Sus 3 primeros minutos no cuentan (se calienta).
+  - **30 ppm durante 2 min**: aviso por Telegram para ventilar.
+  - **Alarma** (300 ppm dos lecturas seguidas, 100 ppm 30 s o 50 ppm 3 min): **apaga la Webasto**, corta el termostato y lo aplazado, avisa por Telegram, lo pone en la pantalla y el LED parpadea en rojo y azul. **No deja encender**, ni a mano, hasta 5 min seguidos por debajo de 20 ppm.
+  - Si el sensor que tenía **deja de mandar datos**, avisa y los encendidos sin nadie delante (programas, «Salgo a las…», termostato) no se hacen; a mano, sí. En Configuración, «Ya no tengo sensor de CO» si se ha quitado a propósito.
+  - Se ve en la web de la placa, en la app y en el chequeo de la Webasto. En las estadísticas, el encendido sale como «Monóxido (CO) alto».
+  - **No sustituye a un detector de CO homologado** con su propia alarma: si la placa falla, este sensor no sirve de nada.
+- **Esquema de conexiones en PDF** (botón en la sección «Montaje» de wttc.favala.es, en español, inglés y alemán): dibujo, lista de cables y pasos, para imprimirlo. El esquema incluye el sensor de CO (cables ⑱–⑳).
+
 ## 0.3.8 — 2026-10-16
 
 Versión de prueba (sin probar con una Webasto real).
