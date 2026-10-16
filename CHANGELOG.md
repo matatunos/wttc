@@ -6,6 +6,15 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.3.8 — 2026-10-16
+
+Versión de prueba (sin probar con una Webasto real).
+
+- **Chequeo de la Webasto al conectar la placa, con el informe por Telegram.** A los 20 s de arrancar, la placa le pregunta a la Webasto y comprueba: que el W-Bus contesta (si no, dice si el fallo parece de la placa o del cable, o de la Webasto o su fusible), qué calefactor es y su fecha de fabricación, la batería, la temperatura del agua, la resistencia de la bujía, que no haya llama estando apagada, horas de uso y arranques, y las **averías guardadas con su nombre** en español, inglés o alemán (y para las primeras, a qué tensión y temperatura pasaron). Termina con un veredicto (bien, revisar, mal) y consejos: si está **bloqueada**, cómo desbloquearla; si tuvo fallos de arranque, qué mirar; y, tras mucho tiempo parada, cómo hacer el primer encendido. Si la Webasto no contesta en 20 min, avisa igual. Nunca hace pruebas de componentes (bomba, bujía, ventilador) por su cuenta.
+- **A mano cuando quieras**: botón «Chequeo de la Webasto» en Diagnóstico (también lo manda por Telegram), orden `chequeo` en la consola y `check` en la app. Si está calentando, se hace al apagarse.
+- **Borrar averías** (Diagnóstico, con confirmación; consola `borrar averias`): borra la memoria de averías de la Webasto, que es lo que la desbloquea tras varios fallos seguidos. Solo con la calefacción parada.
+- Los avisos de Telegram admiten textos más largos (el informe del chequeo).
+
 ## 0.3.7 — 2026-10-10
 
 Versión de prueba (sin probar con una Webasto real).

@@ -137,6 +137,7 @@
 #endif
 #include "web.h"                // INDEX_HTML: la página web completa (va aparte para que el preprocesador no la toque)
 #include "logica.h"             // cálculos sin hardware (W-Bus, versiones, código, salida, termostato): con pruebas
+#include "averias.h"            // significado de los códigos de avería (0.3.8)
 #include "fuentes.h"            // letras suavizadas de la pantalla SSD1327 (generadas con herramientas/generar_fuentes.py)
 
 // ================== CONFIGURACIÓN FIJA ==================
@@ -166,7 +167,7 @@ const uint16_t MAX_SESSION  = 240;    // min: ventana máxima de «calentar hast
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.3.7"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.3.8"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -311,6 +312,8 @@ float gasCur = 0, gasLast = 0, gasMonth = 0, gasTotal = 0, gasRate = 0;   // gas
 uint32_t gasMonthKey = 0, lastGasT = 0, lastGasSave = 0;  // mes contado (AAAAMM), última integración, último guardado
 String stopNote = "";                 // por qué se apagó sola (se muestra en la web hasta el próximo encendido)
 int busState = -1;                    // última comunicación por W-Bus: -1 sin probar, 0 sin respuesta, 1 OK
+int chkLevel = -1;                    // último chequeo de la Webasto: -1 sin hacer; si no, CHK_OK / CHK_WARN / CHK_BAD
+bool wbEchoOk = false;                // ¿volvió el eco de la última trama? (sin eco: placa/transceptor; con eco y sin respuesta: la Webasto)
 int tempC = -999, flame = -1, power = -1;   // último dato de sensores: °C del agua, llama (0/1), potencia (W); negativo = sin dato
 float volt = -1;                      // tensión de la batería según la Webasto (V); -1 = sin dato
 String lastTx, lastRx;                // última trama enviada y recibida, en hexadecimal (diagnóstico)
@@ -451,6 +454,7 @@ enum Txt {
   T_E_IID, T_TG_IID, T_E_NOTG, T_LOG_IID,
   T_D_OFF, T_D_START, T_D_HEAT, T_D_PAUSE, T_D_LOST, T_D_WAIT, T_D_WATER, T_D_IN, T_D_NEXT, T_D_DEP, T_D_UNTIL,
   T_D_DAYS, T_D_NOTE,
+  T_CHK_TITLE, T_CHK_V_OK, T_CHK_V_WARN, T_CHK_V_BAD, T_CHK_BUS_OK, T_CHK_NOBUS_ECHO, T_CHK_NOBUS_NOECHO, T_CHK_DEV, T_CHK_MADE, T_CHK_BATT, T_CHK_WATER, T_CHK_GLOW, T_CHK_USE, T_CHK_NOFAULTS, T_CHK_FAULTS, T_CHK_FAULT, T_CHK_FWHEN, T_CHK_FUNK, T_CHK_TIPS, T_CHK_T_LOCK, T_CHK_T_START, T_CHK_T_BATT, T_CHK_T_WATER, T_CHK_T_GLOW, T_CHK_T_FLAME, T_CHK_T_IDLE, T_CHK_HEATING, T_LOG_CHK, T_CHK_CLEARED, T_E_CLR_HEAT, T_E_CLR_FAIL,
   T_COUNT
 };
 
@@ -663,6 +667,38 @@ const char* const TXT[T_COUNT][L_N] = {
   /* T_D_UNTIL */          {"Hasta %s", "Up to %s", "Bis %s"},
   /* T_D_DAYS */           {"Lu,Ma,Mi,Ju,Vi,Sa,Do", "Mo,Tu,We,Th,Fr,Sa,Su", "Mo,Di,Mi,Do,Fr,Sa,So"},
   /* T_D_NOTE */           {"Aviso: mira la app", "Notice: see the app", "Hinweis: siehe App"},
+  // Chequeo de la Webasto (0.3.8)
+  /* T_CHK_TITLE */ {"🔧 Chequeo de la Webasto: %s", "🔧 Webasto check: %s", "🔧 Webasto-Prüfung: %s"},
+  /* T_CHK_V_OK */ {"todo correcto ✅", "all good ✅", "alles in Ordnung ✅"},
+  /* T_CHK_V_WARN */ {"a revisar ⚠️", "check it ⚠️", "prüfen ⚠️"},
+  /* T_CHK_V_BAD */ {"hay problemas ⛔", "problems found ⛔", "Probleme gefunden ⛔"},
+  /* T_CHK_BUS_OK */ {"W-Bus: ✅ responde", "W-Bus: ✅ answers", "W-Bus: ✅ antwortet"},
+  /* T_CHK_NOBUS_ECHO */ {"W-Bus: ⛔ la Webasto no contesta. La placa envía bien (vuelve el eco): revisa la alimentación de la Webasto (fusible y positivo permanente), su masa y el cable del W-Bus hasta ella.", "W-Bus: ⛔ the Webasto does not answer. The board sends fine (the echo comes back): check the Webasto supply (fuse and permanent positive), its ground and the W-Bus wire to it.", "W-Bus: ⛔ die Webasto antwortet nicht. Die Platine sendet richtig (das Echo kommt zurück): Versorgung der Webasto (Sicherung, Dauerplus), Masse und W-Bus-Leitung prüfen."},
+  /* T_CHK_NOBUS_NOECHO */ {"W-Bus: ⛔ no vuelve ni el eco de lo que envía la placa: revisa el transceptor TJA1020 (12 V, masa y SLP) y los cables TX/RX hasta la placa.", "W-Bus: ⛔ not even the echo of what the board sends comes back: check the TJA1020 transceiver (12 V, ground and SLP) and the TX/RX wires to the board.", "W-Bus: ⛔ nicht einmal das Echo kommt zurück: Transceiver TJA1020 (12 V, Masse, SLP) und die TX/RX-Leitungen zur Platine prüfen."},
+  /* T_CHK_DEV */ {"Calefactor: %s", "Heater: %s", "Heizgerät: %s"},
+  /* T_CHK_MADE */ {"fabricado %02d/%d", "made %02d/%d", "gebaut %02d/%d"},
+  /* T_CHK_BATT */ {"Batería: %s V %s", "Battery: %s V %s", "Batterie: %s V %s"},
+  /* T_CHK_WATER */ {"Agua: %d °C %s", "Water: %d °C %s", "Wasser: %d °C %s"},
+  /* T_CHK_GLOW */ {"Bujía: %s Ω %s", "Glow plug: %s Ω %s", "Glühstift: %s Ω %s"},
+  /* T_CHK_USE */ {"Uso: %ld h funcionando · %ld arranques", "Use: %ld h running · %ld starts", "Nutzung: %ld h Betrieb · %ld Starts"},
+  /* T_CHK_NOFAULTS */ {"Averías: ninguna guardada ✅", "Faults: none stored ✅", "Fehler: keine gespeichert ✅"},
+  /* T_CHK_FAULTS */ {"Averías guardadas (%d):", "Stored faults (%d):", "Gespeicherte Fehler (%d):"},
+  /* T_CHK_FAULT */ {"%s %s · %d veces", "%s %s · %d times", "%s %s · %d-mal"},
+  /* T_CHK_FWHEN */ {" (la última a %s V y %d °C, con %ld h)", " (last at %s V and %d °C, at %ld h)", " (zuletzt bei %s V und %d °C, bei %ld h)"},
+  /* T_CHK_FUNK */ {"Avería 0x%02X", "Fault 0x%02X", "Fehler 0x%02X"},
+  /* T_CHK_TIPS */ {"Antes de encender:", "Before switching on:", "Vor dem Einschalten:"},
+  /* T_CHK_T_LOCK */ {"⛔ Está BLOQUEADA: no arrancará hasta borrar las averías (Diagnóstico → Borrar averías, o en un taller). Si fue por sobrecalentamiento, revisa antes el circuito de agua.", "⛔ It is LOCKED: it will not start until the faults are cleared (Diagnostics → Clear faults, or at a workshop). If it was overheating, check the coolant circuit first.", "⛔ Sie ist GESPERRT: sie startet erst nach dem Löschen der Fehler (Diagnose → Fehler löschen oder Werkstatt). Bei Überhitzung vorher den Kühlkreislauf prüfen."},
+  /* T_CHK_T_START */ {"Tiene averías de arranque o de gasoil: tras mucho tiempo parada suele haber aire en el tubo. Puede necesitar 2–3 intentos (espera a que termine el postbarrido entre uno y otro); varios fallos seguidos la bloquean.", "It has start or fuel faults: after a long stop there is usually air in the fuel line. It may need 2–3 attempts (wait for the after-run between them); several failures in a row lock it.", "Es gibt Start- oder Kraftstofffehler: nach langer Standzeit ist oft Luft in der Leitung. Es kann 2–3 Versuche brauchen (Nachlauf dazwischen abwarten); mehrere Fehlstarts sperren sie."},
+  /* T_CHK_T_BATT */ {"Carga la batería antes de encender: la bujía tira 8–10 A al arrancar.", "Charge the battery before switching on: the glow plug draws 8–10 A at start.", "Batterie vor dem Einschalten laden: der Glühstift zieht beim Start 8–10 A."},
+  /* T_CHK_T_WATER */ {"La temperatura del agua es imposible: el sensor está roto o desconectado.", "The water temperature is impossible: the sensor is broken or disconnected.", "Die Wassertemperatur ist unmöglich: Fühler defekt oder abgesteckt."},
+  /* T_CHK_T_GLOW */ {"La resistencia de la bujía no es normal: revisa la bujía (en corto o cortada) y su conector.", "The glow plug resistance is not normal: check the plug (shorted or open) and its connector.", "Der Glühstiftwiderstand ist nicht normal: Glühstift (Kurzschluss/Unterbrechung) und Stecker prüfen."},
+  /* T_CHK_T_FLAME */ {"Detecta llama estando parada: revisa la bujía / sensor de llama.", "It detects a flame while stopped: check the glow plug / flame sensor.", "Flamme im Stillstand erkannt: Glühstift / Flammwächter prüfen."},
+  /* T_CHK_T_IDLE */ {"Si lleva mucho tiempo parada, el primer arranque puede costar (aire en el tubo, gasoil viejo): mejor con el depósito por encima de 1/4 y la batería cargada.", "If it has been stopped for a long time, the first start may be hard (air in the line, old fuel): better with the tank above 1/4 and the battery charged.", "Nach langer Standzeit kann der erste Start schwer sein (Luft in der Leitung, alter Kraftstoff): besser mit Tank über 1/4 und geladener Batterie."},
+  /* T_CHK_HEATING */ {"Está calentando: el chequeo se hará al apagarse.", "It is heating: the check will run when it stops.", "Sie heizt: die Prüfung läuft nach dem Ausschalten."},
+  /* T_LOG_CHK */ {"Chequeo de la Webasto: %s", "Webasto check: %s", "Webasto-Prüfung: %s"},
+  /* T_CHK_CLEARED */ {"Averías borradas de la Webasto", "Faults cleared from the Webasto", "Fehler in der Webasto gelöscht"},
+  /* T_E_CLR_HEAT */ {"No se borran las averías mientras calienta", "Faults are not cleared while heating", "Fehler werden beim Heizen nicht gelöscht"},
+  /* T_E_CLR_FAIL */ {"La Webasto no confirmó el borrado", "The Webasto did not confirm clearing", "Die Webasto hat das Löschen nicht bestätigt"},
 };
 
 // Texto en el idioma elegido
@@ -824,7 +860,7 @@ String hhmm() {
 // Se encolan y los envía una tarea aparte: una conexión lenta (TLS tarda un par de segundos) no debe
 // retrasar el mensaje de mantenimiento del W-Bus, que tiene que salir cada 5 s.
 // ============================================================================================================
-struct Msg { char t[640]; };          // un aviso pendiente de enviar (cabe el de versión nueva con sus novedades)
+struct Msg { char t[1100]; };         // un aviso pendiente de enviar (caben el de versión nueva y el informe del chequeo)
 // Raíz de la cadena de api.telegram.org: Go Daddy Root Certificate Authority - G2 (caduca en 2037).
 // SHA-256 45:14:0B:32:47:EB:9C:C8:C5:B4:F0:D7:B5:30:91:F7:32:92:08:9E:6E:5A:63:E2:74:9D:D3:AC:A9:19:8E:DA
 // Con ella se comprueba el certificado: en una red ajena nadie puede hacerse pasar por Telegram y leer el token.
@@ -1052,6 +1088,7 @@ bool wbusCmd(uint8_t cmd, const uint8_t* data, uint8_t n, uint8_t* resp, uint8_t
   // Eco: en un bus de un solo hilo recibimos lo que acabamos de enviar; se lee y se tira (máximo 200 ms)
   uint32_t t = millis(); int got = 0;
   while (got < flen && millis() - t < 200) { if (wbus.available()) { wbus.read(); got++; } else delay(1); }
+  wbEchoOk = got == flen;
 
   // Respuesta: se espera hasta 500 ms. Se ignora todo hasta un 0x4F (cabecera de la Webasto hacia nosotros).
   uint8_t b[64] = {}; int len = 0, need = -1;
@@ -2922,6 +2959,8 @@ String runCmd(String c) {
     return k + ":ok";
   }
   if (k == "errors") return "errors:" + errorsJson();
+  if (k == "check") { bool was = heaterOn; String m = checkNow(a == "tg"); return was ? "check:err " + m : "check:" + chkJson(); }          // chequeo de la Webasto (0.3.8)
+  if (k == "clearfaults") { String e = clearFaults(); return e.length() ? "clearfaults:err " + e : String("clearfaults:ok"); }
   if (k == "iidtg") {                              // código de instalación por Telegram
     if (!tgToken[0] || !tgChat[0]) return "iidtg:err " + String(tr(T_E_NOTG));
     notifyMsg(trf(T_TG_IID, cfgName, iid), true);
@@ -2997,6 +3036,7 @@ void handleState() {
   j += ",\"flame\":";  j += flame;
   j += ",\"pw\":";     j += power;
   j += ",\"bus\":";    j += busState;
+  j += ",\"chk\":";    j += chkLevel;                // último chequeo de la Webasto: -1 sin hacer, 0 bien, 1 revisar, 2 mal
   j += ",\"time\":";   j += (uint32_t)time(nullptr);
   j += ",\"tv\":";     j += timeValid() ? "true" : "false";
   j += ",\"auto\":";   j += autoOn ? "true" : "false";
@@ -3666,6 +3706,132 @@ String errorsJson() {
   return j;
 }
 
+// ============================================================================================================
+// Chequeo de la Webasto (0.3.8): sin encender nada, lee cómo está y da un informe con recomendaciones antes del primer
+// arranque. Automático al conectar la placa (al arrancar: reintenta cada 2 min hasta 20 min hasta que conteste) y
+// a mano (web, app, consola). El informe va al registro y por Telegram. Formatos del W-Bus en logica.h.
+// ============================================================================================================
+String chkReport;                     // último informe
+uint32_t chkAt = 0;                   // cuándo (epoch; 0 sin hora)
+bool chkWant = false, chkWantTg = false;   // pedido a mano desde otra tarea (BLE) o el automático: se hace en loop()
+uint8_t chkAuto = 0;                  // 0 por hacer, 1 hecho (contestó), 2 hecho sin respuesta (se avisó)
+uint32_t chkNextTry = 20000;          // el automático: primer intento a los 20 s de arrancar
+
+static const char* chkIcon(int v) { return v == CHK_OK ? "✅" : v == CHK_WARN ? "⚠️" : v == CHK_BAD ? "⛔" : ""; }
+
+// Hace el chequeo y deja el informe en chkReport. Devuelve el nivel (CHK_BAD si la Webasto no contesta)
+int runCheck() {
+  uint8_t r[64], n;
+  String o, tips;
+  int lvl = CHK_OK;
+  // 1) W-Bus y sensores
+  uint8_t d05[1] = {0x05};
+  bool bus = wbusCmd(0x50, d05, 1, r, n);
+  WbSensors s{};
+  if (!bus || !wbParseSensors(r, n, s)) {
+    chkLevel = CHK_BAD; chkAt = timeValid() ? (uint32_t)time(nullptr) : 0;
+    chkReport = trf(T_CHK_TITLE, tr(T_CHK_V_BAD)) + "\n" + tr(wbEchoOk ? T_CHK_NOBUS_ECHO : T_CHK_NOBUS_NOECHO);
+    return chkLevel;
+  }
+  o += String(tr(T_CHK_BUS_OK)) + "\n";
+  // 2) Identificación: nombre, fecha de fabricación del calefactor y versión del W-Bus (lo que conteste)
+  String dev;
+  uint8_t q[1] = {0x0B};
+  if (wbusCmd(0x51, q, 1, r, n)) { char nm[12]; wbParseName(r, n, nm, sizeof nm); dev = nm; }
+  q[0] = 0x05; int mo, yr;
+  if (wbusCmd(0x51, q, 1, r, n) && wbParseDate(r, n, mo, yr)) dev += (dev.length() ? " · " : "") + trf(T_CHK_MADE, mo, yr);
+  q[0] = 0x0A;
+  if (wbusCmd(0x51, q, 1, r, n) && n >= 2) dev += (dev.length() ? " · " : "") + String("W-Bus ") + (r[1] >> 4) + "." + (r[1] & 0x0F);
+  if (dev.length()) o += trf(T_CHK_DEV, dev.c_str()) + "\n";
+  // 3) Batería, agua, bujía y llama
+  bool running = heaterOn || afterrunLeft() > 0;
+  int v = chkVolt(s.volt); lvl = chkWorst(lvl, v);
+  o += trf(T_CHK_BATT, num(s.volt, 1).c_str(), chkIcon(v)) + "\n";
+  if (v == CHK_BAD || v == CHK_WARN) tips += String("• ") + tr(T_CHK_T_BATT) + "\n";
+  int t = chkTemp(s.tempC); lvl = chkWorst(lvl, t);
+  o += trf(T_CHK_WATER, s.tempC, chkIcon(t)) + "\n";
+  if (t == CHK_BAD) tips += String("• ") + tr(T_CHK_T_WATER) + "\n";
+  int g = chkGlow(s.glowMilliOhm);
+  if (g != CHK_NA) {
+    lvl = chkWorst(lvl, g);
+    o += trf(T_CHK_GLOW, num(s.glowMilliOhm / 1000.0f, 2).c_str(), chkIcon(g)) + "\n";
+    if (g == CHK_BAD) tips += String("• ") + tr(T_CHK_T_GLOW) + "\n";
+  }
+  if (chkFlameIdle(s.flame, running) == CHK_WARN) { lvl = chkWorst(lvl, CHK_WARN); tips += String("• ") + tr(T_CHK_T_FLAME) + "\n"; }
+  // 4) Contadores de uso
+  uint8_t d06[1] = {0x06}; WbCounters c{};
+  if (wbusCmd(0x50, d06, 1, r, n) && wbParseCounters(r, n, c)) o += trf(T_CHK_USE, c.opH, c.starts) + "\n";
+  // 5) Averías guardadas, con el detalle de las primeras
+  uint8_t dl[1] = {0x01}, codes[8], counts[8];
+  int nf = 0; bool locked = false, startF = false;
+  if (wbusCmd(0x56, dl, 1, r, n)) nf = wbParseFaultList(r, n, codes, counts, 8);
+  if (!nf) o += String(tr(T_CHK_NOFAULTS)) + "\n";
+  else {
+    o += trf(T_CHK_FAULTS, nf) + "\n";
+    for (int i = 0; i < nf; i++) {
+      int sev = wbFaultSeverity(codes[i]);
+      lvl = chkWorst(lvl, sev == 2 ? CHK_BAD : CHK_WARN);
+      locked |= wbFaultLocks(codes[i]); startF |= wbFaultStart(codes[i]);
+      const char* tx = averiaTexto(codes[i], lang);
+      String name = tx ? String(tx) : trf(T_CHK_FUNK, codes[i]);
+      o += trf(T_CHK_FAULT, sev == 2 ? "⛔" : "⚠️", name.c_str(), counts[i]);
+      uint8_t dr[2] = {0x02, codes[i]}; WbFaultInfo fi{};
+      if (i < 4 && wbusCmd(0x56, dr, 2, r, n) && wbParseFaultInfo(r, n, fi) && fi.volt > 5)
+        o += trf(T_CHK_FWHEN, num(fi.volt, 1).c_str(), fi.tempC, fi.hours);
+      o += "\n";
+    }
+  }
+  if (locked) tips = String("• ") + tr(T_CHK_T_LOCK) + "\n" + tips;
+  if (startF) tips += String("• ") + tr(T_CHK_T_START) + "\n";
+  else if (!locked) tips += String("• ") + tr(T_CHK_T_IDLE) + "\n";   // consejo de primer arranque tras mucho tiempo
+  chkLevel = lvl; chkAt = timeValid() ? (uint32_t)time(nullptr) : 0;
+  chkReport = trf(T_CHK_TITLE, tr(lvl == CHK_OK ? T_CHK_V_OK : lvl == CHK_WARN ? T_CHK_V_WARN : T_CHK_V_BAD)) + "\n" + o +
+              "\n" + tr(T_CHK_TIPS) + "\n" + tips;
+  chkReport.trim();
+  // Que quepa en un aviso de Telegram cortando por un salto de línea (cortar a mitad de un carácter UTF-8 o de un
+  // emoji haría que Telegram rechazase el mensaje entero)
+  if (chkReport.length() > sizeof(Msg::t) - 1) {
+    int cut = chkReport.lastIndexOf('\n', sizeof(Msg::t) - 8);
+    chkReport = chkReport.substring(0, cut > 0 ? cut : 0) + "\n…";
+  }
+  return lvl;
+}
+
+// Lo hace (si no está calentando), lo apunta en el registro y, si se pide, lo manda por Telegram
+String checkNow(bool tg) {
+  if (heaterOn) { chkWant = true; chkWantTg = tg; return tr(T_CHK_HEATING); }
+  runCheck();
+  addLog(trf(T_LOG_CHK, tr(chkLevel == CHK_OK ? T_CHK_V_OK : chkLevel == CHK_WARN ? T_CHK_V_WARN : T_CHK_V_BAD)));
+  if (tg) notifyMsg(chkReport, true);
+  return chkReport;
+}
+
+// Borra la memoria de averías de la Webasto (0x56 03): desbloquea una Webasto bloqueada. Solo parada, y a propósito
+String clearFaults() {
+  if (heaterOn) return tr(T_E_CLR_HEAT);
+  uint8_t d[1] = {0x03}, r[64], n;
+  if (!wbusCmd(0x56, d, 1, r, n)) return tr(T_E_CLR_FAIL);
+  addLog(tr(T_CHK_CLEARED));
+  return "";
+}
+
+// En loop(): el automático al conectar la placa y lo pedido desde otras tareas
+void chkTick() {
+  uint32_t now = millis();
+  if (chkWant && !heaterOn) { chkWant = false; checkNow(chkWantTg); }
+  if (chkAuto || heaterOn || (int32_t)(now - chkNextTry) < 0) return;
+  uint8_t d05[1] = {0x05}, r[64], n;
+  if (wbusCmd(0x50, d05, 1, r, n)) { chkAuto = 1; checkNow(true); return; }   // contestó: chequeo completo
+  if (now > 20UL * 60000) { chkAuto = 2; checkNow(true); return; }            // 20 min sin contestar: se avisa igual
+  chkNextTry = now + 120000;                                                  // otro intento en 2 min
+}
+
+// Para la web y la app: el último informe
+String chkJson() {
+  String j = "{\"lvl\":"; j += chkLevel; j += ",\"at\":"; j += chkAt; j += ",\"txt\":"; j += js(chkReport); j += "}";
+  return j;
+}
+
 // POST /api/cfg: guarda los ajustes que vengan en el formulario; si alguno necesita reiniciar, reinicia (salvo calentando)
 void handleCfgPost() {
   bool restart = false;
@@ -3719,9 +3885,11 @@ void serialCli() {
     if (stopNote.length()) Serial.println(stopNote);
   }
   else if (l == "errores") Serial.println(errorsJson());
+  else if (l == "chequeo" || l == "check") Serial.println(checkNow(false));
+  else if (l == "borrar averias" || l == "clearfaults") { String e = clearFaults(); Serial.println(e.length() ? e : String(tr(T_CHK_CLEARED))); }
   else if (l == "cfg") Serial.println(cfgJson(true));
   else if (l.startsWith("set ") || l == "wifi" || l == "forget" || l == "reboot" || l == "gasreset") Serial.println(runCmd(c));
-  else if (l.length()) Serial.println("Comandos: on [min] [°C] | off | status | errores | cfg | set clave=valor | wifi | forget | reboot | gasreset");
+  else if (l.length()) Serial.println("Comandos: on [min] [°C] | off | status | errores | chequeo | borrar averias | cfg | set clave=valor | wifi | forget | reboot | gasreset");
 }
 
 // ============================================================================================================
@@ -3762,6 +3930,12 @@ void setup() {
   // Redes Wi-Fi cercanas: {"run":true} mientras busca; {"nets":[…]} al acabar (solo lectura: no hace falta el origen)
   server.on("/api/scan", HTTP_GET, [] { if (!authed()) return; String r = scanNets(); server.send(200, "application/json", r.length() ? "{\"nets\":" + r + "}" : String("{\"run\":true}")); });
   server.on("/api/errors", HTTP_GET, [] { if (authed()) server.send(200, "application/json", errorsJson()); });
+  server.on("/api/check", HTTP_GET, [] { if (authed()) server.send(200, "application/json", chkJson()); });
+  server.on("/api/check", HTTP_POST, [] { if (!authed() || !sameOrigin() || !setupDone() || !notUpdating()) return;
+    bool was = heaterOn; String m = checkNow(server.arg("tg") == "1");
+    if (was) server.send(409, "text/plain; charset=utf-8", m); else server.send(200, "application/json", chkJson()); });
+  server.on("/api/clearfaults", HTTP_POST, [] { if (!authed() || !sameOrigin() || !setupDone() || !notUpdating()) return;
+    String e = clearFaults(); server.send(e.length() ? 409 : 200, "text/plain; charset=utf-8", e.length() ? e : String(tr(T_CHK_CLEARED))); });
   // Diagnóstico: captura de tramas del W-Bus (texto) y enviar el registro al servidor del proyecto
   server.on("/api/wbuslog", HTTP_GET, [] { if (authed()) server.send(200, "text/plain; charset=utf-8", wbCaptureText(WBCAP)); });
   server.on("/api/logsend", HTTP_POST, [] { if (!authed() || !sameOrigin() || !setupDone() || !notUpdating()) return;
@@ -3931,4 +4105,5 @@ void loop() {
   healthTick();                                   // memoria y pila de las tareas (Diagnóstico)
   logPoll();                                      // resultado de «Enviar el registro»
   cmdPoll();                                      // órdenes remotas (si están permitidas)
+  chkTick();                                      // chequeo de la Webasto (al conectarla, o pedido)
 }

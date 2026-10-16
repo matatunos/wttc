@@ -196,6 +196,9 @@ y enseñarlos en la app y la web. Sirven para saber cuándo toca revisión y com
 que comprobar en una Thermo Top C real qué registros contesta. Si se añaden a las **estadísticas anónimas**
 (horas y arranques acumulados), darían una idea del uso real; habría que contarlo en el texto del permiso.
 
+**Hecho en parte (0.3.8):** el chequeo de la Webasto ya los lee (0x50 06) y los pone en su informe. Falta
+enseñarlos aparte en la app y, si se quiere, en las estadísticas.
+
 ---
 
 ## 7. Aviso de «ya está caliente»

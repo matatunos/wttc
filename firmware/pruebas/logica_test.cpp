@@ -6,6 +6,7 @@
 //   g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined firmware/pruebas/logica_test.cpp -o t && ./t
 // Está fuera de firmware/WTTC/ a propósito: Arduino compila todos los .cpp de la carpeta del sketch.
 #include "../WTTC/logica.h"
+#include "../WTTC/averias.h"
 #include <cstdio>
 #include <cmath>
 
@@ -233,7 +234,88 @@ static void pruebasProgramador() {
   CHECK(!coldSkip(10, NAN));                                // sin dato: se enciende
 }
 
+
+// ---------- Chequeo de la Webasto ----------
+static void pruebasChequeo() {
+  // Sensores: 05 · 20 °C (70) · 12,60 V (0x3138) · sin llama · 0 W · bujía 520 mΩ (0x0208)
+  const uint8_t s1[] = {0x05, 70, 0x31, 0x38, 0, 0, 0, 0x02, 0x08};
+  WbSensors s{};
+  CHECK(wbParseSensors(s1, sizeof s1, s) && s.tempC == 20 && fabs(s.volt - 12.6f) < 0.01f && s.flame == 0 && s.power == 0);
+  CHECK(s.glowMilliOhm == 520);
+  // Respuesta corta (sin bujía ni potencia): lo que hay, el resto -1
+  const uint8_t s2[] = {0x05, 40, 0x2F, 0x44};
+  CHECK(wbParseSensors(s2, sizeof s2, s) && s.tempC == -10 && s.flame == -1 && s.power == -1 && s.glowMilliOhm == -1);
+  const uint8_t sBad[] = {0x06, 70, 0x31};
+  CHECK(!wbParseSensors(sBad, sizeof sBad, s) && !wbParseSensors(nullptr, 9, s));
+
+  // Contadores: 06 · 312 h 15 min de trabajo · 290 h 5 min de funcionamiento · 1450 arranques
+  const uint8_t c1[] = {0x06, 0x01, 0x38, 15, 0x01, 0x22, 5, 0x05, 0xAA};
+  WbCounters c{};
+  CHECK(wbParseCounters(c1, sizeof c1, c) && c.workH == 312 && c.workMin == 15 && c.opH == 290 && c.opMin == 5 && c.starts == 1450);
+  CHECK(!wbParseCounters(c1, 8, c));
+
+  // Lista de averías: 01 · 2 · [0x03 × 3] [0x87 × 1]; con max=1 solo copia una; número mayor que los datos: no se pasa
+  const uint8_t l1[] = {0x01, 2, 0x03, 3, 0x87, 1};
+  uint8_t codes[8], counts[8];
+  CHECK(wbParseFaultList(l1, sizeof l1, codes, counts, 8) == 2 && codes[0] == 0x03 && counts[0] == 3 && codes[1] == 0x87);
+  CHECK(wbParseFaultList(l1, sizeof l1, codes, counts, 1) == 1);
+  const uint8_t l2[] = {0x01, 5, 0x02, 1};
+  CHECK(wbParseFaultList(l2, sizeof l2, codes, counts, 8) == 1);
+  const uint8_t l0[] = {0x01, 0};
+  CHECK(wbParseFaultList(l0, sizeof l0, codes, counts, 8) == 0);
+
+  // Detalle: 02 · 0x83 · flags · 2 veces · estado · 5 °C · 11,80 V · 310 h 40 min
+  const uint8_t d1[] = {0x02, 0x83, 0x01, 2, 0x04, 0x00, 55, 0x2E, 0x18, 0x01, 0x36, 40};
+  WbFaultInfo f{};
+  CHECK(wbParseFaultInfo(d1, sizeof d1, f) && f.code == 0x83 && f.count == 2 && f.tempC == 5 && fabs(f.volt - 11.8f) < 0.01f);
+  CHECK(f.hours == 310 && f.minutes == 40);
+  CHECK(!wbParseFaultInfo(d1, 11, f));
+
+  // Fecha 15/03/09 → 03/2009; mes 13: no vale
+  int m = 0, y = 0;
+  const uint8_t dt[] = {0x05, 15, 3, 9}, dtBad[] = {0x05, 15, 13, 9};
+  CHECK(wbParseDate(dt, sizeof dt, m, y) && m == 3 && y == 2009);
+  CHECK(!wbParseDate(dtBad, sizeof dtBad, m, y));
+
+  // Nombre: «TTC     » con espacios y un byte no imprimible
+  char name[12];
+  const uint8_t nm[] = {0x0B, 'T', 'T', '-', 'C', 0x01, ' ', ' ', ' '};
+  wbParseName(nm, sizeof nm, name, sizeof name);
+  CHECK(strcmp(name, "TT-C") == 0);
+  wbParseName(nm, 1, name, sizeof name);
+  CHECK(name[0] == 0);
+
+  // Gravedad y tipos
+  CHECK(wbFaultSeverity(0x87) == 2 && wbFaultSeverity(0x03) == 1);
+  CHECK(wbFaultLocks(0x87) && wbFaultLocks(0x07) && !wbFaultLocks(0x03));
+  CHECK(wbFaultStart(0x83) && wbFaultStart(0x88) && !wbFaultStart(0x06));
+
+  // Valoraciones
+  CHECK(chkVolt(12.6f) == CHK_OK && chkVolt(12.0f) == CHK_WARN && chkVolt(11.2f) == CHK_BAD && chkVolt(15.5f) == CHK_BAD);
+  CHECK(chkVolt(0) == CHK_NA);
+  CHECK(chkTemp(20) == CHK_OK && chkTemp(-50) == CHK_BAD && chkTemp(150) == CHK_BAD);
+  CHECK(chkGlow(520) == CHK_OK && chkGlow(20) == CHK_BAD && chkGlow(9000) == CHK_BAD && chkGlow(-1) == CHK_NA);
+  CHECK(chkFlameIdle(1, false) == CHK_WARN && chkFlameIdle(1, true) == CHK_OK && chkFlameIdle(0, false) == CHK_OK);
+  CHECK(chkWorst(CHK_OK, CHK_WARN) == CHK_WARN && chkWorst(CHK_NA, CHK_OK) == CHK_OK && chkWorst(CHK_BAD, CHK_NA) == CHK_BAD);
+}
+
+// Tabla de averías: códigos sin repetir, los tres idiomas con texto, y los que el chequeo trata como graves, con nombre
+static void pruebasAverias() {
+  const int n = sizeof AVERIAS / sizeof AVERIAS[0];
+  bool rep = false, vacio = false;
+  for (int i = 0; i < n; i++) {
+    for (int j = i + 1; j < n; j++) rep |= AVERIAS[i].code == AVERIAS[j].code;
+    for (int l = 0; l < 3; l++) { const char* t = averiaTexto(AVERIAS[i].code, l); vacio |= !t || !*t; }
+  }
+  CHECK(n > 50 && !rep && !vacio);
+  const uint8_t graves[] = {0x01, 0x07, 0x11, 0x14, 0x23, 0x57, 0x87, 0x91, 0x94};
+  for (uint8_t c : graves) CHECK(averiaTexto(c, 0) != nullptr && wbFaultSeverity(c) == 2);
+  CHECK(averiaTexto(0x07, 1) != nullptr && averiaTexto(0x07, 2) != nullptr);
+}
+
 int main() {
+  pruebasAverias();
+  pruebasChequeo();
   pruebasWbus();
   pruebasVersiones();
   pruebasCodigo();

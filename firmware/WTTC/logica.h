@@ -231,3 +231,96 @@ inline int depLeadLearned(float rate, float tNow, int tgt, int fallback) {
 // dato). ¿Se salta? Solo si hay dato y no hace frío: sin dato se enciende (mejor gastar que quedarse sin calefacción)
 const int8_t SCH_NOCOLD = 127;
 inline bool coldSkip(int8_t cold, float t) { return cold != SCH_NOCOLD && !isnan(t) && t >= cold; }
+
+// ---------- Chequeo de la Webasto (0.3.8) ----------
+// Lectura sin encender nada: sensores, identificación, contadores y averías con su detalle. Formatos según libwbus
+// (wbus_const.h y wbus.h). Las respuestas llegan sin cabecera: r[0] es el subíndice pedido y luego los datos.
+enum { CHK_OK = 0, CHK_WARN = 1, CHK_BAD = 2, CHK_NA = 3 };   // de mejor a peor; CHK_NA = no se pudo leer
+
+// Sensores (orden 0x50, registro 0x05): 05 · temperatura+50 · tensión mV (2) · llama · potencia (2) · bujía mΩ (2)
+struct WbSensors { int tempC; float volt; int flame; int power; long glowMilliOhm; };
+inline bool wbParseSensors(const uint8_t* r, int n, WbSensors& s) {
+  if (!r || n < 4 || r[0] != 0x05) return false;
+  s.tempC = (int)r[1] - 50;
+  s.volt = ((r[2] << 8) | r[3]) / 1000.0f;
+  s.flame = n >= 5 ? r[4] : -1;
+  s.power = n >= 7 ? (r[5] << 8) | r[6] : -1;
+  s.glowMilliOhm = n >= 9 ? (long)((r[7] << 8) | r[8]) : -1;
+  return true;
+}
+
+// Contadores (0x50, registro 0x06): 06 · horas de trabajo (2) · minutos · horas de funcionamiento (2) · minutos ·
+// arranques (2)
+struct WbCounters { long workH; int workMin; long opH; int opMin; long starts; };
+inline bool wbParseCounters(const uint8_t* r, int n, WbCounters& c) {
+  if (!r || n < 9 || r[0] != 0x06) return false;
+  c.workH = (r[1] << 8) | r[2]; c.workMin = r[3];
+  c.opH = (r[4] << 8) | r[5];   c.opMin = r[6];
+  c.starts = (r[7] << 8) | r[8];
+  return true;
+}
+
+// Lista de averías (0x56 01): 01 · número · [código · veces] × número. Devuelve cuántas copió (como mucho max)
+inline int wbParseFaultList(const uint8_t* r, int n, uint8_t* codes, uint8_t* counts, int max) {
+  if (!r || n < 2 || r[0] != 0x01) return 0;
+  int k = 0;
+  for (int i = 0; i < r[1] && k < max && 3 + 2 * i < n; i++) { codes[k] = r[2 + 2 * i]; counts[k] = r[3 + 2 * i]; k++; }
+  return k;
+}
+
+// Detalle de una avería (0x56 02 código): 02 · código · flags · veces · estado (2) · temperatura+50 · tensión mV (2) ·
+// horas de funcionamiento (2) · minutos — el momento en que se guardó
+struct WbFaultInfo { uint8_t code, flags, count, st0, st1; int tempC; float volt; long hours; int minutes; };
+inline bool wbParseFaultInfo(const uint8_t* r, int n, WbFaultInfo& f) {
+  if (!r || n < 12 || r[0] != 0x02) return false;
+  f.code = r[1]; f.flags = r[2]; f.count = r[3]; f.st0 = r[4]; f.st1 = r[5];
+  f.tempC = (int)r[6] - 50;
+  f.volt = ((r[7] << 8) | r[8]) / 1000.0f;
+  f.hours = (r[9] << 8) | r[10]; f.minutes = r[11];
+  return true;
+}
+
+// Fecha de fabricación (0x51 05 calefactor, 0x51 04 centralita): día · mes · año (2 cifras). "03/2009" o "" si no vale
+inline bool wbParseDate(const uint8_t* r, int n, int& month, int& year) {
+  if (!r || n < 4) return false;
+  int d = r[1], m = r[2], y = r[3];
+  if (d < 1 || d > 31 || m < 1 || m > 12 || y > 99) return false;
+  month = m; year = 2000 + y;
+  return true;
+}
+
+// Nombre del aparato (0x51 0B): hasta 8 caracteres; se copian solo los imprimibles y se quitan espacios del final
+inline void wbParseName(const uint8_t* r, int n, char* out, int cap) {
+  int k = 0;
+  if (out && cap > 0) out[0] = 0;
+  if (!r || !out || cap < 2 || n < 2) return;
+  for (int i = 1; i < n && k < cap - 1; i++) if (r[i] >= 0x20 && r[i] < 0x7F) out[k++] = (char)r[i];
+  while (k > 0 && out[k - 1] == ' ') k--;
+  out[k] = 0;
+}
+
+// Gravedad de una avería: 2 = la Webasto no arrancará o es peligrosa; 1 = a revisar
+inline int wbFaultSeverity(uint8_t c) {
+  switch (c) {
+    case 0x01: case 0x06: case 0x07: case 0x11: case 0x14: case 0x23: case 0x57: case 0x87: case 0x91: case 0x94:
+      return 2;     // centralita, sobrecalentamiento, bloqueos, sensor de temperatura
+    default: return 1;
+  }
+}
+// ¿Bloquea la Webasto? (no arrancará hasta borrar las averías: interlock, bloqueo permanente, neutral, choque)
+inline bool wbFaultLocks(uint8_t c) { return c == 0x07 || c == 0x87 || c == 0x91 || c == 0x23; }
+// ¿Es de arranque o de gasoil? (las típicas tras mucho tiempo parada: aire en el tubo, gasoil viejo)
+inline bool wbFaultStart(uint8_t c) {
+  return c == 0x02 || c == 0x03 || c == 0x82 || c == 0x83 || c == 0x88 || c == 0x24 || c == 0x29 || c == 0x08;
+}
+
+// Valoraciones. Batería en reposo: < 11,5 V no da para la bujía (8–10 A); < 12,2 V, justa; > 15 V, el alternador
+// carga de más o hay un fallo. Temperatura del agua: fuera de -40…130 °C es un sensor roto o suelto. Bujía: 0,1–5 Ω
+// es lo plausible en frío; por debajo, cortocircuito; por encima, cortada o mal conectada.
+inline int chkVolt(float v) { if (!(v > 0)) return CHK_NA; if (v < 11.5f || v > 15.0f) return CHK_BAD; return v < 12.2f ? CHK_WARN : CHK_OK; }
+inline int chkTemp(int t) { return (t <= -40 || t >= 130) ? CHK_BAD : CHK_OK; }
+inline int chkGlow(long mOhm) { if (mOhm < 0) return CHK_NA; return (mOhm < 100 || mOhm > 5000) ? CHK_BAD : CHK_OK; }
+// Llama detectada con la Webasto parada (y sin postbarrido): sensor o bujía con problemas
+inline int chkFlameIdle(int flame, bool running) { return (!running && flame > 0) ? CHK_WARN : CHK_OK; }
+// Peor de dos (CHK_NA no empeora)
+inline int chkWorst(int a, int b) { if (a == CHK_NA) return b; if (b == CHK_NA) return a; return a > b ? a : b; }
