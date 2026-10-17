@@ -173,7 +173,7 @@ const uint16_t MAX_SESSION  = 240;    // min: ventana máxima de «calentar hast
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.3.15"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.3.16"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -463,6 +463,7 @@ enum Txt {
   T_CHK_TITLE, T_CHK_V_OK, T_CHK_V_WARN, T_CHK_V_BAD, T_CHK_BUS_OK, T_CHK_NOBUS_ECHO, T_CHK_NOBUS_NOECHO, T_CHK_DEV, T_CHK_MADE, T_CHK_BATT, T_CHK_WATER, T_CHK_GLOW, T_CHK_USE, T_CHK_NOFAULTS, T_CHK_FAULTS, T_CHK_FAULT, T_CHK_FWHEN, T_CHK_FUNK, T_CHK_TIPS, T_CHK_T_LOCK, T_CHK_T_START, T_CHK_T_BATT, T_CHK_T_WATER, T_CHK_T_GLOW, T_CHK_T_FLAME, T_CHK_T_IDLE, T_CHK_HEATING, T_LOG_CHK, T_CHK_CLEARED, T_E_CLR_HEAT, T_E_CLR_FAIL,
   T_CO_WARN, T_CO_ALARM, T_CO_OFF, T_CO_CLEAR, T_CO_LOST, T_CO_BACK, T_E_CO, T_LOG_CO_NOSENS, T_WHY_CO, T_NOTE_CO, T_D_CO,
   T_CHK_CO, T_CHK_CO_LOST, T_CHK_CO_HEAT, T_CO_FORGOT,
+  T_LOG_SCHED_BUSY,
   T_COUNT
 };
 
@@ -722,6 +723,7 @@ const char* const TXT[T_COUNT][L_N] = {
   /* T_CHK_CO_LOST */ {"Sensor de CO: no manda datos ⚠️", "CO sensor: no data ⚠️", "CO-Sensor: keine Daten ⚠️"},
   /* T_CHK_CO_HEAT */ {"Sensor de CO: calentándose (3 min tras conectarlo)", "CO sensor: warming up (3 min after connecting)", "CO-Sensor: wärmt sich auf (3 Min. nach dem Anschließen)"},
   /* T_CO_FORGOT */ {"Sensor de CO olvidado: ya no se echa en falta", "CO sensor forgotten: it is no longer expected", "CO-Sensor vergessen: er wird nicht mehr erwartet"},
+  /* T_LOG_SCHED_BUSY */ {"Programa de las %s: ya estaba calentando, no hace nada", "Schedule at %s: already heating, nothing to do", "Zeitplan um %s: heizt bereits, nichts zu tun"},
 };
 
 // Texto en el idioma elegido
@@ -2874,17 +2876,19 @@ void checkSchedule() {
       }
       continue;
     }
-    if (heaterOn || thActive) continue;           // ya está calentando
     if ((sch[i].days & (1 << wd)) && sch[i].start == m) {
-      if ((schSkip >> i) & 1) {                   // «saltar la próxima vez»
+      if ((schSkip >> i) & 1) {                   // «saltar la próxima vez» (también si ya calentaba: esta vez ya pasó)
         schSkip &= ~(1 << i); saveSched();
         addLog(trf(T_LOG_SKIP_ONCE, hm(sch[i].start).c_str()));
-        return;
+        continue;
       }
+      // Ya está calentando (otro programa, a mano…): no se apaga ni se alarga lo que hay, pero se apunta (2026-10-17:
+      // antes no quedaba rastro y parecía que el programa no había funcionado)
+      if (heaterOn || thActive) { addLog(trf(T_LOG_SCHED_BUSY, hm(sch[i].start).c_str())); continue; }
       // Antes de encender se mira la batería: con poca tensión, no se arranca (para poder arrancar el motor)
       if (!battOk()) return;
       float tn = !isnan(cabT) ? cabT : (tempC > -100 ? (float)tempC : NAN);   // battOk() acaba de leer el agua
-      if (coldSkip(schC[i], tn)) { addLog(trf(T_LOG_SKIP_WARM, hm(sch[i].start).c_str(), degs(tn, 1).c_str(), (int)schC[i])); return; }
+      if (coldSkip(schC[i], tn)) { addLog(trf(T_LOG_SKIP_WARM, hm(sch[i].start).c_str(), degs(tn, 1).c_str(), (int)schC[i])); continue; }   // los demás de este minuto, sí
       if (autoStartLater(sch[i].dur, tgt, false, "programa")) return;   // en postbarrido: al terminar
       if (tgt && !isnan(cabT)) startSession(sch[i].dur, tgt, "programa");   // con objetivo: termostato
       else startHeater(min(sch[i].dur, MAX_MIN), "programa");

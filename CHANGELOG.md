@@ -6,6 +6,14 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.3.16 — 2026-10-17
+
+Versión de prueba (sin probar con una Webasto real).
+
+- **Un programa que llega con la calefacción ya encendida queda apuntado** («Programa de las 16:15: ya estaba calentando, no hace nada»). No se apaga ni se alarga lo que está en marcha, igual que antes, pero antes no dejaba rastro y parecía que no había funcionado.
+- **«Saltar la próxima» se cumple también si en ese momento ya calentaba**: esa vez ya pasó, así que se quita la marca. Antes se quedaba puesta y se saltaba el programa del día siguiente.
+- Varios programas a la misma hora: si uno se salta (por «saltar la próxima» o por «solo si hace frío»), los demás se siguen mirando.
+
 ## 0.3.15 — 2026-10-17
 
 Versión de prueba (sin probar con una Webasto real).
