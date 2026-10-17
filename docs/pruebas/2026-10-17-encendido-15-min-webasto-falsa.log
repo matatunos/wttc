@@ -1,0 +1,994 @@
+[14:25:00]ESP-ROM:esp32s3-20210327
+[14:25:00]Build:Mar 27 2021
+[14:25:00]rst:0x1 (POWERON),boot:0x8 (SPI_FAST_FLASH_BOOT)
+[14:25:00]SPIWP:0xee
+[14:25:00]mode:DIO, clock div:1
+[14:25:00]load:0x3fce2820,len:0x10cc
+[14:25:00]load:0x403c8700,len:0xc2c
+[14:25:00]load:0x403cb700,len:0x30b0
+[14:25:00]entry 0x403c88b8
+[14:25:00]
+[14:25:00]=== Webasto falsa: una Thermo Top C de mentira en el W-Bus, para probar WTTC ===
+[14:25:00]Chip ESP32-S3 · compilada el Oct 17 2026 12:20:42 · W-Bus 2400 8E1 · RX 16 · TX 17
+[14:25:00]Eco sí (conexión directa A; «eco no» para la B, por el bus) · registro nivel 1 (log 0..3) · «ayuda» para las órdenes
+[14:25:00]Marcas: < WTTC pide · > contesta · . la caldera hace (y por qué) · ! avisos · $ consola · = estado
+[14:25:00][00:00:00.341] = apagada · agua 5.0 °C · dentro 5.0 °C · fuera 5.0 °C · 12.60 V · llama no · 0 W
+[14:25:00][00:00:00.341] =   sin orden de calentar
+[14:25:00][00:00:00.353] =   averías: ninguna · intentos en este arranque 0 · arranques fallidos seguidos 0 de 3
+[14:25:00][00:00:00.364] =   fallos provocados: ninguno · tiempo ×1 · eco sí · RX 16 TX 17 · log 1
+[14:25:14][00:00:14.386] . primera trama de WTTC: el cableado y los baudios están bien
+[14:25:14][00:00:14.387] < pide los sensores (0x50 05)
+[14:25:14][00:00:14.494] > agua 5 °C · 12.60 V · llama no · 0 W · bujía 1.13 Ω
+[14:25:22][00:00:22.520] < pide los sensores (0x50 05)
+[14:25:22][00:00:22.628] > agua 5 °C · 12.60 V · llama no · 0 W · bujía 1.13 Ω
+[14:25:30][00:00:30.652] < pide los sensores (0x50 05)
+[14:25:31][00:00:30.760] > agua 5 °C · 12.60 V · llama no · 0 W · bujía 1.13 Ω
+[14:25:39][00:00:38.788] < pide los sensores (0x50 05)
+[14:25:39][00:00:38.896] > agua 5 °C · 12.60 V · llama no · 0 W · bujía 1.13 Ω
+[14:25:47][00:00:47.170] < pide los sensores (0x50 05)
+[14:25:47][00:00:47.278] > agua 5 °C · 12.60 V · llama no · 0 W · bujía 1.13 Ω
+[14:26:04][00:01:04.674] < pide los sensores (0x50 05)
+[14:26:05][00:01:04.782] > agua 5 °C · 12.60 V · llama no · 0 W · bujía 1.13 Ω
+[14:26:13][00:01:12.806] < pide los sensores (0x50 05)
+[14:26:13][00:01:12.914] > agua 5 °C · 12.60 V · llama no · 0 W · bujía 1.13 Ω
+[14:26:13][00:01:13.068] < encender 15 min
+[14:26:13][00:01:13.069] . encender 15 min: aceptado (arranque nº 1; mantenimiento cada <20 s o se apaga)
+[14:26:13][00:01:13.069] . estado: apagada → ventilador (empieza el arranque)
+[14:26:13][00:01:13.151] > «vale, 15 min»
+[14:26:13][00:01:13.152] = ventilador · agua 5.0 °C · dentro 5.0 °C · fuera 5.0 °C · 12.48 V · llama no · 0 W
+[14:26:13][00:01:13.163] =   orden 0x21: quedan 900 s · último mantenimiento hace 0.0 s (a los 20 s se apaga)
+[14:26:13][00:01:13.163] =   averías: ninguna · intentos en este arranque 0 · arranques fallidos seguidos 0 de 3
+[14:26:13][00:01:13.174] =   fallos provocados: ninguno · tiempo ×1 · eco sí · RX 16 TX 17 · log 1
+[14:26:18][00:01:18.179] < mantenimiento: «sigue con la orden 0x21»
+[14:26:18][00:01:18.255] > «sigo con la orden»
+[14:26:21][00:01:20.941] < pide los sensores (0x50 05)
+[14:26:21][00:01:21.049] > agua 5 °C · 12.48 V · llama no · 0 W · bujía 1.13 Ω
+[14:26:23][00:01:23.181] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:26:23][00:01:23.257] > «sigo con la orden»
+[14:26:25][00:01:25.069] . estado: ventilador → bujía (ventilador listo: calienta la bujía)
+[14:26:28][00:01:28.181] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:26:28][00:01:28.257] > «sigo con la orden»
+[14:26:29][00:01:29.075] < pide los sensores (0x50 05)
+[14:26:29][00:01:29.183] > agua 5 °C · 12.09 V · llama no · 0 W · bujía 1.13 Ω
+[14:26:33][00:01:33.181] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:26:33][00:01:33.257] > «sigo con la orden»
+[14:26:37][00:01:37.209] < pide los sensores (0x50 05)
+[14:26:37][00:01:37.317] > agua 5 °C · 12.09 V · llama no · 0 W · bujía 1.13 Ω
+[14:26:38][00:01:38.181] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:26:38][00:01:38.257] > «sigo con la orden»
+[14:26:43][00:01:43.181] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:26:43][00:01:43.257] > «sigo con la orden»
+[14:26:45][00:01:45.341] < pide los sensores (0x50 05)
+[14:26:45][00:01:45.449] > agua 5 °C · 12.09 V · llama no · 0 W · bujía 1.13 Ω
+[14:26:48][00:01:48.181] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:26:48][00:01:48.257] > «sigo con la orden»
+[14:26:53][00:01:53.181] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:26:53][00:01:53.257] > «sigo con la orden»
+[14:26:53][00:01:53.473] < pide los sensores (0x50 05)
+[14:26:53][00:01:53.581] > agua 5 °C · 12.09 V · llama no · 0 W · bujía 1.13 Ω
+[14:26:58][00:01:58.181] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:26:58][00:01:58.257] > «sigo con la orden»
+[14:27:01][00:02:01.605] < pide los sensores (0x50 05)
+[14:27:01][00:02:01.713] > agua 5 °C · 12.09 V · llama no · 0 W · bujía 1.13 Ω
+[14:27:03][00:02:03.181] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:27:03][00:02:03.257] > «sigo con la orden»
+[14:27:08][00:02:08.181] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:27:08][00:02:08.257] > «sigo con la orden»
+[14:27:09][00:02:09.737] < pide los sensores (0x50 05)
+[14:27:10][00:02:09.845] > agua 5 °C · 12.09 V · llama no · 0 W · bujía 1.13 Ω
+[14:27:10][00:02:10.069] . estado: bujía → encendido (bujía caliente: bomba de gasoil en marcha)
+[14:27:13][00:02:13.069] = encendido · agua 5.0 °C · dentro 5.0 °C · fuera 5.0 °C · 12.06 V · llama no · 0 W
+[14:27:13][00:02:13.070] =   orden 0x21: quedan 839 s · último mantenimiento hace 4.9 s (a los 20 s se apaga)
+[14:27:13][00:02:13.081] =   averías: ninguna · intentos en este arranque 0 · arranques fallidos seguidos 0 de 3
+[14:27:13][00:02:13.092] =   fallos provocados: ninguno · tiempo ×1 · eco sí · RX 16 TX 17 · log 1
+[14:27:13][00:02:13.181] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:27:13][00:02:13.257] > «sigo con la orden»
+[14:27:18][00:02:17.869] < pide los sensores (0x50 05)
+[14:27:18][00:02:17.977] > agua 5 °C · 12.06 V · llama no · 0 W · bujía 1.13 Ω
+[14:27:18][00:02:18.181] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:27:18][00:02:18.257] > «sigo con la orden»
+[14:27:23][00:02:23.181] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:27:23][00:02:23.257] > «sigo con la orden»
+[14:27:26][00:02:26.001] < pide los sensores (0x50 05)
+[14:27:26][00:02:26.109] > agua 5 °C · 12.06 V · llama no · 0 W · bujía 1.13 Ω
+[14:27:28][00:02:28.181] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:27:28][00:02:28.257] > «sigo con la orden»
+[14:27:33][00:02:33.181] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:27:33][00:02:33.257] > «sigo con la orden»
+[14:27:34][00:02:34.133] < pide los sensores (0x50 05)
+[14:27:34][00:02:34.241] > agua 5 °C · 12.06 V · llama no · 0 W · bujía 1.13 Ω
+[14:27:38][00:02:38.183] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:27:38][00:02:38.259] > «sigo con la orden»
+[14:27:40][00:02:40.069] . estado: encendido → estabilizando (¡llama!)
+[14:27:42][00:02:42.265] < pide los sensores (0x50 05)
+[14:27:42][00:02:42.373] > agua 5 °C · 12.36 V · llama sí · 2591 W · bujía 1.13 Ω
+[14:27:43][00:02:43.183] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:27:43][00:02:43.259] > «sigo con la orden»
+[14:27:48][00:02:48.183] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:27:48][00:02:48.259] > «sigo con la orden»
+[14:27:50][00:02:50.397] < pide los sensores (0x50 05)
+[14:27:50][00:02:50.505] > agua 5 °C · 12.36 V · llama sí · 2930 W · bujía 1.13 Ω
+[14:27:53][00:02:53.183] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:27:53][00:02:53.259] > «sigo con la orden»
+[14:27:58][00:02:58.183] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:27:58][00:02:58.259] > «sigo con la orden»
+[14:27:58][00:02:58.529] < pide los sensores (0x50 05)
+[14:27:58][00:02:58.637] > agua 6 °C · 12.36 V · llama sí · 3269 W · bujía 1.13 Ω
+[14:28:03][00:03:03.183] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:28:03][00:03:03.259] > «sigo con la orden»
+[14:28:06][00:03:06.661] < pide los sensores (0x50 05)
+[14:28:07][00:03:06.769] > agua 6 °C · 12.36 V · llama sí · 3608 W · bujía 1.14 Ω
+[14:28:08][00:03:08.183] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:28:08][00:03:08.259] > «sigo con la orden»
+[14:28:13][00:03:13.071] = estabilizando · agua 6.4 °C · dentro 5.0 °C · fuera 5.0 °C · 12.36 V · llama sí · 3875 W
+[14:28:13][00:03:13.072] =   orden 0x21: quedan 779 s · último mantenimiento hace 4.9 s (a los 20 s se apaga)
+[14:28:13][00:03:13.083] =   averías: ninguna · intentos en este arranque 0 · arranques fallidos seguidos 0 de 3
+[14:28:13][00:03:13.094] =   fallos provocados: ninguno · tiempo ×1 · eco sí · RX 16 TX 17 · log 1
+[14:28:13][00:03:13.183] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:28:13][00:03:13.259] > «sigo con la orden»
+[14:28:15][00:03:14.793] < pide los sensores (0x50 05)
+[14:28:15][00:03:14.901] > agua 6 °C · 12.36 V · llama sí · 3946 W · bujía 1.14 Ω
+[14:28:18][00:03:18.183] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:28:18][00:03:18.259] > «sigo con la orden»
+[14:28:23][00:03:22.925] < pide los sensores (0x50 05)
+[14:28:23][00:03:23.033] > agua 7 °C · 12.36 V · llama sí · 4285 W · bujía 1.14 Ω
+[14:28:23][00:03:23.185] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:28:23][00:03:23.261] > «sigo con la orden»
+[14:28:28][00:03:28.185] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:28:28][00:03:28.261] > «sigo con la orden»
+[14:28:31][00:03:31.057] < pide los sensores (0x50 05)
+[14:28:31][00:03:31.165] > agua 7 °C · 12.36 V · llama sí · 4624 W · bujía 1.14 Ω
+[14:28:33][00:03:33.567] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.4 s
+[14:28:33][00:03:33.643] > «sigo con la orden»
+[14:28:38][00:03:38.567] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:28:38][00:03:38.643] > «sigo con la orden»
+[14:28:39][00:03:39.189] < pide los sensores (0x50 05)
+[14:28:39][00:03:39.297] > agua 8 °C · 12.36 V · llama sí · 4963 W · bujía 1.15 Ω
+[14:28:40][00:03:40.069] . estado: estabilizando → a tope (llama estable)
+[14:28:43][00:03:43.567] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:28:43][00:03:43.643] > «sigo con la orden»
+[14:28:47][00:03:47.321] < pide los sensores (0x50 05)
+[14:28:47][00:03:47.429] > agua 8 °C · 12.39 V · llama sí · 5000 W · bujía 1.15 Ω
+[14:28:48][00:03:48.567] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:28:48][00:03:48.643] > «sigo con la orden»
+[14:28:53][00:03:53.567] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:28:53][00:03:53.643] > «sigo con la orden»
+[14:28:55][00:03:55.453] < pide los sensores (0x50 05)
+[14:28:55][00:03:55.561] > agua 9 °C · 12.39 V · llama sí · 5000 W · bujía 1.15 Ω
+[14:28:58][00:03:58.569] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:28:58][00:03:58.645] > «sigo con la orden»
+[14:29:03][00:04:03.569] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:29:03][00:04:03.645] > «sigo con la orden»
+[14:29:03][00:04:03.671] < pide los sensores (0x50 05)
+[14:29:04][00:04:03.779] > agua 9 °C · 12.39 V · llama sí · 5000 W · bujía 1.16 Ω
+[14:29:08][00:04:08.569] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:29:08][00:04:08.645] > «sigo con la orden»
+[14:29:12][00:04:11.803] < pide los sensores (0x50 05)
+[14:29:12][00:04:11.911] > agua 10 °C · 12.39 V · llama sí · 5000 W · bujía 1.16 Ω
+[14:29:13][00:04:13.073] = a tope · agua 10.1 °C · dentro 5.0 °C · fuera 5.0 °C · 12.39 V · llama sí · 5000 W
+[14:29:13][00:04:13.074] =   orden 0x21: quedan 719 s · último mantenimiento hace 4.5 s (a los 20 s se apaga)
+[14:29:13][00:04:13.085] =   averías: ninguna · intentos en este arranque 0 · arranques fallidos seguidos 0 de 3
+[14:29:13][00:04:13.096] =   fallos provocados: ninguno · tiempo ×1 · eco sí · RX 16 TX 17 · log 1
+[14:29:13][00:04:13.569] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:29:13][00:04:13.645] > «sigo con la orden»
+[14:29:18][00:04:18.569] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:29:18][00:04:18.645] > «sigo con la orden»
+[14:29:20][00:04:19.935] < pide los sensores (0x50 05)
+[14:29:20][00:04:20.043] > agua 11 °C · 12.39 V · llama sí · 5000 W · bujía 1.16 Ω
+[14:29:23][00:04:23.569] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:29:23][00:04:23.645] > «sigo con la orden»
+[14:29:28][00:04:28.067] < pide los sensores (0x50 05)
+[14:29:28][00:04:28.175] > agua 11 °C · 12.39 V · llama sí · 5000 W · bujía 1.17 Ω
+[14:29:28][00:04:28.569] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:29:28][00:04:28.645] > «sigo con la orden»
+[14:29:33][00:04:33.569] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:29:33][00:04:33.645] > «sigo con la orden»
+[14:29:36][00:04:36.199] < pide los sensores (0x50 05)
+[14:29:36][00:04:36.307] > agua 12 °C · 12.39 V · llama sí · 5000 W · bujía 1.17 Ω
+[14:29:38][00:04:38.571] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:29:38][00:04:38.647] > «sigo con la orden»
+[14:29:43][00:04:43.571] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:29:43][00:04:43.647] > «sigo con la orden»
+[14:29:44][00:04:44.331] < pide los sensores (0x50 05)
+[14:29:44][00:04:44.439] > agua 12 °C · 12.39 V · llama sí · 5000 W · bujía 1.17 Ω
+[14:29:48][00:04:48.571] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:29:48][00:04:48.647] > «sigo con la orden»
+[14:29:52][00:04:52.463] < pide los sensores (0x50 05)
+[14:29:52][00:04:52.571] > agua 13 °C · 12.39 V · llama sí · 5000 W · bujía 1.17 Ω
+[14:29:53][00:04:53.571] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:29:53][00:04:53.647] > «sigo con la orden»
+[14:29:58][00:04:58.571] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:29:58][00:04:58.647] > «sigo con la orden»
+[14:30:00][00:05:00.597] < pide los sensores (0x50 05)
+[14:30:00][00:05:00.705] > agua 13 °C · 12.39 V · llama sí · 5000 W · bujía 1.18 Ω
+[14:30:03][00:05:03.571] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:30:03][00:05:03.647] > «sigo con la orden»
+[14:30:08][00:05:08.571] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:30:08][00:05:08.647] > «sigo con la orden»
+[14:30:08][00:05:08.729] < pide los sensores (0x50 05)
+[14:30:09][00:05:08.837] > agua 14 °C · 12.39 V · llama sí · 5000 W · bujía 1.18 Ω
+[14:30:13][00:05:13.075] = a tope · agua 13.9 °C · dentro 5.0 °C · fuera 5.0 °C · 12.39 V · llama sí · 5000 W
+[14:30:13][00:05:13.076] =   orden 0x21: quedan 659 s · último mantenimiento hace 4.5 s (a los 20 s se apaga)
+[14:30:13][00:05:13.087] =   averías: ninguna · intentos en este arranque 0 · arranques fallidos seguidos 0 de 3
+[14:30:13][00:05:13.098] =   fallos provocados: ninguno · tiempo ×1 · eco sí · RX 16 TX 17 · log 1
+[14:30:13][00:05:13.571] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:30:13][00:05:13.647] > «sigo con la orden»
+[14:30:17][00:05:16.861] < pide los sensores (0x50 05)
+[14:30:17][00:05:16.969] > agua 14 °C · 12.39 V · llama sí · 5000 W · bujía 1.18 Ω
+[14:30:18][00:05:18.571] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:30:18][00:05:18.647] > «sigo con la orden»
+[14:30:23][00:05:23.573] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:30:23][00:05:23.649] > «sigo con la orden»
+[14:30:25][00:05:24.993] < pide los sensores (0x50 05)
+[14:30:25][00:05:25.101] > agua 15 °C · 12.39 V · llama sí · 5000 W · bujía 1.19 Ω
+[14:30:28][00:05:28.573] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:30:28][00:05:28.649] > «sigo con la orden»
+[14:30:33][00:05:33.125] < pide los sensores (0x50 05)
+[14:30:33][00:05:33.233] > agua 15 °C · 12.39 V · llama sí · 5000 W · bujía 1.19 Ω
+[14:30:33][00:05:33.573] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:30:33][00:05:33.649] > «sigo con la orden»
+[14:30:38][00:05:38.573] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:30:38][00:05:38.649] > «sigo con la orden»
+[14:30:41][00:05:41.257] < pide los sensores (0x50 05)
+[14:30:41][00:05:41.365] > agua 16 °C · 12.39 V · llama sí · 5000 W · bujía 1.19 Ω
+[14:30:43][00:05:43.573] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:30:43][00:05:43.649] > «sigo con la orden»
+[14:30:48][00:05:48.573] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:30:48][00:05:48.649] > «sigo con la orden»
+[14:30:49][00:05:49.389] < pide los sensores (0x50 05)
+[14:30:49][00:05:49.497] > agua 16 °C · 12.39 V · llama sí · 5000 W · bujía 1.20 Ω
+[14:30:53][00:05:53.573] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:30:53][00:05:53.649] > «sigo con la orden»
+[14:30:57][00:05:57.521] < pide los sensores (0x50 05)
+[14:30:57][00:05:57.629] > agua 17 °C · 12.39 V · llama sí · 5000 W · bujía 1.20 Ω
+[14:30:58][00:05:58.597] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:30:58][00:05:58.673] > «sigo con la orden»
+[14:31:03][00:06:03.597] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:31:03][00:06:03.673] > «sigo con la orden»
+[14:31:05][00:06:05.653] < pide los sensores (0x50 05)
+[14:31:06][00:06:05.761] > agua 17 °C · 12.39 V · llama sí · 5000 W · bujía 1.20 Ω
+[14:31:08][00:06:08.597] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:31:08][00:06:08.673] > «sigo con la orden»
+[14:31:13][00:06:13.077] = a tope · agua 17.6 °C · dentro 5.0 °C · fuera 5.0 °C · 12.39 V · llama sí · 5000 W
+[14:31:13][00:06:13.078] =   orden 0x21: quedan 599 s · último mantenimiento hace 4.5 s (a los 20 s se apaga)
+[14:31:13][00:06:13.089] =   averías: ninguna · intentos en este arranque 0 · arranques fallidos seguidos 0 de 3
+[14:31:13][00:06:13.100] =   fallos provocados: ninguno · tiempo ×1 · eco sí · RX 16 TX 17 · log 1
+[14:31:13][00:06:13.597] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:31:13][00:06:13.673] > «sigo con la orden»
+[14:31:14][00:06:13.785] < pide los sensores (0x50 05)
+[14:31:14][00:06:13.893] > agua 18 °C · 12.39 V · llama sí · 5000 W · bujía 1.21 Ω
+[14:31:18][00:06:18.597] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:31:18][00:06:18.673] > «sigo con la orden»
+[14:31:22][00:06:21.917] < pide los sensores (0x50 05)
+[14:31:22][00:06:22.025] > agua 18 °C · 12.39 V · llama sí · 5000 W · bujía 1.21 Ω
+[14:31:23][00:06:23.597] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:31:23][00:06:23.673] > «sigo con la orden»
+[14:31:28][00:06:28.597] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:31:28][00:06:28.673] > «sigo con la orden»
+[14:31:30][00:06:30.049] < pide los sensores (0x50 05)
+[14:31:30][00:06:30.157] > agua 19 °C · 12.39 V · llama sí · 5000 W · bujía 1.21 Ω
+[14:31:33][00:06:33.597] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:31:33][00:06:33.673] > «sigo con la orden»
+[14:31:38][00:06:38.181] < pide los sensores (0x50 05)
+[14:31:38][00:06:38.289] > agua 19 °C · 12.39 V · llama sí · 5000 W · bujía 1.21 Ω
+[14:31:38][00:06:38.597] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:31:38][00:06:38.673] > «sigo con la orden»
+[14:31:43][00:06:43.617] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:31:43][00:06:43.693] > «sigo con la orden»
+[14:31:46][00:06:46.313] < pide los sensores (0x50 05)
+[14:31:46][00:06:46.421] > agua 20 °C · 12.39 V · llama sí · 5000 W · bujía 1.22 Ω
+[14:31:48][00:06:48.619] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:31:48][00:06:48.695] > «sigo con la orden»
+[14:31:53][00:06:53.621] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:31:53][00:06:53.697] > «sigo con la orden»
+[14:31:54][00:06:54.445] < pide los sensores (0x50 05)
+[14:31:54][00:06:54.553] > agua 20 °C · 12.39 V · llama sí · 5000 W · bujía 1.22 Ω
+[14:31:58][00:06:58.621] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:31:58][00:06:58.697] > «sigo con la orden»
+[14:32:02][00:07:02.577] < pide los sensores (0x50 05)
+[14:32:02][00:07:02.685] > agua 21 °C · 12.39 V · llama sí · 5000 W · bujía 1.22 Ω
+[14:32:03][00:07:03.623] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:32:03][00:07:03.699] > «sigo con la orden»
+[14:32:08][00:07:08.623] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:32:08][00:07:08.699] > «sigo con la orden»
+[14:32:10][00:07:10.709] < pide los sensores (0x50 05)
+[14:32:11][00:07:10.817] > agua 21 °C · 12.39 V · llama sí · 5000 W · bujía 1.23 Ω
+[14:32:13][00:07:13.079] = a tope · agua 21.1 °C · dentro 5.0 °C · fuera 5.0 °C · 12.39 V · llama sí · 5000 W
+[14:32:13][00:07:13.080] =   orden 0x21: quedan 539 s · último mantenimiento hace 4.5 s (a los 20 s se apaga)
+[14:32:13][00:07:13.091] =   averías: ninguna · intentos en este arranque 0 · arranques fallidos seguidos 0 de 3
+[14:32:13][00:07:13.102] =   fallos provocados: ninguno · tiempo ×1 · eco sí · RX 16 TX 17 · log 1
+[14:32:13][00:07:13.623] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:32:13][00:07:13.699] > «sigo con la orden»
+[14:32:18][00:07:18.623] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:32:18][00:07:18.699] > «sigo con la orden»
+[14:32:19][00:07:18.841] < pide los sensores (0x50 05)
+[14:32:19][00:07:18.949] > agua 21 °C · 12.39 V · llama sí · 5000 W · bujía 1.23 Ω
+[14:32:23][00:07:23.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:32:23][00:07:23.701] > «sigo con la orden»
+[14:32:27][00:07:26.975] < pide los sensores (0x50 05)
+[14:32:27][00:07:27.083] > agua 22 °C · 12.39 V · llama sí · 5000 W · bujía 1.23 Ω
+[14:32:28][00:07:28.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:32:28][00:07:28.701] > «sigo con la orden»
+[14:32:33][00:07:33.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:32:33][00:07:33.701] > «sigo con la orden»
+[14:32:35][00:07:35.107] < pide los sensores (0x50 05)
+[14:32:35][00:07:35.215] > agua 22 °C · 12.39 V · llama sí · 5000 W · bujía 1.23 Ω
+[14:32:38][00:07:38.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:32:38][00:07:38.701] > «sigo con la orden»
+[14:32:43][00:07:43.239] < pide los sensores (0x50 05)
+[14:32:43][00:07:43.347] > agua 23 °C · 12.39 V · llama sí · 5000 W · bujía 1.24 Ω
+[14:32:43][00:07:43.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:32:43][00:07:43.701] > «sigo con la orden»
+[14:32:48][00:07:48.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:32:48][00:07:48.701] > «sigo con la orden»
+[14:32:51][00:07:51.371] < pide los sensores (0x50 05)
+[14:32:51][00:07:51.479] > agua 23 °C · 12.39 V · llama sí · 5000 W · bujía 1.24 Ω
+[14:32:53][00:07:53.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:32:53][00:07:53.701] > «sigo con la orden»
+[14:32:58][00:07:58.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:32:58][00:07:58.701] > «sigo con la orden»
+[14:32:59][00:07:59.505] < pide los sensores (0x50 05)
+[14:32:59][00:07:59.613] > agua 24 °C · 12.39 V · llama sí · 5000 W · bujía 1.24 Ω
+[14:33:03][00:08:03.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:33:03][00:08:03.701] > «sigo con la orden»
+[14:33:07][00:08:07.639] < pide los sensores (0x50 05)
+[14:33:07][00:08:07.747] > agua 24 °C · 12.39 V · llama sí · 5000 W · bujía 1.25 Ω
+[14:33:08][00:08:08.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:33:08][00:08:08.701] > «sigo con la orden»
+[14:33:13][00:08:13.081] = a tope · agua 24.6 °C · dentro 5.0 °C · fuera 5.0 °C · 12.39 V · llama sí · 5000 W
+[14:33:13][00:08:13.082] =   orden 0x21: quedan 479 s · último mantenimiento hace 4.5 s (a los 20 s se apaga)
+[14:33:13][00:08:13.093] =   averías: ninguna · intentos en este arranque 0 · arranques fallidos seguidos 0 de 3
+[14:33:13][00:08:13.104] =   fallos provocados: ninguno · tiempo ×1 · eco sí · RX 16 TX 17 · log 1
+[14:33:13][00:08:13.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:33:13][00:08:13.701] > «sigo con la orden»
+[14:33:16][00:08:15.773] < pide los sensores (0x50 05)
+[14:33:16][00:08:15.881] > agua 25 °C · 12.39 V · llama sí · 5000 W · bujía 1.25 Ω
+[14:33:18][00:08:18.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:33:18][00:08:18.701] > «sigo con la orden»
+[14:33:23][00:08:23.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:33:23][00:08:23.701] > «sigo con la orden»
+[14:33:24][00:08:23.905] < pide los sensores (0x50 05)
+[14:33:24][00:08:24.013] > agua 25 °C · 12.39 V · llama sí · 5000 W · bujía 1.25 Ω
+[14:33:28][00:08:28.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:33:28][00:08:28.701] > «sigo con la orden»
+[14:33:32][00:08:32.037] < pide los sensores (0x50 05)
+[14:33:32][00:08:32.145] > agua 26 °C · 12.39 V · llama sí · 5000 W · bujía 1.25 Ω
+[14:33:33][00:08:33.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:33:33][00:08:33.701] > «sigo con la orden»
+[14:33:38][00:08:38.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:33:38][00:08:38.701] > «sigo con la orden»
+[14:33:40][00:08:40.169] < pide los sensores (0x50 05)
+[14:33:40][00:08:40.277] > agua 26 °C · 12.39 V · llama sí · 5000 W · bujía 1.26 Ω
+[14:33:43][00:08:43.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:33:43][00:08:43.701] > «sigo con la orden»
+[14:33:48][00:08:48.301] < pide los sensores (0x50 05)
+[14:33:48][00:08:48.409] > agua 27 °C · 12.39 V · llama sí · 5000 W · bujía 1.26 Ω
+[14:33:48][00:08:48.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:33:48][00:08:48.701] > «sigo con la orden»
+[14:33:53][00:08:53.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:33:53][00:08:53.701] > «sigo con la orden»
+[14:33:56][00:08:56.433] < pide los sensores (0x50 05)
+[14:33:56][00:08:56.541] > agua 27 °C · 12.39 V · llama sí · 5000 W · bujía 1.26 Ω
+[14:33:58][00:08:58.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:33:58][00:08:58.701] > «sigo con la orden»
+[14:34:03][00:09:03.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:34:03][00:09:03.701] > «sigo con la orden»
+[14:34:04][00:09:04.565] < pide los sensores (0x50 05)
+[14:34:04][00:09:04.673] > agua 27 °C · 12.39 V · llama sí · 5000 W · bujía 1.26 Ω
+[14:34:08][00:09:08.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:34:08][00:09:08.701] > «sigo con la orden»
+[14:34:12][00:09:12.697] < pide los sensores (0x50 05)
+[14:34:13][00:09:12.805] > agua 28 °C · 12.39 V · llama sí · 5000 W · bujía 1.27 Ω
+[14:34:13][00:09:13.083] = a tope · agua 27.9 °C · dentro 5.0 °C · fuera 5.0 °C · 12.39 V · llama sí · 5000 W
+[14:34:13][00:09:13.084] =   orden 0x21: quedan 419 s · último mantenimiento hace 4.5 s (a los 20 s se apaga)
+[14:34:13][00:09:13.095] =   averías: ninguna · intentos en este arranque 0 · arranques fallidos seguidos 0 de 3
+[14:34:13][00:09:13.106] =   fallos provocados: ninguno · tiempo ×1 · eco sí · RX 16 TX 17 · log 1
+[14:34:13][00:09:13.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:34:13][00:09:13.701] > «sigo con la orden»
+[14:34:18][00:09:18.625] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:34:18][00:09:18.701] > «sigo con la orden»
+[14:34:21][00:09:20.829] < pide los sensores (0x50 05)
+[14:34:21][00:09:20.937] > agua 28 °C · 12.39 V · llama sí · 5000 W · bujía 1.27 Ω
+[14:34:23][00:09:23.627] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:34:23][00:09:23.703] > «sigo con la orden»
+[14:34:28][00:09:28.627] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:34:28][00:09:28.703] > «sigo con la orden»
+[14:34:29][00:09:28.961] < pide los sensores (0x50 05)
+[14:34:29][00:09:29.069] > agua 29 °C · 12.39 V · llama sí · 5000 W · bujía 1.27 Ω
+[14:34:33][00:09:33.627] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:34:33][00:09:33.703] > «sigo con la orden»
+[14:34:37][00:09:37.093] < pide los sensores (0x50 05)
+[14:34:37][00:09:37.201] > agua 29 °C · 12.39 V · llama sí · 5000 W · bujía 1.27 Ω
+[14:34:38][00:09:38.627] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:34:38][00:09:38.703] > «sigo con la orden»
+[14:34:43][00:09:43.627] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:34:43][00:09:43.703] > «sigo con la orden»
+[14:34:45][00:09:45.225] < pide los sensores (0x50 05)
+[14:34:45][00:09:45.333] > agua 30 °C · 12.39 V · llama sí · 5000 W · bujía 1.28 Ω
+[14:34:48][00:09:48.627] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:34:48][00:09:48.703] > «sigo con la orden»
+[14:34:53][00:09:53.357] < pide los sensores (0x50 05)
+[14:34:53][00:09:53.465] > agua 30 °C · 12.39 V · llama sí · 5000 W · bujía 1.28 Ω
+[14:34:53][00:09:53.627] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:34:53][00:09:53.703] > «sigo con la orden»
+[14:34:58][00:09:58.627] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:34:58][00:09:58.703] > «sigo con la orden»
+[14:35:01][00:10:01.489] < pide los sensores (0x50 05)
+[14:35:01][00:10:01.597] > agua 31 °C · 12.39 V · llama sí · 5000 W · bujía 1.28 Ω
+[14:35:03][00:10:03.627] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:35:03][00:10:03.703] > «sigo con la orden»
+[14:35:08][00:10:08.627] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:35:08][00:10:08.703] > «sigo con la orden»
+[14:35:09][00:10:09.621] < pide los sensores (0x50 05)
+[14:35:09][00:10:09.729] > agua 31 °C · 12.39 V · llama sí · 5000 W · bujía 1.28 Ω
+[14:35:13][00:10:13.085] = a tope · agua 31.2 °C · dentro 5.1 °C · fuera 5.0 °C · 12.39 V · llama sí · 5000 W
+[14:35:13][00:10:13.086] =   orden 0x21: quedan 359 s · último mantenimiento hace 4.5 s (a los 20 s se apaga)
+[14:35:13][00:10:13.097] =   averías: ninguna · intentos en este arranque 0 · arranques fallidos seguidos 0 de 3
+[14:35:13][00:10:13.108] =   fallos provocados: ninguno · tiempo ×1 · eco sí · RX 16 TX 17 · log 1
+[14:35:13][00:10:13.627] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:35:13][00:10:13.703] > «sigo con la orden»
+[14:35:17][00:10:17.753] < pide los sensores (0x50 05)
+[14:35:18][00:10:17.861] > agua 31 °C · 12.39 V · llama sí · 5000 W · bujía 1.29 Ω
+[14:35:18][00:10:18.627] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:35:18][00:10:18.703] > «sigo con la orden»
+[14:35:23][00:10:23.627] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:35:23][00:10:23.703] > «sigo con la orden»
+[14:35:26][00:10:25.885] < pide los sensores (0x50 05)
+[14:35:26][00:10:25.993] > agua 32 °C · 12.39 V · llama sí · 5000 W · bujía 1.29 Ω
+[14:35:28][00:10:28.627] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:35:28][00:10:28.703] > «sigo con la orden»
+[14:35:33][00:10:33.627] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:35:33][00:10:33.703] > «sigo con la orden»
+[14:35:34][00:10:34.017] < pide los sensores (0x50 05)
+[14:35:34][00:10:34.125] > agua 32 °C · 12.39 V · llama sí · 5000 W · bujía 1.29 Ω
+[14:35:38][00:10:38.627] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:35:38][00:10:38.703] > «sigo con la orden»
+[14:35:42][00:10:42.149] < pide los sensores (0x50 05)
+[14:35:42][00:10:42.257] > agua 33 °C · 12.39 V · llama sí · 5000 W · bujía 1.30 Ω
+[14:35:43][00:10:43.629] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:35:43][00:10:43.705] > «sigo con la orden»
+[14:35:48][00:10:48.629] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:35:48][00:10:48.705] > «sigo con la orden»
+[14:35:50][00:10:50.281] < pide los sensores (0x50 05)
+[14:35:50][00:10:50.389] > agua 33 °C · 12.39 V · llama sí · 5000 W · bujía 1.30 Ω
+[14:35:53][00:10:53.629] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:35:53][00:10:53.705] > «sigo con la orden»
+[14:35:58][00:10:58.413] < pide los sensores (0x50 05)
+[14:35:58][00:10:58.521] > agua 34 °C · 12.39 V · llama sí · 5000 W · bujía 1.30 Ω
+[14:35:58][00:10:58.629] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:35:58][00:10:58.705] > «sigo con la orden»
+[14:36:03][00:11:03.629] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:36:03][00:11:03.705] > «sigo con la orden»
+[14:36:06][00:11:06.545] < pide los sensores (0x50 05)
+[14:36:06][00:11:06.653] > agua 34 °C · 12.39 V · llama sí · 5000 W · bujía 1.30 Ω
+[14:36:08][00:11:08.629] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:36:08][00:11:08.705] > «sigo con la orden»
+[14:36:13][00:11:13.087] = a tope · agua 34.3 °C · dentro 5.3 °C · fuera 5.0 °C · 12.39 V · llama sí · 5000 W
+[14:36:13][00:11:13.088] =   orden 0x21: quedan 299 s · último mantenimiento hace 4.5 s (a los 20 s se apaga)
+[14:36:13][00:11:13.099] =   averías: ninguna · intentos en este arranque 0 · arranques fallidos seguidos 0 de 3
+[14:36:13][00:11:13.110] =   fallos provocados: ninguno · tiempo ×1 · eco sí · RX 16 TX 17 · log 1
+[14:36:13][00:11:13.629] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:36:13][00:11:13.705] > «sigo con la orden»
+[14:36:14][00:11:14.677] < pide los sensores (0x50 05)
+[14:36:15][00:11:14.785] > agua 34 °C · 12.39 V · llama sí · 5000 W · bujía 1.31 Ω
+[14:36:18][00:11:18.629] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:36:18][00:11:18.705] > «sigo con la orden»
+[14:36:23][00:11:22.811] < pide los sensores (0x50 05)
+[14:36:23][00:11:22.919] > agua 35 °C · 12.39 V · llama sí · 5000 W · bujía 1.31 Ω
+[14:36:23][00:11:23.629] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:36:23][00:11:23.705] > «sigo con la orden»
+[14:36:28][00:11:28.629] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:36:28][00:11:28.705] > «sigo con la orden»
+[14:36:31][00:11:30.945] < pide los sensores (0x50 05)
+[14:36:31][00:11:31.053] > agua 35 °C · 12.39 V · llama sí · 5000 W · bujía 1.31 Ω
+[14:36:33][00:11:33.629] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:36:33][00:11:33.705] > «sigo con la orden»
+[14:36:38][00:11:38.629] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:36:38][00:11:38.705] > «sigo con la orden»
+[14:36:39][00:11:39.079] < pide los sensores (0x50 05)
+[14:36:39][00:11:39.187] > agua 36 °C · 12.39 V · llama sí · 5000 W · bujía 1.31 Ω
+[14:36:43][00:11:43.629] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:36:43][00:11:43.705] > «sigo con la orden»
+[14:36:47][00:11:47.211] < pide los sensores (0x50 05)
+[14:36:47][00:11:47.319] > agua 36 °C · 12.39 V · llama sí · 5000 W · bujía 1.32 Ω
+[14:36:48][00:11:48.629] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:36:48][00:11:48.705] > «sigo con la orden»
+[14:36:53][00:11:53.629] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:36:53][00:11:53.705] > «sigo con la orden»
+[14:36:55][00:11:55.343] < pide los sensores (0x50 05)
+[14:36:55][00:11:55.451] > agua 37 °C · 12.39 V · llama sí · 5000 W · bujía 1.32 Ω
+[14:36:58][00:11:58.629] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:36:58][00:11:58.705] > «sigo con la orden»
+[14:37:03][00:12:03.475] < pide los sensores (0x50 05)
+[14:37:03][00:12:03.583] > agua 37 °C · 12.39 V · llama sí · 5000 W · bujía 1.32 Ω
+[14:37:03][00:12:03.629] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:37:03][00:12:03.705] > «sigo con la orden»
+[14:37:08][00:12:08.629] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:37:08][00:12:08.705] > «sigo con la orden»
+[14:37:11][00:12:11.607] < pide los sensores (0x50 05)
+[14:37:11][00:12:11.715] > agua 37 °C · 12.39 V · llama sí · 5000 W · bujía 1.32 Ω
+[14:37:13][00:12:13.089] = a tope · agua 37.4 °C · dentro 5.5 °C · fuera 5.0 °C · 12.39 V · llama sí · 5000 W
+[14:37:13][00:12:13.090] =   orden 0x21: quedan 239 s · último mantenimiento hace 4.5 s (a los 20 s se apaga)
+[14:37:13][00:12:13.101] =   averías: ninguna · intentos en este arranque 0 · arranques fallidos seguidos 0 de 3
+[14:37:13][00:12:13.112] =   fallos provocados: ninguno · tiempo ×1 · eco sí · RX 16 TX 17 · log 1
+[14:37:13][00:12:13.629] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:37:13][00:12:13.705] > «sigo con la orden»
+[14:37:18][00:12:18.629] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:37:18][00:12:18.705] > «sigo con la orden»
+[14:37:19][00:12:19.739] < pide los sensores (0x50 05)
+[14:37:20][00:12:19.847] > agua 38 °C · 12.39 V · llama sí · 5000 W · bujía 1.33 Ω
+[14:37:23][00:12:23.631] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:37:23][00:12:23.707] > «sigo con la orden»
+[14:37:28][00:12:27.871] < pide los sensores (0x50 05)
+[14:37:28][00:12:27.979] > agua 38 °C · 12.39 V · llama sí · 5000 W · bujía 1.33 Ω
+[14:37:28][00:12:28.631] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:37:28][00:12:28.707] > «sigo con la orden»
+[14:37:33][00:12:33.631] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:37:33][00:12:33.707] > «sigo con la orden»
+[14:37:36][00:12:36.003] < pide los sensores (0x50 05)
+[14:37:36][00:12:36.111] > agua 39 °C · 12.39 V · llama sí · 5000 W · bujía 1.33 Ω
+[14:37:38][00:12:38.631] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:37:38][00:12:38.707] > «sigo con la orden»
+[14:37:43][00:12:43.631] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:37:43][00:12:43.707] > «sigo con la orden»
+[14:37:44][00:12:44.135] < pide los sensores (0x50 05)
+[14:37:44][00:12:44.243] > agua 39 °C · 12.39 V · llama sí · 5000 W · bujía 1.33 Ω
+[14:37:48][00:12:48.631] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:37:48][00:12:48.707] > «sigo con la orden»
+[14:37:52][00:12:52.267] < pide los sensores (0x50 05)
+[14:37:52][00:12:52.375] > agua 39 °C · 12.39 V · llama sí · 5000 W · bujía 1.34 Ω
+[14:37:53][00:12:53.631] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:37:53][00:12:53.707] > «sigo con la orden»
+[14:37:58][00:12:58.631] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:37:58][00:12:58.707] > «sigo con la orden»
+[14:38:00][00:13:00.399] < pide los sensores (0x50 05)
+[14:38:00][00:13:00.507] > agua 40 °C · 12.39 V · llama sí · 5000 W · bujía 1.34 Ω
+[14:38:03][00:13:03.631] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:38:03][00:13:03.707] > «sigo con la orden»
+[14:38:08][00:13:08.531] < pide los sensores (0x50 05)
+[14:38:08][00:13:08.639] > agua 40 °C · 12.39 V · llama sí · 5000 W · bujía 1.34 Ω
+[14:38:08][00:13:08.671] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:38:08][00:13:08.747] > «sigo con la orden»
+[14:38:13][00:13:13.091] = a tope · agua 40.4 °C · dentro 5.7 °C · fuera 5.0 °C · 12.39 V · llama sí · 5000 W
+[14:38:13][00:13:13.092] =   orden 0x21: quedan 179 s · último mantenimiento hace 4.4 s (a los 20 s se apaga)
+[14:38:13][00:13:13.103] =   averías: ninguna · intentos en este arranque 0 · arranques fallidos seguidos 0 de 3
+[14:38:13][00:13:13.114] =   fallos provocados: ninguno · tiempo ×1 · eco sí · RX 16 TX 17 · log 1
+[14:38:13][00:13:13.671] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:38:13][00:13:13.747] > «sigo con la orden»
+[14:38:16][00:13:16.663] < pide los sensores (0x50 05)
+[14:38:17][00:13:16.771] > agua 41 °C · 12.39 V · llama sí · 5000 W · bujía 1.34 Ω
+[14:38:18][00:13:18.671] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:38:18][00:13:18.747] > «sigo con la orden»
+[14:38:23][00:13:23.673] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:38:23][00:13:23.749] > «sigo con la orden»
+[14:38:25][00:13:24.795] < pide los sensores (0x50 05)
+[14:38:25][00:13:24.903] > agua 41 °C · 12.39 V · llama sí · 5000 W · bujía 1.35 Ω
+[14:38:28][00:13:28.673] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:38:28][00:13:28.749] > «sigo con la orden»
+[14:38:33][00:13:32.927] < pide los sensores (0x50 05)
+[14:38:33][00:13:33.035] > agua 41 °C · 12.39 V · llama sí · 5000 W · bujía 1.35 Ω
+[14:38:33][00:13:33.673] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:38:33][00:13:33.749] > «sigo con la orden»
+[14:38:38][00:13:38.673] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:38:38][00:13:38.749] > «sigo con la orden»
+[14:38:41][00:13:41.059] < pide los sensores (0x50 05)
+[14:38:41][00:13:41.167] > agua 42 °C · 12.39 V · llama sí · 5000 W · bujía 1.35 Ω
+[14:38:43][00:13:43.673] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:38:43][00:13:43.749] > «sigo con la orden»
+[14:38:48][00:13:48.673] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:38:48][00:13:48.749] > «sigo con la orden»
+[14:38:49][00:13:49.191] < pide los sensores (0x50 05)
+[14:38:49][00:13:49.299] > agua 42 °C · 12.39 V · llama sí · 5000 W · bujía 1.35 Ω
+[14:38:53][00:13:53.673] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:38:53][00:13:53.749] > «sigo con la orden»
+[14:38:57][00:13:57.323] < pide los sensores (0x50 05)
+[14:38:57][00:13:57.431] > agua 42 °C · 12.39 V · llama sí · 5000 W · bujía 1.35 Ω
+[14:38:58][00:13:58.673] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:38:58][00:13:58.749] > «sigo con la orden»
+[14:39:03][00:14:03.673] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:39:03][00:14:03.749] > «sigo con la orden»
+[14:39:05][00:14:05.455] < pide los sensores (0x50 05)
+[14:39:05][00:14:05.563] > agua 43 °C · 12.39 V · llama sí · 5000 W · bujía 1.36 Ω
+[14:39:08][00:14:08.673] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:39:08][00:14:08.749] > «sigo con la orden»
+[14:39:13][00:14:13.093] = a tope · agua 43.3 °C · dentro 6.0 °C · fuera 5.0 °C · 12.39 V · llama sí · 5000 W
+[14:39:13][00:14:13.094] =   orden 0x21: quedan 119 s · último mantenimiento hace 4.4 s (a los 20 s se apaga)
+[14:39:13][00:14:13.105] =   averías: ninguna · intentos en este arranque 0 · arranques fallidos seguidos 0 de 3
+[14:39:13][00:14:13.116] =   fallos provocados: ninguno · tiempo ×1 · eco sí · RX 16 TX 17 · log 1
+[14:39:13][00:14:13.587] < pide los sensores (0x50 05)
+[14:39:13][00:14:13.695] > agua 43 °C · 12.39 V · llama sí · 5000 W · bujía 1.36 Ω
+[14:39:13][00:14:13.727] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.1 s
+[14:39:14][00:14:13.803] > «sigo con la orden»
+[14:39:18][00:14:18.727] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:39:19][00:14:18.803] > «sigo con la orden»
+[14:39:21][00:14:21.719] < pide los sensores (0x50 05)
+[14:39:22][00:14:21.827] > agua 44 °C · 12.39 V · llama sí · 5000 W · bujía 1.36 Ω
+[14:39:23][00:14:23.727] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:39:24][00:14:23.803] > «sigo con la orden»
+[14:39:28][00:14:28.727] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:39:29][00:14:28.803] > «sigo con la orden»
+[14:39:30][00:14:29.851] < pide los sensores (0x50 05)
+[14:39:30][00:14:29.959] > agua 44 °C · 12.39 V · llama sí · 5000 W · bujía 1.36 Ω
+[14:39:33][00:14:33.727] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:39:34][00:14:33.803] > «sigo con la orden»
+[14:39:38][00:14:37.983] < pide los sensores (0x50 05)
+[14:39:38][00:14:38.091] > agua 44 °C · 12.39 V · llama sí · 5000 W · bujía 1.37 Ω
+[14:39:38][00:14:38.727] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:39:39][00:14:38.803] > «sigo con la orden»
+[14:39:43][00:14:43.727] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:39:44][00:14:43.803] > «sigo con la orden»
+[14:39:46][00:14:46.115] < pide los sensores (0x50 05)
+[14:39:46][00:14:46.223] > agua 45 °C · 12.39 V · llama sí · 5000 W · bujía 1.37 Ω
+[14:39:48][00:14:48.727] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:39:49][00:14:48.803] > «sigo con la orden»
+[14:39:53][00:14:53.727] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:39:54][00:14:53.803] > «sigo con la orden»
+[14:39:54][00:14:54.247] < pide los sensores (0x50 05)
+[14:39:54][00:14:54.355] > agua 45 °C · 12.39 V · llama sí · 5000 W · bujía 1.37 Ω
+[14:39:58][00:14:58.727] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:39:59][00:14:58.803] > «sigo con la orden»
+[14:40:02][00:15:02.381] < pide los sensores (0x50 05)
+[14:40:02][00:15:02.489] > agua 46 °C · 12.39 V · llama sí · 5000 W · bujía 1.37 Ω
+[14:40:03][00:15:03.727] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:40:04][00:15:03.803] > «sigo con la orden»
+[14:40:08][00:15:08.727] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:40:09][00:15:08.803] > «sigo con la orden»
+[14:40:10][00:15:10.513] < pide los sensores (0x50 05)
+[14:40:10][00:15:10.621] > agua 46 °C · 12.39 V · llama sí · 5000 W · bujía 1.38 Ω
+[14:40:13][00:15:13.096] = a tope · agua 46.0 °C · dentro 6.3 °C · fuera 5.0 °C · 12.39 V · llama sí · 5000 W
+[14:40:13][00:15:13.096] =   orden 0x21: quedan 59 s · último mantenimiento hace 4.4 s (a los 20 s se apaga)
+[14:40:13][00:15:13.107] =   averías: ninguna · intentos en este arranque 0 · arranques fallidos seguidos 0 de 3
+[14:40:13][00:15:13.118] =   fallos provocados: ninguno · tiempo ×1 · eco sí · RX 16 TX 17 · log 1
+[14:40:13][00:15:13.727] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:40:14][00:15:13.803] > «sigo con la orden»
+[14:40:18][00:15:18.645] < pide los sensores (0x50 05)
+[14:40:18][00:15:18.753] > agua 46 °C · 12.39 V · llama sí · 5000 W · bujía 1.38 Ω
+[14:40:19][00:15:18.783] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.1 s
+[14:40:19][00:15:18.859] > «sigo con la orden»
+[14:40:24][00:15:23.801] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:40:24][00:15:23.877] > «sigo con la orden»
+[14:40:27][00:15:26.777] < pide los sensores (0x50 05)
+[14:40:27][00:15:26.885] > agua 47 °C · 12.39 V · llama sí · 5000 W · bujía 1.38 Ω
+[14:40:29][00:15:28.801] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:40:29][00:15:28.877] > «sigo con la orden»
+[14:40:34][00:15:33.801] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:40:34][00:15:33.877] > «sigo con la orden»
+[14:40:35][00:15:34.909] < pide los sensores (0x50 05)
+[14:40:35][00:15:35.017] > agua 47 °C · 12.39 V · llama sí · 5000 W · bujía 1.38 Ω
+[14:40:39][00:15:38.801] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:40:39][00:15:38.877] > «sigo con la orden»
+[14:40:43][00:15:43.041] < pide los sensores (0x50 05)
+[14:40:43][00:15:43.149] > agua 47 °C · 12.39 V · llama sí · 5000 W · bujía 1.38 Ω
+[14:40:44][00:15:43.801] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:40:44][00:15:43.877] > «sigo con la orden»
+[14:40:49][00:15:48.801] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:40:49][00:15:48.877] > «sigo con la orden»
+[14:40:51][00:15:51.173] < pide los sensores (0x50 05)
+[14:40:51][00:15:51.281] > agua 48 °C · 12.39 V · llama sí · 5000 W · bujía 1.39 Ω
+[14:40:54][00:15:53.801] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:40:54][00:15:53.877] > «sigo con la orden»
+[14:40:59][00:15:58.801] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:40:59][00:15:58.877] > «sigo con la orden»
+[14:40:59][00:15:59.305] < pide los sensores (0x50 05)
+[14:40:59][00:15:59.413] > agua 48 °C · 12.39 V · llama sí · 5000 W · bujía 1.39 Ω
+[14:41:04][00:16:03.803] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:41:04][00:16:03.879] > «sigo con la orden»
+[14:41:07][00:16:07.437] < pide los sensores (0x50 05)
+[14:41:07][00:16:07.545] > agua 49 °C · 12.39 V · llama sí · 5000 W · bujía 1.39 Ω
+[14:41:09][00:16:08.803] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[14:41:09][00:16:08.879] > «sigo con la orden»
+[14:41:13][00:16:13.069] . estado: a tope → postbarrido (se acabó el tiempo pedido)
+[14:41:13][00:16:13.097] = postbarrido · agua 48.8 °C · dentro 6.5 °C · fuera 5.0 °C · 12.48 V · llama no · 0 W
+[14:41:13][00:16:13.098] =   orden 0x21: quedan 0 s · último mantenimiento hace 4.3 s (a los 20 s se apaga)
+[14:41:13][00:16:13.109] =   averías: ninguna · intentos en este arranque 0 · arranques fallidos seguidos 0 de 3
+[14:41:13][00:16:13.120] =   fallos provocados: ninguno · tiempo ×1 · eco sí · RX 16 TX 17 · log 1
+[14:41:13][00:16:13.175] < apagar
+[14:41:13][00:16:13.176] . apagar: ya estaba postbarrido, no cambia nada
+[14:41:13][00:16:13.242] > «apagando» → postbarrido
+[14:41:13][00:16:13.506] < pide los sensores (0x50 05)
+[14:41:13][00:16:13.614] > agua 49 °C · 12.48 V · llama no · 0 W · bujía 1.39 Ω
+[14:41:13][00:16:13.638] < pide los sensores (0x50 05)
+[14:41:13][00:16:13.746] > agua 49 °C · 12.48 V · llama no · 0 W · bujía 1.39 Ω
+[14:41:14][00:16:13.770] < pide la identificación 0x51 0B
+[14:41:14][00:16:13.771] ! no contesta a «pide la identificación 0x51 0B»: este modelo no la conoce (una Webasto real quizá sí)
+[14:41:14][00:16:14.318] < pide la identificación 0x51 05
+[14:41:14][00:16:14.319] ! no contesta a «pide la identificación 0x51 05»: este modelo no la conoce (una Webasto real quizá sí)
+[14:41:15][00:16:14.865] < pide la identificación 0x51 0A
+[14:41:15][00:16:14.866] ! no contesta a «pide la identificación 0x51 0A»: este modelo no la conoce (una Webasto real quizá sí)
+[14:41:15][00:16:15.414] < pide el registro 0x50 06
+[14:41:15][00:16:15.415] ! no contesta a «pide el registro 0x50 06»: este modelo no la conoce (una Webasto real quizá sí)
+[14:41:16][00:16:15.961] < pide la lista de averías
+[14:41:16][00:16:16.037] > ninguna avería guardada
+[14:41:16][00:16:16.101] < pide los sensores (0x50 05)
+[14:41:16][00:16:16.209] > agua 49 °C · 12.48 V · llama no · 0 W · bujía 1.39 Ω
+[14:41:24][00:16:24.233] < pide los sensores (0x50 05)
+[14:41:24][00:16:24.341] > agua 49 °C · 12.48 V · llama no · 0 W · bujía 1.39 Ω
+[14:41:32][00:16:32.365] < pide los sensores (0x50 05)
+[14:41:32][00:16:32.473] > agua 49 °C · 12.48 V · llama no · 0 W · bujía 1.39 Ω
+[14:41:40][00:16:40.497] < pide los sensores (0x50 05)
+[14:41:40][00:16:40.605] > agua 49 °C · 12.48 V · llama no · 0 W · bujía 1.39 Ω
+[14:41:48][00:16:48.629] < pide los sensores (0x50 05)
+[14:41:48][00:16:48.737] > agua 48 °C · 12.48 V · llama no · 0 W · bujía 1.39 Ω
+[14:41:56][00:16:56.761] < pide los sensores (0x50 05)
+[14:41:57][00:16:56.869] > agua 48 °C · 12.48 V · llama no · 0 W · bujía 1.39 Ω
+[14:42:05][00:17:04.893] < pide los sensores (0x50 05)
+[14:42:05][00:17:05.001] > agua 48 °C · 12.48 V · llama no · 0 W · bujía 1.39 Ω
+[14:42:13][00:17:13.025] < pide los sensores (0x50 05)
+[14:42:13][00:17:13.133] > agua 48 °C · 12.48 V · llama no · 0 W · bujía 1.39 Ω
+[14:42:13][00:17:13.135] = postbarrido · agua 48.3 °C · dentro 6.5 °C · fuera 5.0 °C · 12.48 V · llama no · 0 W
+[14:42:13][00:17:13.147] =   orden 0x21: quedan 0 s · último mantenimiento hace 4.3 s (a los 20 s se apaga)
+[14:42:13][00:17:13.158] =   averías: ninguna · intentos en este arranque 0 · arranques fallidos seguidos 0 de 3
+[14:42:13][00:17:13.158] =   fallos provocados: ninguno · tiempo ×1 · eco sí · RX 16 TX 17 · log 1
+[14:42:21][00:17:21.157] < pide los sensores (0x50 05)
+[14:42:21][00:17:21.265] > agua 48 °C · 12.48 V · llama no · 0 W · bujía 1.39 Ω
+[14:42:29][00:17:29.289] < pide los sensores (0x50 05)
+[14:42:29][00:17:29.397] > agua 48 °C · 12.48 V · llama no · 0 W · bujía 1.39 Ω
+[14:42:37][00:17:37.421] < pide los sensores (0x50 05)
+[14:42:37][00:17:37.529] > agua 48 °C · 12.48 V · llama no · 0 W · bujía 1.39 Ω
+[14:42:45][00:17:45.553] < pide los sensores (0x50 05)
+[14:42:45][00:17:45.661] > agua 48 °C · 12.48 V · llama no · 0 W · bujía 1.39 Ω
+[14:42:53][00:17:53.685] < pide los sensores (0x50 05)
+[14:42:54][00:17:53.793] > agua 48 °C · 12.48 V · llama no · 0 W · bujía 1.39 Ω
+[14:43:02][00:18:01.817] < pide los sensores (0x50 05)
+[14:43:02][00:18:01.925] > agua 48 °C · 12.48 V · llama no · 0 W · bujía 1.39 Ω
+[14:43:10][00:18:09.951] < pide los sensores (0x50 05)
+[14:43:10][00:18:10.059] > agua 48 °C · 12.48 V · llama no · 0 W · bujía 1.39 Ω
+[14:43:13][00:18:13.069] . estado: postbarrido → apagada (fin del postbarrido; suelta la orden)
+[14:43:18][00:18:18.083] < pide los sensores (0x50 05)
+[14:43:18][00:18:18.191] > agua 48 °C · 12.60 V · llama no · 0 W · bujía 1.39 Ω
+[14:43:26][00:18:26.217] < pide los sensores (0x50 05)
+[14:43:26][00:18:26.325] > agua 48 °C · 12.60 V · llama no · 0 W · bujía 1.39 Ω
+[14:43:34][00:18:34.349] < pide los sensores (0x50 05)
+[14:43:34][00:18:34.457] > agua 48 °C · 12.60 V · llama no · 0 W · bujía 1.39 Ω
+[14:43:42][00:18:42.481] < pide los sensores (0x50 05)
+[14:43:42][00:18:42.589] > agua 48 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:43:50][00:18:50.613] < pide los sensores (0x50 05)
+[14:43:50][00:18:50.721] > agua 48 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:43:58][00:18:58.745] < pide los sensores (0x50 05)
+[14:43:59][00:18:58.853] > agua 47 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:44:07][00:19:06.877] < pide los sensores (0x50 05)
+[14:44:07][00:19:06.985] > agua 47 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:44:15][00:19:15.009] < pide los sensores (0x50 05)
+[14:44:15][00:19:15.117] > agua 47 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:44:23][00:19:23.141] < pide los sensores (0x50 05)
+[14:44:23][00:19:23.249] > agua 47 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:44:31][00:19:31.273] < pide los sensores (0x50 05)
+[14:44:31][00:19:31.381] > agua 47 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:44:39][00:19:39.405] < pide los sensores (0x50 05)
+[14:44:39][00:19:39.513] > agua 47 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:44:47][00:19:47.537] < pide los sensores (0x50 05)
+[14:44:47][00:19:47.645] > agua 47 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:44:55][00:19:55.669] < pide los sensores (0x50 05)
+[14:44:56][00:19:55.777] > agua 47 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:45:04][00:20:03.801] < pide los sensores (0x50 05)
+[14:45:04][00:20:03.909] > agua 47 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:45:12][00:20:11.933] < pide los sensores (0x50 05)
+[14:45:12][00:20:12.041] > agua 47 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:45:20][00:20:20.065] < pide los sensores (0x50 05)
+[14:45:20][00:20:20.173] > agua 47 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:45:28][00:20:28.197] < pide los sensores (0x50 05)
+[14:45:28][00:20:28.305] > agua 47 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:45:36][00:20:36.329] < pide los sensores (0x50 05)
+[14:45:36][00:20:36.437] > agua 47 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:45:44][00:20:44.461] < pide los sensores (0x50 05)
+[14:45:44][00:20:44.569] > agua 47 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:45:52][00:20:52.593] < pide los sensores (0x50 05)
+[14:45:52][00:20:52.701] > agua 47 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:46:00][00:21:00.725] < pide los sensores (0x50 05)
+[14:46:01][00:21:00.833] > agua 47 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:46:09][00:21:08.857] < pide los sensores (0x50 05)
+[14:46:09][00:21:08.965] > agua 47 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:46:17][00:21:16.989] < pide los sensores (0x50 05)
+[14:46:17][00:21:17.097] > agua 47 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:46:25][00:21:25.121] < pide los sensores (0x50 05)
+[14:46:25][00:21:25.229] > agua 46 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:46:33][00:21:33.253] < pide los sensores (0x50 05)
+[14:46:33][00:21:33.361] > agua 46 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:46:41][00:21:41.385] < pide los sensores (0x50 05)
+[14:46:41][00:21:41.493] > agua 46 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:46:49][00:21:49.517] < pide los sensores (0x50 05)
+[14:46:49][00:21:49.625] > agua 46 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:46:57][00:21:57.649] < pide los sensores (0x50 05)
+[14:46:57][00:21:57.757] > agua 46 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:47:06][00:22:05.781] < pide los sensores (0x50 05)
+[14:47:06][00:22:05.889] > agua 46 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:47:13][00:22:13.137] = apagada · agua 46.2 °C · dentro 6.5 °C · fuera 5.0 °C · 12.60 V · llama no · 0 W
+[14:47:13][00:22:13.138] =   sin orden de calentar
+[14:47:13][00:22:13.149] =   averías: ninguna · intentos en este arranque 0 · arranques fallidos seguidos 0 de 3
+[14:47:13][00:22:13.149] =   fallos provocados: ninguno · tiempo ×1 · eco sí · RX 16 TX 17 · log 1
+[14:47:14][00:22:13.914] < pide los sensores (0x50 05)
+[14:47:14][00:22:14.022] > agua 46 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:47:22][00:22:22.048] < pide los sensores (0x50 05)
+[14:47:22][00:22:22.156] > agua 46 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:47:30][00:22:30.180] < pide los sensores (0x50 05)
+[14:47:30][00:22:30.288] > agua 46 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:47:38][00:22:38.312] < pide los sensores (0x50 05)
+[14:47:38][00:22:38.420] > agua 46 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:47:46][00:22:46.444] < pide los sensores (0x50 05)
+[14:47:46][00:22:46.552] > agua 46 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:47:54][00:22:54.576] < pide los sensores (0x50 05)
+[14:47:54][00:22:54.684] > agua 46 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:48:02][00:23:02.708] < pide los sensores (0x50 05)
+[14:48:03][00:23:02.816] > agua 46 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:48:11][00:23:10.840] < pide los sensores (0x50 05)
+[14:48:11][00:23:10.948] > agua 46 °C · 12.60 V · llama no · 0 W · bujía 1.38 Ω
+[14:48:19][00:23:18.972] < pide los sensores (0x50 05)
+[14:48:19][00:23:19.080] > agua 46 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:48:27][00:23:27.104] < pide los sensores (0x50 05)
+[14:48:27][00:23:27.212] > agua 46 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:48:35][00:23:35.236] < pide los sensores (0x50 05)
+[14:48:35][00:23:35.344] > agua 46 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:48:43][00:23:43.368] < pide los sensores (0x50 05)
+[14:48:43][00:23:43.476] > agua 46 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:48:51][00:23:51.500] < pide los sensores (0x50 05)
+[14:48:51][00:23:51.608] > agua 46 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:48:59][00:23:59.632] < pide los sensores (0x50 05)
+[14:48:59][00:23:59.740] > agua 46 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:49:07][00:24:07.764] < pide los sensores (0x50 05)
+[14:49:08][00:24:07.872] > agua 46 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:49:16][00:24:15.896] < pide los sensores (0x50 05)
+[14:49:16][00:24:16.004] > agua 45 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:49:24][00:24:24.028] < pide los sensores (0x50 05)
+[14:49:24][00:24:24.136] > agua 45 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:49:32][00:24:32.160] < pide los sensores (0x50 05)
+[14:49:32][00:24:32.268] > agua 45 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:49:40][00:24:40.292] < pide los sensores (0x50 05)
+[14:49:40][00:24:40.400] > agua 45 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:49:48][00:24:48.424] < pide los sensores (0x50 05)
+[14:49:48][00:24:48.532] > agua 45 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:49:56][00:24:56.556] < pide los sensores (0x50 05)
+[14:49:56][00:24:56.664] > agua 45 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:50:04][00:25:04.688] < pide los sensores (0x50 05)
+[14:50:05][00:25:04.796] > agua 45 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:50:13][00:25:12.820] < pide los sensores (0x50 05)
+[14:50:13][00:25:12.928] > agua 45 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:50:21][00:25:20.952] < pide los sensores (0x50 05)
+[14:50:21][00:25:21.060] > agua 45 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:50:29][00:25:29.086] < pide los sensores (0x50 05)
+[14:50:29][00:25:29.194] > agua 45 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:50:37][00:25:37.218] < pide los sensores (0x50 05)
+[14:50:37][00:25:37.326] > agua 45 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:50:45][00:25:45.350] < pide los sensores (0x50 05)
+[14:50:45][00:25:45.458] > agua 45 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:50:53][00:25:53.482] < pide los sensores (0x50 05)
+[14:50:53][00:25:53.590] > agua 45 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:51:01][00:26:01.640] < pide los sensores (0x50 05)
+[14:51:01][00:26:01.748] > agua 45 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:51:09][00:26:09.772] < pide los sensores (0x50 05)
+[14:51:10][00:26:09.880] > agua 45 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:51:18][00:26:17.904] < pide los sensores (0x50 05)
+[14:51:18][00:26:18.012] > agua 45 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:51:26][00:26:26.036] < pide los sensores (0x50 05)
+[14:51:26][00:26:26.144] > agua 45 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:51:34][00:26:34.168] < pide los sensores (0x50 05)
+[14:51:34][00:26:34.276] > agua 45 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:51:42][00:26:42.300] < pide los sensores (0x50 05)
+[14:51:42][00:26:42.408] > agua 45 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:51:50][00:26:50.432] < pide los sensores (0x50 05)
+[14:51:50][00:26:50.540] > agua 45 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:51:58][00:26:58.564] < pide los sensores (0x50 05)
+[14:51:58][00:26:58.672] > agua 45 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:52:06][00:27:06.696] < pide los sensores (0x50 05)
+[14:52:07][00:27:06.804] > agua 45 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:52:13][00:27:13.138] = apagada · agua 44.5 °C · dentro 6.5 °C · fuera 5.0 °C · 12.60 V · llama no · 0 W
+[14:52:13][00:27:13.139] =   sin orden de calentar
+[14:52:13][00:27:13.150] =   averías: ninguna · intentos en este arranque 0 · arranques fallidos seguidos 0 de 3
+[14:52:13][00:27:13.150] =   fallos provocados: ninguno · tiempo ×1 · eco sí · RX 16 TX 17 · log 1
+[14:52:15][00:27:14.827] < pide los sensores (0x50 05)
+[14:52:15][00:27:14.935] > agua 44 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:52:23][00:27:22.959] < pide los sensores (0x50 05)
+[14:52:23][00:27:23.067] > agua 44 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:52:31][00:27:31.091] < pide los sensores (0x50 05)
+[14:52:31][00:27:31.199] > agua 44 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:52:39][00:27:39.223] < pide los sensores (0x50 05)
+[14:52:39][00:27:39.331] > agua 44 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:52:47][00:27:47.355] < pide los sensores (0x50 05)
+[14:52:47][00:27:47.463] > agua 44 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:52:55][00:27:55.487] < pide los sensores (0x50 05)
+[14:52:55][00:27:55.595] > agua 44 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:53:03][00:28:03.619] < pide los sensores (0x50 05)
+[14:53:03][00:28:03.727] > agua 44 °C · 12.60 V · llama no · 0 W · bujía 1.37 Ω
+[14:53:11][00:28:11.751] < pide los sensores (0x50 05)
+[14:53:12][00:28:11.859] > agua 44 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:53:20][00:28:19.883] < pide los sensores (0x50 05)
+[14:53:20][00:28:19.991] > agua 44 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:53:28][00:28:28.015] < pide los sensores (0x50 05)
+[14:53:28][00:28:28.123] > agua 44 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:53:36][00:28:36.147] < pide los sensores (0x50 05)
+[14:53:36][00:28:36.255] > agua 44 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:53:44][00:28:44.279] < pide los sensores (0x50 05)
+[14:53:44][00:28:44.387] > agua 44 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:53:52][00:28:52.411] < pide los sensores (0x50 05)
+[14:53:52][00:28:52.519] > agua 44 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:54:00][00:29:00.543] < pide los sensores (0x50 05)
+[14:54:00][00:29:00.651] > agua 44 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:54:08][00:29:08.675] < pide los sensores (0x50 05)
+[14:54:08][00:29:08.783] > agua 44 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:54:17][00:29:16.807] < pide los sensores (0x50 05)
+[14:54:17][00:29:16.915] > agua 44 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:54:25][00:29:24.939] < pide los sensores (0x50 05)
+[14:54:25][00:29:25.047] > agua 44 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:54:33][00:29:33.073] < pide los sensores (0x50 05)
+[14:54:33][00:29:33.181] > agua 44 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:54:41][00:29:41.205] < pide los sensores (0x50 05)
+[14:54:41][00:29:41.313] > agua 44 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:54:49][00:29:49.337] < pide los sensores (0x50 05)
+[14:54:49][00:29:49.445] > agua 44 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:54:57][00:29:57.469] < pide los sensores (0x50 05)
+[14:54:57][00:29:57.577] > agua 44 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:55:05][00:30:05.603] < pide los sensores (0x50 05)
+[14:55:05][00:30:05.711] > agua 43 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:55:13][00:30:13.735] < pide los sensores (0x50 05)
+[14:55:14][00:30:13.843] > agua 43 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:55:22][00:30:21.867] < pide los sensores (0x50 05)
+[14:55:22][00:30:21.975] > agua 43 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:55:30][00:30:29.999] < pide los sensores (0x50 05)
+[14:55:30][00:30:30.107] > agua 43 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:55:38][00:30:38.131] < pide los sensores (0x50 05)
+[14:55:38][00:30:38.239] > agua 43 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:55:46][00:30:46.263] < pide los sensores (0x50 05)
+[14:55:46][00:30:46.371] > agua 43 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:55:54][00:30:54.395] < pide los sensores (0x50 05)
+[14:55:54][00:30:54.503] > agua 43 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:56:02][00:31:02.527] < pide los sensores (0x50 05)
+[14:56:02][00:31:02.635] > agua 43 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:56:10][00:31:10.659] < pide los sensores (0x50 05)
+[14:56:10][00:31:10.767] > agua 43 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:56:19][00:31:18.791] < pide los sensores (0x50 05)
+[14:56:19][00:31:18.899] > agua 43 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:56:27][00:31:26.923] < pide los sensores (0x50 05)
+[14:56:27][00:31:27.031] > agua 43 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:56:35][00:31:35.055] < pide los sensores (0x50 05)
+[14:56:35][00:31:35.163] > agua 43 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:56:43][00:31:43.187] < pide los sensores (0x50 05)
+[14:56:43][00:31:43.295] > agua 43 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:56:51][00:31:51.319] < pide los sensores (0x50 05)
+[14:56:51][00:31:51.427] > agua 43 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:56:59][00:31:59.451] < pide los sensores (0x50 05)
+[14:56:59][00:31:59.559] > agua 43 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:57:07][00:32:07.589] < pide los sensores (0x50 05)
+[14:57:07][00:32:07.697] > agua 43 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:57:13][00:32:13.139] = apagada · agua 42.8 °C · dentro 6.5 °C · fuera 5.0 °C · 12.60 V · llama no · 0 W
+[14:57:13][00:32:13.140] =   sin orden de calentar
+[14:57:13][00:32:13.151] =   averías: ninguna · intentos en este arranque 0 · arranques fallidos seguidos 0 de 3
+[14:57:13][00:32:13.151] =   fallos provocados: ninguno · tiempo ×1 · eco sí · RX 16 TX 17 · log 1
+[14:57:15][00:32:15.720] < pide los sensores (0x50 05)
+[14:57:16][00:32:15.828] > agua 43 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:57:24][00:32:23.852] < pide los sensores (0x50 05)
+[14:57:24][00:32:23.960] > agua 43 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:57:32][00:32:31.984] < pide los sensores (0x50 05)
+[14:57:32][00:32:32.092] > agua 43 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:57:40][00:32:40.116] < pide los sensores (0x50 05)
+[14:57:40][00:32:40.224] > agua 43 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:57:48][00:32:48.248] < pide los sensores (0x50 05)
+[14:57:48][00:32:48.356] > agua 43 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:57:56][00:32:56.380] < pide los sensores (0x50 05)
+[14:57:56][00:32:56.488] > agua 43 °C · 12.60 V · llama no · 0 W · bujía 1.36 Ω
+[14:58:04][00:33:04.512] < pide los sensores (0x50 05)
+[14:58:04][00:33:04.620] > agua 42 °C · 12.60 V · llama no · 0 W · bujía 1.35 Ω
+[14:58:12][00:33:12.646] < pide los sensores (0x50 05)
+[14:58:12][00:33:12.754] > agua 42 °C · 12.60 V · llama no · 0 W · bujía 1.35 Ω
+[14:58:20][00:33:20.778] < pide los sensores (0x50 05)
+[14:58:21][00:33:20.886] > agua 42 °C · 12.60 V · llama no · 0 W · bujía 1.35 Ω
+[14:58:29][00:33:28.912] < pide los sensores (0x50 05)
+[14:58:29][00:33:29.020] > agua 42 °C · 12.60 V · llama no · 0 W · bujía 1.35 Ω
+[14:58:37][00:33:37.046] < pide los sensores (0x50 05)
+[14:58:37][00:33:37.154] > agua 42 °C · 12.60 V · llama no · 0 W · bujía 1.35 Ω
+[14:58:45][00:33:45.178] < pide los sensores (0x50 05)
+[14:58:45][00:33:45.286] > agua 42 °C · 12.60 V · llama no · 0 W · bujía 1.35 Ω
+[14:58:53][00:33:53.310] < pide los sensores (0x50 05)
+[14:58:53][00:33:53.418] > agua 42 °C · 12.60 V · llama no · 0 W · bujía 1.35 Ω
+[14:59:01][00:34:01.442] < pide los sensores (0x50 05)
+[14:59:01][00:34:01.550] > agua 42 °C · 12.60 V · llama no · 0 W · bujía 1.35 Ω
+[14:59:09][00:34:09.574] < pide los sensores (0x50 05)
+[14:59:09][00:34:09.682] > agua 42 °C · 12.60 V · llama no · 0 W · bujía 1.35 Ω
+[14:59:17][00:34:17.706] < pide los sensores (0x50 05)
+[14:59:18][00:34:17.814] > agua 42 °C · 12.60 V · llama no · 0 W · bujía 1.35 Ω
+[14:59:26][00:34:25.838] < pide los sensores (0x50 05)
+[14:59:26][00:34:25.946] > agua 42 °C · 12.60 V · llama no · 0 W · bujía 1.35 Ω
+[14:59:34][00:34:33.970] < pide los sensores (0x50 05)
+[14:59:34][00:34:34.078] > agua 42 °C · 12.60 V · llama no · 0 W · bujía 1.35 Ω
+[14:59:42][00:34:42.102] < pide los sensores (0x50 05)
+[14:59:42][00:34:42.210] > agua 42 °C · 12.60 V · llama no · 0 W · bujía 1.35 Ω
+[14:59:50][00:34:50.234] < pide los sensores (0x50 05)
+[14:59:50][00:34:50.342] > agua 42 °C · 12.60 V · llama no · 0 W · bujía 1.35 Ω
