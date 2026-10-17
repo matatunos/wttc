@@ -6,6 +6,14 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.3.11 — 2026-10-17
+
+Versión de prueba (sin probar con una Webasto real).
+
+- **La Webasto falsa se instala desde el navegador**: en wttc.favala.es/instalar.php hay un segundo botón, «Instalar la Webasto falsa», para el otro ESP32 (el clásico o un S3) que hace de caldera en la mesa. El eco del bus y los pines del W-Bus ya no hay que tocarlos en el código: se cambian en su consola (`eco no` para la conexión por el bus, `pines 16 17`) y se quedan guardados.
+- **El instalador graba siempre la versión que anuncia.** La página decía una versión, pero el botón cogía el manifiesto común en el momento de pulsar: si entre medias salía otra, instalaba esa. Ahora cada versión tiene su manifiesto.
+- El firmware de la placa no cambia (solo el número de versión).
+
 ## 0.3.10 — 2026-10-17
 
 Versión de prueba. Es la 0.3.9 (abajo) con el firmware ya compilando: la Release 0.3.9 salió solo con la app, porque el

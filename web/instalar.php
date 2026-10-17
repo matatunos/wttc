@@ -14,6 +14,11 @@ $HOME = ['es' => '/', 'en' => '/en/', 'de' => '/de/'];
 $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 $man = @json_decode((string)@file_get_contents(__DIR__ . '/descargas/instalar/manifest.json'), true);
 $ver = is_array($man) ? (string)($man['version'] ?? '') : '';
+// Manifiesto de esa misma versión (wttc-instalador.sh, desde la 0.3.10): lo que la página dice y lo que se graba
+// coinciden aunque salga otra versión con la página abierta. Si no está, el de siempre
+$vdir = '/descargas/instalar/' . rawurlencode($ver);
+$manW = $ver && is_file(__DIR__ . "$vdir/wttc.json") ? "$vdir/wttc.json" : '/descargas/instalar/manifest.json';
+$manF = $ver && is_file(__DIR__ . "$vdir/falsa.json") ? "$vdir/falsa.json" : '';   // la Webasto falsa (0.3.11+)
 
 $TX = [
 'es' => [
@@ -32,6 +37,10 @@ $TX = [
   'stepsList' => '<li>Pincha la placa al ordenador y pulsa <b>Instalar WTTC</b>. Elige su puerto en la ventana del navegador (suele llamarse «CP2102», «USB Single Serial», «CH343» o similar).</li><li>Pulsa <b>Install</b> y espera un minuto sin desenchufarla. Si se queda en «Connecting», mantén pulsado el botón <b>BOOT</b> de la placa hasta que empiece.</li><li>Al terminar, pulsa <b>Logs &amp; Console</b> y luego el botón <b>RST</b> de la placa: verás un resumen con la versión, el <b>PIN Bluetooth</b>, la Wi-Fi de la placa y su clave, y el usuario y la clave de la web (apúntalos; con <code>info</code> sale otra vez). Ahí mismo puedes escribir <code>status</code> para la primera prueba con la Webasto.</li><li>Empareja la app con ese PIN, o entra en su Wi-Fi <b>WTTC</b>: la primera vez te pedirá cambiar la clave de fábrica.</li>',
   'notes' => 'A tener en cuenta',
   'notesList' => '<li>Reinstalar así <b>no borra</b> la configuración, los programas ni el PIN.</li><li>Las versiones siguientes se instalan sin cable: app o web de la placa → <b>Buscar actualizaciones</b>.</li><li>La ventana de instalación está en inglés (es la herramienta <a href="https://esphome.github.io/esp-web-tools/" target="_blank" rel="noopener">ESP Web Tools</a>).</li><li>Antes de montarla en la furgo, mira el <a href="{home}#montaje">esquema de conexiones</a> y la <a href="{home}#responsabilidad">descarga de responsabilidad</a>.</li>',
+  'fTitle' => 'La Webasto falsa: un segundo ESP32 que hace de caldera',
+  'fIntro' => 'Para probar WTTC en la mesa, sin furgoneta ni gasoil: otro ESP32 (vale el clásico o un S3) se hace pasar por la Thermo Top C en el W-Bus. Arranca, prende, regula, hace el postbarrido y da averías; por su consola USB (115200) se le provocan fallos y se acelera el tiempo. Se instala igual que WTTC, en <b>la otra placa</b>. Conexión y órdenes: <a href="{home}#webasto-falsa">en la web</a> y en <a href="https://github.com/matatunos/wttc/tree/main/herramientas/webasto_falsa" target="_blank" rel="noopener">su README</a>. De fábrica escucha por IO16, contesta por IO17 y devuelve el eco (conexión directa); para la conexión por el bus, escribe <code>eco no</code> en su consola, y <code>pines 16 17</code> para cambiar los pines.',
+  'fBtn' => 'Instalar la Webasto falsa',
+  'fNoPkg' => 'Llega con la próxima versión de WTTC. Mientras tanto, con Arduino IDE: herramientas/webasto_falsa del repositorio.',
   'back' => '← WTTC: controla la Thermo Top C desde el móvil',
 ],
 'en' => [
@@ -50,6 +59,10 @@ $TX = [
   'stepsList' => '<li>Plug the board into the computer and click <b>Install WTTC</b>. Choose its port in the browser window (usually called “CP2102”, “USB Single Serial”, “CH343” or similar).</li><li>Click <b>Install</b> and wait a minute without unplugging it. If it hangs at “Connecting”, hold the board\'s <b>BOOT</b> button until it starts.</li><li>When it finishes, click <b>Logs &amp; Console</b> and then the board\'s <b>RST</b> button: you will see a summary with the version, the <b>Bluetooth PIN</b>, the board\'s Wi-Fi and its password, and the web user and password (write them down; <code>info</code> shows it again). You can type <code>status</code> right there for the first test with the Webasto.</li><li>Pair the app with that PIN, or join its <b>WTTC</b> Wi-Fi: the first time it asks you to change the factory password.</li>',
   'notes' => 'Good to know',
   'notesList' => '<li>Reinstalling this way <b>does not erase</b> the settings, schedules or PIN.</li><li>Later versions are installed without a cable: app or the board\'s web page → <b>Check for updates</b>.</li><li>The installation window is in English (it is the <a href="https://esphome.github.io/esp-web-tools/" target="_blank" rel="noopener">ESP Web Tools</a> tool).</li><li>Before fitting it in the van, look at the <a href="{home}#montaje">wiring diagram</a> and the <a href="{home}#responsabilidad">disclaimer of liability</a>.</li>',
+  'fTitle' => 'The fake Webasto: a second ESP32 acting as the heater',
+  'fIntro' => 'To test WTTC on the bench, without a van or diesel: another ESP32 (a classic one or an S3) pretends to be the Thermo Top C on the W-Bus. It starts, ignites, regulates, runs the after-run and reports faults; from its USB console (115200) you trigger failures and speed up time. It installs like WTTC, on <b>the other board</b>. Wiring and commands: <a href="{home}#webasto-falsa">on the website</a> and in <a href="https://github.com/matatunos/wttc/tree/main/herramientas/webasto_falsa" target="_blank" rel="noopener">its README</a>. By default it listens on IO16, answers on IO17 and returns the echo (direct wiring); for wiring through the bus, type <code>eco no</code> in its console, and <code>pines 16 17</code> to change the pins.',
+  'fBtn' => 'Install the fake Webasto',
+  'fNoPkg' => 'It comes with the next WTTC version. Meanwhile, use Arduino IDE: herramientas/webasto_falsa in the repository.',
   'back' => '← WTTC: control the Thermo Top C from your phone',
 ],
 'de' => [
@@ -68,6 +81,10 @@ $TX = [
   'stepsList' => '<li>Die Platine an den Computer anschließen und <b>WTTC installieren</b> klicken. Im Browserfenster ihren Port wählen (meist „CP2102“, „USB Single Serial“, „CH343“ o. ä.).</li><li><b>Install</b> klicken und eine Minute warten, ohne sie abzuziehen. Bleibt es bei „Connecting“ hängen, die Taste <b>BOOT</b> der Platine gedrückt halten, bis es losgeht.</li><li>Danach <b>Logs &amp; Console</b> klicken und dann die Taste <b>RST</b> der Platine: eine Übersicht mit Version, <b>Bluetooth-PIN</b>, WLAN der Platine und Passwort sowie Web-Benutzer und -Passwort erscheint (notieren; <code>info</code> zeigt sie erneut). Dort kannst du gleich <code>status</code> für den ersten Test mit der Webasto eingeben.</li><li>Die App mit dieser PIN koppeln oder ihr WLAN <b>WTTC</b> verbinden: beim ersten Mal verlangt sie, das Passwort ab Werk zu ändern.</li>',
   'notes' => 'Gut zu wissen',
   'notesList' => '<li>Eine Neuinstallation auf diese Weise <b>löscht nicht</b> Einstellungen, Zeitpläne oder PIN.</li><li>Spätere Versionen werden ohne Kabel installiert: App oder Webseite der Platine → <b>Nach Updates suchen</b>.</li><li>Das Installationsfenster ist auf Englisch (es ist das Werkzeug <a href="https://esphome.github.io/esp-web-tools/" target="_blank" rel="noopener">ESP Web Tools</a>).</li><li>Vor dem Einbau den <a href="{home}#montaje">Schaltplan</a> und den <a href="{home}#responsabilidad">Haftungsausschluss</a> ansehen.</li>',
+  'fTitle' => 'Die falsche Webasto: ein zweiter ESP32 als Heizung',
+  'fIntro' => 'Um WTTC auf dem Tisch zu testen, ohne Bus und ohne Diesel: ein weiterer ESP32 (ein klassischer oder ein S3) gibt sich am W-Bus als Thermo Top C aus. Er startet, zündet, regelt, macht den Nachlauf und meldet Fehler; über seine USB-Konsole (115200) löst man Fehler aus und beschleunigt die Zeit. Er wird wie WTTC installiert, auf <b>der anderen Platine</b>. Anschluss und Befehle: <a href="{home}#webasto-falsa">auf der Website</a> und in <a href="https://github.com/matatunos/wttc/tree/main/herramientas/webasto_falsa" target="_blank" rel="noopener">seiner README</a>. Ab Werk hört er auf IO16, antwortet auf IO17 und gibt das Echo zurück (direkte Verbindung); für die Verbindung über den Bus in seiner Konsole <code>eco no</code> eingeben, und <code>pines 16 17</code>, um die Pins zu ändern.',
+  'fBtn' => 'Falsche Webasto installieren',
+  'fNoPkg' => 'Kommt mit der nächsten WTTC-Version. Bis dahin mit der Arduino IDE: herramientas/webasto_falsa im Repository.',
   'back' => '← WTTC: Thermo Top C per Handy steuern',
 ],
 ];
@@ -124,35 +141,19 @@ $tr = fn($k) => strtr($T[$k], ['{home}' => $HOME[$lang]]);
 <a class="back" href="<?= $HOME[$lang] ?>"><?= $h($T['back']) ?></a>
 <h1><?= $h($T['h1']) ?></h1>
 <p><?= $T['intro'] ?></p>
-<div class="card">
-<?php if ($ver): ?>
-  <esp-web-install-button manifest="/descargas/instalar/manifest.json">
-    <button slot="activate" class="go">⚡ <?= $h($T['btn']) ?></button>
+<?php
+// Botón de ESP Web Tools para un manifiesto. $ev: prefijo de los eventos de estadísticas (api/evento.php)
+$installBtn = function (string $manifest, string $label, string $ev) use ($h, $T) { ?>
+  <esp-web-install-button manifest="<?= $h($manifest) ?>" data-ev="<?= $h($ev) ?>">
+    <button slot="activate" class="go">⚡ <?= $h($label) ?></button>
     <div slot="unsupported" class="aviso"><?= $h($T['unsupported']) ?></div>
     <div slot="not-allowed" class="aviso"><?= $h($T['notAllowed']) ?></div>
   </esp-web-install-button>
+<?php }; ?>
+<div class="card">
+<?php if ($ver): ?>
+  <?php $installBtn($manW, $T['btn'], ''); ?>
   <p class="muted"><?= $h(sprintf($T['version'], $ver)) ?></p>
-  <script>
-    // Estadísticas: cuenta las veces que se pulsa «Instalar» (api/evento.php: solo sumas por día, sin cookies ni IP)
-    document.querySelector('button.go').addEventListener('click', () => fetch('/api/evento.php?e=instalar', { keepalive: true }).catch(() => {}));
-    // …y cómo terminan. ESP Web Tools no avisa a la página, pero su ventana (ewt-install-dialog, que se añade al body)
-    // guarda el estado en _installState: «preparing», «writing», «finished», «error». Se mira cada segundo mientras está
-    // abierta y se cuenta cada final (bien o con error) con su placa. Depende de la versión alojada (10.4.0): al
-    // cambiarla, comprobar que la propiedad sigue existiendo.
-    new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => {
-      if (n.tagName !== 'EWT-INSTALL-DIALOG') return;
-      let last = '';
-      const t = setInterval(() => {
-        if (!n.isConnected) return clearInterval(t);
-        const s = n._installState, st = s ? s.state : '';
-        if (st === last) return;
-        last = st;
-        if (st !== 'finished' && st !== 'error') return;
-        const c = s.chipFamily === 'ESP32-S3' ? 's3' : s.chipFamily === 'ESP32' ? 'esp32' : 'otro';
-        fetch('/api/evento.php?e=' + (st === 'finished' ? 'instalado' : 'fallo') + '&c=' + c, { keepalive: true }).catch(() => {});
-      }, 1000);
-    }))).observe(document.body, { childList: true });
-  </script>
 <?php else: ?>
   <div class="aviso"><?= $tr('noPkg') ?></div>
 <?php endif; ?>
@@ -163,4 +164,40 @@ $tr = fn($k) => strtr($T[$k], ['{home}' => $HOME[$lang]]);
 <ol><?= $T['stepsList'] ?></ol>
 <h2><?= $h($T['notes']) ?></h2>
 <ul><?= $tr('notesList') ?></ul>
+<h2 id="webasto-falsa"><?= $h($T['fTitle']) ?></h2>
+<p><?= $tr('fIntro') ?></p>
+<div class="card">
+<?php if ($manF): ?>
+  <?php $installBtn($manF, $T['fBtn'], 'falsa'); ?>
+  <p class="muted"><?= $h(sprintf($T['version'], $ver)) ?> · ESP32 / ESP32-S3</p>
+<?php else: ?>
+  <div class="aviso"><?= $h($T['fNoPkg']) ?></div>
+<?php endif; ?>
+</div>
+<?php if ($ver): ?>
+<script>
+  // Estadísticas (api/evento.php: solo sumas por día, sin cookies ni IP): cada «Instalar» pulsado y cómo termina.
+  // ESP Web Tools no avisa a la página, pero su ventana (ewt-install-dialog, que se añade al body) guarda el estado en
+  // _installState: «preparing», «writing», «finished», «error». Se mira cada segundo mientras está abierta. Depende de
+  // la versión alojada (10.4.0): al cambiarla, comprobar que la propiedad sigue existiendo. p=falsa: la Webasto falsa
+  let ev = '';
+  document.querySelectorAll('esp-web-install-button').forEach(b => b.querySelector('button.go').addEventListener('click', () => {
+    ev = b.dataset.ev;
+    fetch('/api/evento.php?e=instalar' + (ev ? '&p=' + ev : ''), { keepalive: true }).catch(() => {});
+  }));
+  new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => {
+    if (n.tagName !== 'EWT-INSTALL-DIALOG') return;
+    let last = '';
+    const t = setInterval(() => {
+      if (!n.isConnected) return clearInterval(t);
+      const s = n._installState, st = s ? s.state : '';
+      if (st === last) return;
+      last = st;
+      if (st !== 'finished' && st !== 'error') return;
+      const c = s.chipFamily === 'ESP32-S3' ? 's3' : s.chipFamily === 'ESP32' ? 'esp32' : 'otro';
+      fetch('/api/evento.php?e=' + (st === 'finished' ? 'instalado' : 'fallo') + '&c=' + c + (ev ? '&p=' + ev : ''), { keepalive: true }).catch(() => {});
+    }, 1000);
+  }))).observe(document.body, { childList: true });
+</script>
+<?php endif; ?>
 </div></body></html>

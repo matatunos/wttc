@@ -29,7 +29,7 @@ mandar a la vez por el mismo pin.
 | `WF_RX` (IO16) | IO17 (lo que WTTC manda) |
 | GND | GND |
 
-En `webasto_falsa.ino` deja `WF_ECO = true`. En un bus de un solo hilo cada aparato oye lo que manda, y WTTC lo espera;
+Eco activado: es lo de fábrica (si lo cambiaste, `eco si` en su consola). En un bus de un solo hilo cada aparato oye lo que manda, y WTTC lo espera;
 sin el bus, ese eco lo devuelve la Webasto falsa.
 
 ### B) Por el bus de verdad, con un segundo TJA1020
@@ -38,11 +38,14 @@ Más parecido a la furgoneta: prueba también el transceptor y el cable del W-Bu
 
 - En el ESP32 falso, un TJA1020 cableado **como el de WTTC**: la borna **TX** del módulo (la que manda hacia el ESP32) a `WF_RX` (IO16), la **RX** a `WF_TX` (IO17), SLP a 3V3 y GND a GND.
 - Los **LIN** de los dos TJA1020 unidos (ese es el W-Bus), y los dos con **12 V** y **masa** comunes.
-- En `webasto_falsa.ino`, `WF_ECO = false` (el eco ya lo da el bus).
+- En su consola, `eco no` (el eco ya lo da el bus). Se queda guardado.
 
-Si tu placa no tiene libres IO16/IO17, cambia `WF_RX`/`WF_TX` al principio del sketch.
+Si tu placa no tiene libres IO16/IO17, cámbialos en su consola: `pines <rx> <tx>` (se queda guardado).
 
 ## Instalar
+
+**Lo más fácil: desde el navegador**, ya compilada, en [wttc.favala.es/instalar.php](https://wttc.favala.es/instalar.php#webasto-falsa)
+(Chrome o Edge en un ordenador; ESP32 clásico o S3). Si no, con el Arduino IDE:
 
 En el Arduino IDE (núcleo **esp32 de Espressif 3.x**), abre `herramientas/webasto_falsa/webasto_falsa.ino`, elige tu
 placa y súbelo. Abre el monitor serie a **115200**: verás las tramas que llegan (←) y lo que contesta (→).
@@ -62,6 +65,8 @@ placa y súbelo. Abre el monitor serie a **115200**: verás las tramas que llega
 | `borrar` | borra las averías y la desbloquea |
 | `rapido 10` | el tiempo va 10 veces más deprisa (hasta 60): calentar 20 min se ve en 2 |
 | `traza off` | deja de escribir cada trama |
+| `eco si` / `eco no` | eco del bus: sí para la conexión directa (A, de fábrica), no por el bus (B). Se guarda |
+| `pines 16 17` | pines RX y TX del W-Bus (se guardan) |
 
 ## Pruebas para hacer con WTTC
 

@@ -13,15 +13,22 @@
 //
 // CONSOLA (USB, 115200 baudios; «ayuda» las lista):
 //   estado · fuera <°C> · bateria <V> · fallo gasoil|llama|corriente|mudo|ninguno · borrar · rapido <x1..x60> ·
-//   traza on|off · reiniciar
+//   traza on|off · eco si|no · pines <rx> <tx> · reiniciar
 //
-// Compila para cualquier ESP32 (el clásico o el S3) con el núcleo ESP32 3.x de Arduino. Ajusta WF_RX/WF_TX a tu placa.
+// Compila para cualquier ESP32 (el clásico o el S3) con el núcleo ESP32 3.x de Arduino. También se instala desde el
+// navegador, ya compilada (wttc.favala.es/instalar.php): por eso el eco y los pines se cambian desde la consola
+// («eco no» para la conexión B, «pines 16 17») y se quedan guardados; WF_RX, WF_TX y WF_ECO son solo los de fábrica.
+#include <Preferences.h>
 #include "webasto_modelo.h"
 
 // ---------- configuración ----------
 #define WF_RX 16                // pin por el que llega lo que manda WTTC
 #define WF_TX 17                // pin por el que contesta la Webasto falsa
 const bool WF_ECO = true;       // conexión directa (A): devolver el eco; por el bus (B): false
+// Lo que se usa de verdad: lo de arriba o lo guardado desde la consola (eco, pines)
+bool eco = WF_ECO;
+int pinRx = WF_RX, pinTx = WF_TX;
+Preferences prefs;
 const uint32_t RESP_DELAY_MS = 25;   // lo que tarda una Webasto en contestar (aproximado)
 
 HardwareSerial bus(1);
@@ -49,7 +56,7 @@ void printState() {
 
 void help() {
   Serial.println("Órdenes: estado | fuera <°C> | bateria <V> | fallo gasoil|llama|corriente|mudo|ninguno | borrar |");
-  Serial.println("         rapido <1..60> | traza on|off | reiniciar");
+  Serial.println("         rapido <1..60> | traza on|off | eco si|no | pines <rx> <tx> | reiniciar");
 }
 
 void console() {
@@ -74,6 +81,19 @@ void console() {
   else if (k == "borrar") { w.errN = 0; if (w.st == wf::LOCK) w.set(wf::OFF); w.fails = 0; Serial.println("Averías borradas (y desbloqueada)"); }
   else if (k == "rapido") { long x = a.toInt(); if (x >= 1 && x <= 60) { speed = x; Serial.printf("Tiempo ×%ld\n", x); } else Serial.println("Entre 1 y 60"); }
   else if (k == "traza") { trace = a != "off"; Serial.printf("Traza %s\n", trace ? "activada" : "desactivada"); }
+  else if (k == "eco") {                         // A (directa): sí · B (por el bus, con TJA1020): no
+    eco = a == "si" || a == "sí" || a == "on";
+    prefs.begin("wfalsa", false); prefs.putBool("eco", eco); prefs.end();
+    Serial.printf("Eco %s (guardado)\n", eco ? "sí: conexión directa" : "no: por el bus");
+  }
+  else if (k == "pines") {                       // pines <rx> <tx>: los de la UART del W-Bus, guardados
+    int b = a.indexOf(' '), rx = a.substring(0, b).toInt(), tx = b < 0 ? -1 : a.substring(b + 1).toInt();
+    if (b < 0 || rx < 0 || tx < 0 || rx > 48 || tx > 48 || rx == tx) { Serial.println("pines <rx> <tx>, por ejemplo: pines 16 17"); return; }
+    pinRx = rx; pinTx = tx;
+    prefs.begin("wfalsa", false); prefs.putInt("rx", rx); prefs.putInt("tx", tx); prefs.end();
+    bus.end(); bus.begin(2400, SERIAL_8E1, pinRx, pinTx);
+    Serial.printf("RX %d · TX %d (guardado)\n", pinRx, pinTx);
+  }
   else if (k == "reiniciar") { ESP.restart(); }
   else help();
 }
@@ -84,7 +104,7 @@ void answer() {
   int n = w.handle(rd.cmd(), rd.data(), rd.dataLen(), out);
   int rl = n >= 0 ? wf::reply(resp, sizeof resp, rd.cmd(), out, n) : -1;
   if (trace) Serial.printf("← %s%s\n", hex(rd.b, rd.frameLen()).c_str(), rl < 0 ? "  (sin respuesta)" : "");
-  if (WF_ECO) bus.write(rd.b, rd.frameLen());    // el eco que daría el bus de un solo hilo
+  if (eco) bus.write(rd.b, rd.frameLen());    // el eco que daría el bus de un solo hilo
   if (rl > 0) {
     bus.flush();
     delay(RESP_DELAY_MS);
@@ -97,11 +117,15 @@ void answer() {
 void setup() {
   Serial.begin(115200);
   Serial.setTimeout(200);
-  bus.begin(2400, SERIAL_8E1, WF_RX, WF_TX);
+  prefs.begin("wfalsa", true);
+  eco = prefs.getBool("eco", WF_ECO);
+  pinRx = prefs.getInt("rx", WF_RX); pinTx = prefs.getInt("tx", WF_TX);
+  prefs.end();
+  bus.begin(2400, SERIAL_8E1, pinRx, pinTx);
   w.temp = w.cab = w.env.amb;
   Serial.println();
   Serial.println("=== Webasto falsa (W-Bus, 2400 8E1) para probar WTTC ===");
-  Serial.printf("RX %d · TX %d · eco %s\n", WF_RX, WF_TX, WF_ECO ? "sí (conexión directa)" : "no (por el bus)");
+  Serial.printf("RX %d · TX %d · eco %s\n", pinRx, pinTx, eco ? "sí (conexión directa)" : "no (por el bus; «eco si» para la directa)");
   help();
   lastTick = millis();
 }

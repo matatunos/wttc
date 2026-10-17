@@ -100,8 +100,9 @@ jobs:
       - name: Compilar la Webasto falsa
         shell: bash
         run: |
-          for fqbn in esp32:esp32:esp32 esp32:esp32:esp32s3; do
-            arduino-cli compile --fqbn "$fqbn" --warnings default herramientas/webasto_falsa
+          # Cada una en su carpeta: de ahí sale también su paquete para instalarla desde el navegador
+          for chip in esp32 esp32s3; do
+            arduino-cli compile --fqbn "esp32:esp32:$chip" --warnings default --output-dir "build/falsa-$chip" herramientas/webasto_falsa
           done
       # Tamaño del programa, como anotación visible sin iniciar sesión. Tiene que caber en cada hueco de programa de
       # firmware/WTTC/partitions.csv (0x1F0000 = 2 031 616 bytes): si no, falla. El menú del IDE («Huge APP») solo
@@ -139,16 +140,15 @@ jobs:
         if: success() && matrix.core == '3.3.12'
         shell: bash
         run: |
-          v=$(tr -d ' \r\n' < VERSION)
-          n="instalar-${{ matrix.board.chip }}"; d="build/$n"; mkdir -p "$d"
-          cp build/WTTC.ino.bootloader.bin "$d/bootloader.bin"
-          cp build/WTTC.ino.partitions.bin "$d/partitions.bin"
-          cp "$(find ~/.arduino15/packages/esp32/hardware/esp32 -name boot_app0.bin | head -1)" "$d/boot_app0.bin"
-          cp build/WTTC.ino.bin "$d/wttc.bin"
-          printf '{"version":"%s","chipFamily":"%s","bootloader":%d}\n' "$v" "${{ matrix.board.family }}" ${{ matrix.board.boot }} > "$d/placa.json"
-          (cd build && zip -qr "WTTC-$v-$n.zip" "$n")
-          echo "WTTC_FLASH=build/WTTC-$v-$n.zip" >> "$GITHUB_ENV"; echo "WTTC_VER=$v" >> "$GITHUB_ENV"
-          echo "::notice title=Paquete de instalación (${{ matrix.board.name }})::$(cd "$d" && for f in *; do printf '%s %s B · ' "$f" "$(stat -c %s "$f")"; done)"
+          # WTTC (la placa de la furgo) y la Webasto falsa (un segundo ESP32 para probar: el clásico, con el cargador en
+          # 0x1000, o el S3, en 0x0). Ver .github/scripts/paquete_instalar.sh
+          s=.github/scripts/paquete_instalar.sh
+          p=$($s build WTTC.ino "instalar-${{ matrix.board.chip }}" ${{ matrix.board.chip }} '${{ matrix.board.family }}' ${{ matrix.board.boot }})
+          for c in "esp32 ESP32 4096" "esp32s3 ESP32-S3 0"; do
+            set -- $c
+            z=$($s "build/falsa-$1" webasto_falsa.ino "falsa-$1" "$1" "$2" "$3"); mv "$z" build/; p="$p build/$(basename "$z")"
+          done
+          echo "WTTC_FLASH=$p" >> "$GITHUB_ENV"; echo "WTTC_VER=$(tr -d ' \r\n' < VERSION)" >> "$GITHUB_ENV"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: success()
         with:
@@ -157,6 +157,7 @@ jobs:
             build/WTTC.ino.*bin
             build/*.ota
             build/WTTC-*-instalar-*.zip
+            build/WTTC-*-falsa-*.zip
             build/WTTC-*.elf
       # Adjuntar el .ota y el paquete de instalación a la Release solo si esa versión se publicó desde este mismo commit
       # (la crea android.yml): así nunca se cuelga en una Release el programa de un commit posterior con la etiqueta
