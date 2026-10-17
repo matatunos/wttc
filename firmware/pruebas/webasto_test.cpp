@@ -2,6 +2,7 @@
 // mismo código que arma y comprueba las tramas en la placa) hablando con la Webasto falsa
 // (herramientas/webasto_falsa/webasto_modelo.h, la del emulador en un segundo ESP32).
 // Código generado íntegramente con Claude (Anthropic). Lo ejecuta GitHub Actions como logica_test.cpp.
+#include <cstring>
 #include <string>
 #include "../WTTC/logica.h"
 #include "../../herramientas/webasto_falsa/webasto_modelo.h"
@@ -162,7 +163,25 @@ static void pruebasRegistro() {
   CHECK(registro.find("AVERÍA 0x92 guardada") != std::string::npos && registro.find("20 s sin mantenimiento") != std::string::npos);
 }
 
+
+// Consola serie: letra a letra (PuTTY) o de golpe (Monitor serie), con CR, LF o los dos, y borrar
+static int lineas(wf::LineaSerie& L, const char* s, char* ult) {
+  int k = 0;
+  for (; *s; s++) if (wf::lineaFeed(L, *s)) { k++; strcpy(ult, L.buf); }
+  return k;
+}
+static void pruebasConsola() {
+  wf::LineaSerie L{}; char u[200] = "";
+  CHECK(lineas(L, "status\r", u) == 1 && !strcmp(u, "status"));
+  CHECK(lineas(L, "on 30\r\n", u) == 1 && !strcmp(u, "on 30"));        // CR+LF: una sola línea
+  CHECK(lineas(L, "\n\r\n", u) == 0);                                   // Enter sin nada: nada
+  CHECK(lineas(L, "erorr\b\b\bror\x7f" "res\n", u) == 1 && !strcmp(u, "errores"));
+  char largo[400]; memset(largo, 'a', 399); largo[399] = 0;
+  CHECK(lineas(L, largo, u) == 0 && lineas(L, "\n", u) == 1 && strlen(u) == 159);   // recorta, no se sale
+}
+
 int main() {
+  pruebasConsola();
   pruebasRegistro();
   pruebasLector();
   pruebasArranque();

@@ -94,6 +94,20 @@ TXT,
 'wfTitle' => 'Testen ohne Bus: eine falsche Webasto',
 'wfIntro' => 'Ein <b>zweiter ESP32</b> (beliebig, der klassische oder ein S3) kann sich am W-Bus als Webasto ausgeben: er startet, zündet, regelt, läuft nach und meldet Störungen wie eine echte (dasselbe Modell wie der Simulator oben, abgeglichen mit libwbus). So lässt sich ganz WTTC auf dem Tisch testen, ohne Diesel und ohne Bus. Über seine USB-Konsole löst man Fehler aus (kein Diesel, Flammabriss, kein Strom, loses Kabel, schwache Batterie) und beschleunigt die Zeit. Sketch, Anleitung und Testliste: <a href="https://github.com/matatunos/wttc/tree/main/herramientas/webasto_falsa" target="_blank" rel="noopener">herramientas/webasto_falsa</a>.',
 'wfAria' => 'Anschlussplan der falschen Webasto: direkt mit drei Kabeln oder über den Bus mit einem zweiten TJA1020',
+'consolaUsb' => <<<'TXT'
+<h3 class="usbh">Das Protokoll über USB ansehen (serielle Konsole)</h3>
+<p>Beide Platinen (WTTC und die falsche Webasto) melden über ihr USB alles, was sie tun. Unter Windows mit <a href="https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html" target="_blank" rel="noopener">PuTTY</a>:</p>
+<ol>
+<li>Die Platine per USB an den Computer anschließen (beim ESP32-S3 den mit <b>UART</b> oder <b>COM</b> beschrifteten USB-Anschluss).</li>
+<li>Im <b>Geräte-Manager → Anschlüsse (COM &amp; LPT)</b> die Nummer ablesen (z. B. <b>COM5</b>; meist CP210x, CH340/CH343 oder „USB Serial“). Fehlt sie, den Treiber installieren (<a href="https://www.silabs.com/developer-tools/usb-to-uart-bridge-vcp-drivers" target="_blank" rel="noopener">CP210x</a> oder <a href="https://www.wch-ic.com/downloads/CH343SER_EXE.html" target="_blank" rel="noopener">CH343</a>).</li>
+<li>In PuTTY, <b>Session</b>: Connection type <b>Serial</b>, Serial line <b>COM5</b> (deine) und Speed <b>115200</b>.</li>
+<li><b>Connection → Serial</b>: Flow control <b>None</b>.</li>
+<li><b>Terminal</b>: Local echo und Local line editing auf <b>Force on</b> (man sieht, was man tippt, und es wird mit Enter gesendet).</li>
+<li>Zum Speichern in einer Datei (und um sie bei Problemen zu schicken): <b>Session → Logging</b> → „All session output“ und Datei wählen.</li>
+<li>Zurück in <b>Session</b> einen Namen vergeben („Falsche Webasto“, „WTTC“), <b>Save</b>, dann <b>Open</b>. <code>ayuda</code> (falsche Webasto) oder <code>info</code> (WTTC) eingeben und Enter.</li>
+</ol>
+<p class="hint">Beim Öffnen des Ports startet die Platine neu: das ist normal. Den Port kann nur ein Programm gleichzeitig nutzen: vorher den seriellen Monitor von Arduino oder das Installationsfenster schließen. Mit beiden Platinen am selben Computer hat jede ihren eigenen COM: zwei PuTTY-Fenster öffnen. Unter Linux oder Mac: <code>screen /dev/ttyUSB0 115200</code> (beenden: Strg+A, dann K).</p>
+TXT,
 'wfHint' => '<b>Am einfachsten: <a href="{install}#webasto-falsa">im Browser installieren</a></b> (Chrome oder Edge, klassischer ESP32 oder S3). Er lässt sich auch mit der Arduino IDE (esp32-Core 3.x) flashen, wie WTTC. Hat dein ESP32 IO16 und IO17 nicht frei, in seiner Konsole mit <code>pines &lt;rx&gt; &lt;tx&gt;</code> ändern; für die Verbindung über den Bus (B) <code>eco no</code>. Beides bleibt gespeichert.',
 'wfA' => 'A) Direkt, ohne Transceiver (am einfachsten)',
 'wfAsub' => 'Vorher die TJA1020-Platine von WTTC abnehmen (oder ihr TX und RX trennen) · Echo an (ab Werk)',

@@ -106,6 +106,20 @@ TXT,
 'wfTitle' => 'Probar sin furgoneta: una Webasto falsa',
 'wfIntro' => 'Un <b>segundo ESP32</b> (cualquiera, el clásico o un S3) puede hacerse pasar por la Webasto en el W-Bus: arranca, prende, regula, hace el postbarrido y da averías como una de verdad (es el mismo modelo que el simulador de arriba, contrastado con libwbus). Así se prueba WTTC entero en la mesa, sin gasoil ni furgoneta. Por su consola USB se provocan fallos (sin gasoil, llama que se apaga, sin corriente, cable suelto, batería baja) y se acelera el tiempo. El sketch, las instrucciones y la lista de pruebas: <a href="https://github.com/matatunos/wttc/tree/main/herramientas/webasto_falsa" target="_blank" rel="noopener">herramientas/webasto_falsa</a>.',
 'wfAria' => 'Esquema de conexión de la Webasto falsa: directa con tres cables, o por el bus con un segundo TJA1020',
+'consolaUsb' => <<<'TXT'
+<h3 class="usbh">Ver el registro por USB (consola serie)</h3>
+<p>Las dos placas (WTTC y la Webasto falsa) cuentan por su USB todo lo que hacen. Para verlo en Windows, con <a href="https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html" target="_blank" rel="noopener">PuTTY</a>:</p>
+<ol>
+<li>Conecta la placa al ordenador por USB (en el ESP32-S3, el USB marcado <b>UART</b> o <b>COM</b>).</li>
+<li>En el <b>Administrador de dispositivos → Puertos (COM y LPT)</b> mira qué número tiene (p. ej. <b>COM5</b>; suele llamarse CP210x, CH340/CH343 o «USB Serial»). Si no sale, instala su driver (<a href="https://www.silabs.com/developer-tools/usb-to-uart-bridge-vcp-drivers" target="_blank" rel="noopener">CP210x</a> o <a href="https://www.wch-ic.com/downloads/CH343SER_EXE.html" target="_blank" rel="noopener">CH343</a>).</li>
+<li>En PuTTY, <b>Session</b>: Connection type <b>Serial</b>, Serial line <b>COM5</b> (el tuyo) y Speed <b>115200</b>.</li>
+<li><b>Connection → Serial</b>: Flow control <b>None</b>.</li>
+<li><b>Terminal</b>: Local echo y Local line editing en <b>Force on</b> (ves lo que escribes y se manda al pulsar Enter).</li>
+<li>Para guardarlo en un fichero (y mandarlo si algo falla): <b>Session → Logging</b> → «All session output» y elige el fichero.</li>
+<li>Vuelve a <b>Session</b>, ponle un nombre («Webasto falsa», «WTTC») y pulsa <b>Save</b>; luego <b>Open</b>. Escribe <code>ayuda</code> (Webasto falsa) o <code>info</code> (WTTC) y Enter.</li>
+</ol>
+<p class="hint">Al abrir el puerto la placa se reinicia: es normal. El puerto solo lo puede usar un programa a la vez: cierra antes el Monitor serie de Arduino o la ventana del instalador. Con las dos placas en el mismo ordenador, cada una tiene su COM: abre dos PuTTY. En Linux o Mac: <code>screen /dev/ttyUSB0 115200</code> (salir: Ctrl+A y luego K).</p>
+TXT,
 'wfHint' => '<b>Lo más fácil: <a href="{install}#webasto-falsa">instalarla desde el navegador</a></b> (Chrome o Edge, ESP32 clásico o S3). También se graba con el Arduino IDE (núcleo esp32 3.x), como WTTC. Si tu ESP32 no tiene libres IO16 e IO17, cámbialos en su consola con <code>pines &lt;rx&gt; &lt;tx&gt;</code>; para la conexión por el bus (B), <code>eco no</code>. Se quedan guardados.',
 'wfA' => 'A) Directa, sin transceptores (la más fácil)',
 'wfAsub' => 'Quita antes la placa TJA1020 de WTTC (o desconecta sus TX y RX) · eco sí (de fábrica)',

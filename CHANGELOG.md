@@ -6,6 +6,13 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.3.14 — 2026-10-17
+
+Versión de prueba (sin probar con una Webasto real).
+
+- **La consola por USB funciona con PuTTY** (y con screen o cualquier terminal), en WTTC y en la Webasto falsa: las letras se juntan hasta el Enter. Antes solo iba bien el Monitor serie de Arduino, que manda la línea entera; PuTTY manda cada tecla y la orden llegaba a trozos.
+- **En la web, cómo ver el registro por USB con PuTTY** (instalar.php y la sección «Probar sin furgoneta»): qué COM, velocidad, ajustes y cómo guardarlo en un fichero.
+
 ## 0.3.13 — 2026-10-17
 
 Versión de prueba. Es la 0.3.12 (abajo) con su firmware: la Release 0.3.12 salió solo con la app, porque el análisis

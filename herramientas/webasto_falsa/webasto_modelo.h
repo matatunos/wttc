@@ -215,4 +215,18 @@ inline int reply(uint8_t* out, int cap, uint8_t c, const uint8_t* d, int n) {
   return n + 4;
 }
 
+// La misma función está en firmware/WTTC/logica.h (WTTC): el sketch de la Webasto falsa no puede incluir ficheros de
+// fuera de su carpeta, así que va repetida (8 líneas, con prueba en los dos sitios).
+// Consola serie: junta lo que llega letra a letra (PuTTY, screen) o de golpe (Monitor serie de Arduino) hasta el Enter
+// (CR, LF o los dos). Borrar (BS o DEL) quita la última letra. true = hay una línea completa en L.buf (cópiala antes
+// de seguir leyendo: la siguiente letra empieza la línea nueva encima)
+struct LineaSerie { char buf[160]; int n; };
+inline bool lineaFeed(LineaSerie& L, char c) {
+  if (c == '\r' || c == '\n') { if (!L.n) return false; L.buf[L.n] = 0; L.n = 0; return true; }
+  if (c == 8 || c == 127) { if (L.n) L.n--; return false; }
+  if ((unsigned char)c < 32) return false;
+  if (L.n < (int)sizeof L.buf - 1) L.buf[L.n++] = c;
+  return false;
+}
+
 }  // namespace wf

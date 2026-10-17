@@ -188,6 +188,7 @@ function wttc_changelog(string $md): string {
   .hint{color:var(--muted);font-size:.76rem;margin-top:8px;line-height:1.45;}
 
   /* Esquema */
+  .usb{margin-top:16px;font-size:.88rem;line-height:1.55}.usb h3{font-size:1rem;margin:0 0 6px}.usb ol{padding-left:22px;margin:6px 0}.usb li{margin:4px 0}
   .acts.pdf{margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}.acts.pdf a.b{text-decoration:none}
 
   /* Calculadora / tablas */
@@ -374,6 +375,7 @@ function wttc_changelog(string $md): string {
 <p><?= t('wfIntro') ?></p>
 <?php require __DIR__ . '/falsa.inc.php'; ?>
 <div class="hint"><?= t('wfHint') ?></div>
+<div class="usb" id="consola-usb"><?= t('consolaUsb') ?></div>
 </div>
 
   <div class="card sp" id="descargas">

@@ -5,6 +5,7 @@
 // de errores de memoria y de comportamiento indefinido de GCC (-fsanitize=address,undefined). Si una falla, no se publica.
 //   g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined firmware/pruebas/logica_test.cpp -o t && ./t
 // Está fuera de firmware/WTTC/ a propósito: Arduino compila todos los .cpp de la carpeta del sketch.
+#include <cstring>
 #include "../WTTC/logica.h"
 #include "../WTTC/averias.h"
 #include <cstdio>
@@ -368,7 +369,25 @@ static void pruebasCo() {
   coStep(a, 60, 1000); coStep(a, 60, 3600000); CHECK(a.lvl == CO_OK);       // y no dispara la de 3 min
 }
 
+
+// Consola serie: letra a letra (PuTTY) o de golpe (Monitor serie), con CR, LF o los dos, y borrar
+static int lineas(LineaSerie& L, const char* s, char* ult) {
+  int k = 0;
+  for (; *s; s++) if (lineaFeed(L, *s)) { k++; strcpy(ult, L.buf); }
+  return k;
+}
+static void pruebasConsola() {
+  LineaSerie L{}; char u[200] = "";
+  CHECK(lineas(L, "status\r", u) == 1 && !strcmp(u, "status"));
+  CHECK(lineas(L, "on 30\r\n", u) == 1 && !strcmp(u, "on 30"));        // CR+LF: una sola línea
+  CHECK(lineas(L, "\n\r\n", u) == 0);                                   // Enter sin nada: nada
+  CHECK(lineas(L, "erorr\b\b\bror\x7f" "res\n", u) == 1 && !strcmp(u, "errores"));
+  char largo[400]; memset(largo, 'a', 399); largo[399] = 0;
+  CHECK(lineas(L, largo, u) == 0 && lineas(L, "\n", u) == 1 && strlen(u) == 159);   // recorta, no se sale
+}
+
 int main() {
+  pruebasConsola();
   pruebasCo();
   pruebasAverias();
   pruebasChequeo();

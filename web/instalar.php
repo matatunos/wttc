@@ -134,6 +134,7 @@ $tr = fn($k) => strtr($T[$k], ['{home}' => $HOME[$lang]]);
   esp-web-install-button button.go:hover{filter:brightness(1.08)}
   code{font-family:ui-monospace,monospace;font-size:.88em}
   .wirebox{margin:12px 0}
+  .usb h3{font-size:1.05rem;margin:22px 0 8px}.usb .hint{color:var(--muted);font-size:.85rem}
   @media (min-width:700px){svg.wire{min-width:0}}   /* aquí cabe entero: se ajusta al ancho (en el móvil, se desliza) */
 </style>
 </head>
@@ -180,6 +181,7 @@ $installBtn = function (string $manifest, string $label, string $ev) use ($h, $T
   <div class="aviso"><?= $h($T['fNoPkg']) ?></div>
 <?php endif; ?>
 </div>
+<div class="usb" id="consola-usb"><?= t('consolaUsb') ?></div>
 <?php if ($ver): ?>
 <script>
   // Estadísticas (api/evento.php: solo sumas por día, sin cookies ni IP): cada «Instalar» pulsado y cómo termina.

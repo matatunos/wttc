@@ -375,3 +375,15 @@ inline uint8_t coStep(CoAlarm& a, float ppm, uint32_t dt) {
   else if (a.lvl == CO_WARN && a.low >= 60000) a.lvl = CO_OK;
   return a.lvl;
 }
+
+// Consola serie: junta lo que llega letra a letra (PuTTY, screen) o de golpe (Monitor serie de Arduino) hasta el Enter
+// (CR, LF o los dos). Borrar (BS o DEL) quita la última letra. true = hay una línea completa en L.buf (cópiala antes
+// de seguir leyendo: la siguiente letra empieza la línea nueva encima)
+struct LineaSerie { char buf[160]; int n; };
+inline bool lineaFeed(LineaSerie& L, char c) {
+  if (c == '\r' || c == '\n') { if (!L.n) return false; L.buf[L.n] = 0; L.n = 0; return true; }
+  if (c == 8 || c == 127) { if (L.n) L.n--; return false; }
+  if ((unsigned char)c < 32) return false;
+  if (L.n < (int)sizeof L.buf - 1) L.buf[L.n++] = c;
+  return false;
+}

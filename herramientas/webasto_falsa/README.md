@@ -56,6 +56,11 @@ placa y súbelo. Abre el monitor serie a **115200**: verás las tramas que llega
 
 ## Consola
 
+Por su USB, a **115200** baudios: con el Monitor serie de Arduino, o en Windows con **PuTTY** (Connection type
+*Serial*, el COM de la placa, Speed *115200*, Flow control *None* y, en *Terminal*, Local echo y Local line editing en
+*Force on*). Paso a paso: [wttc.favala.es/instalar.php#consola-usb](https://wttc.favala.es/instalar.php#consola-usb).
+Las letras se juntan hasta el Enter: vale cualquier programa de consola.
+
 | Orden | Qué hace |
 |---|---|
 | `estado` | agua, dentro, batería, llama, potencia, orden, averías |

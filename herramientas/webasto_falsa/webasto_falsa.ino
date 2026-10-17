@@ -180,9 +180,14 @@ void help() {
   Serial.println(F("  reiniciar"));
 }
 
+// Las letras se juntan hasta el Enter (wf::lineaFeed): vale el Monitor serie de Arduino y PuTTY o screen, que mandan
+// cada tecla al pulsarla
 void console() {
-  if (!Serial.available()) return;
-  String l = Serial.readStringUntil('\n');
+  static wf::LineaSerie lin = {};
+  bool lista = false;
+  while (!lista && Serial.available()) lista = wf::lineaFeed(lin, (char)Serial.read());
+  if (!lista) return;
+  String l = lin.buf;
   l.trim(); l.toLowerCase();
   if (!l.length()) return;
   lg('$', "%s", l.c_str());
