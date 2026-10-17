@@ -15,9 +15,14 @@
 //   0x10     apagar                          → [0]
 //   0x50 05  sensores                         → [05, temp+50, mV alto, mV bajo, llama, W alto, W bajo, bujía alto, bajo]
 //   0x56 01  lista de averías                 → [01, cuántas, código, veces, …];  0x56 03 → borrarlas → [03]
+//
+// Registro: si se le da una función en onLog, cuenta en texto cada cosa que hace y por qué (cambios de estado, averías,
+// órdenes que ignora). El emulador la escribe por la consola; las pruebas la dejan vacía.
 #pragma once
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdarg.h>
 
 namespace wf {
 
@@ -31,6 +36,17 @@ const float T_PART = 75, T_PAUSE = 85, T_RESUME = 70;   // °C del agua: baja a 
 const uint32_t REFRESH_MS = 20000;                      // sin mantenimiento (0x44) en este tiempo, se apaga sola
 
 inline bool active(St s) { return s >= FAN && s <= PAUSE; }
+
+// Nombre de las averías que puede dar este modelo (las demás, solo con su código)
+inline const char* errName(uint8_t c) {
+  switch (c) {
+    case 0x02: return "no arranca (sin gasoil)";
+    case 0x03: return "se apagó la llama";
+    case 0x07: return "bloqueada (demasiados arranques fallidos)";
+    case 0x92: return "nadie renovó la orden (falta el mantenimiento 0x44)";
+    default:   return "avería";
+  }
+}
 
 // Averías que se pueden provocar desde la consola del emulador (o en las pruebas)
 struct Env {
@@ -53,22 +69,42 @@ struct Webasto {
   int tries = 0, fails = 0;         // intentos de encendido en este arranque y arranques fallidos seguidos
   uint16_t pw = 0;                  // W de potencia
   uint8_t errCode[8] = {}, errCnt[8] = {}; int errN = 0;   // averías guardadas (código, veces)
+  void (*onLog)(const char* msg) = nullptr;   // registro en texto (ver arriba); nullptr = callado
+  uint32_t starts = 0;              // arranques desde que se encendió el emulador (para el resumen)
 
-  void set(St s) { st = s; t = 0; }
+  void say(const char* fmt, ...) {
+    if (!onLog) return;
+    char m[200]; va_list a; va_start(a, fmt); vsnprintf(m, sizeof m, fmt, a); va_end(a);
+    onLog(m);
+  }
+  // Cambia de estado; why = por qué (sale en el registro)
+  void set(St s, const char* why = nullptr) {
+    if (s != st) say("estado: %s → %s%s%s%s", ST_NAME[st], ST_NAME[s], why ? " (" : "", why ? why : "", why ? ")" : "");
+    st = s; t = 0;
+  }
   void err(uint8_t c) {
-    for (int i = 0; i < errN; i++) if (errCode[i] == c) { if (errCnt[i] < 255) errCnt[i]++; return; }
-    if (errN < 8) { errCode[errN] = c; errCnt[errN] = 1; errN++; }
+    int i = 0;
+    while (i < errN && errCode[i] != c) i++;
+    if (i < errN) { if (errCnt[i] < 255) errCnt[i]++; }
+    else if (errN < 8) { errCode[errN] = c; errCnt[errN] = 1; errN++; }
+    else { say("avería 0x%02X: la memoria de averías está llena (8), no se guarda", c); return; }
+    say("AVERÍA 0x%02X guardada: %s (%d %s)", c, errName(c), errCnt[i], errCnt[i] == 1 ? "vez" : "veces");
   }
   int flame() const { return st == STAB || st == FULL || st == PART ? 1 : 0; }
   float volt() const { if (env.noPower) return 0; float v = env.batt - AMPS[st] * 0.06f; return v < 8 ? 8 : v; }
   // Apagar: a postbarrido. La orden se mantiene hasta apagarse del todo (como libwbus: 0x44 sigue diciendo «sigo»)
-  void stop() { if (active(st)) set(AFTER); }
+  void stop(const char* why = "orden de apagar") {
+    if (active(st)) set(AFTER, why);
+    else say("apagar: ya estaba %s, no cambia nada", ST_NAME[st]);
+  }
   // Encender: solo desde apagada del todo; calentando, en postbarrido o en fallo se ignora (no alarga el tiempo)
   void on(uint8_t min) {
-    if (st == LOCK) { err(0x07); return; }
-    if (st != OFF) return;
+    if (st == LOCK) { say("encender %u min: IGNORADO, está bloqueada (se borra con 0x56 03 o «borrar»)", min); err(0x07); return; }
+    if (st != OFF) { say("encender %u min: IGNORADO, está %s (solo enciende desde apagada del todo)", min, ST_NAME[st]); return; }
     cmd = 0x21; runLeft = (int32_t)min * 60000; refresh = 0;
-    tries = 0; set(FAN);
+    tries = 0; starts++;
+    say("encender %u min: aceptado (arranque nº %lu; mantenimiento cada <20 s o se apaga)", min, (unsigned long)starts);
+    set(FAN, "empieza el arranque");
   }
 
   // Avanza dt ms (el emulador lo llama en cada vuelta, multiplicado si el tiempo va acelerado)
@@ -78,28 +114,34 @@ struct Webasto {
       t += dt;
       if (active(st) && cmd) {
         runLeft -= (int32_t)dt; refresh += dt;
-        if (refresh > REFRESH_MS) { err(0x92); cmd = 0; set(AFTER); }   // nadie renueva la orden: avería 0x92
-        else if (runLeft <= 0) stop();                                     // se acabó el tiempo pedido
+        if (refresh > REFRESH_MS) { err(0x92); cmd = 0; set(AFTER, "20 s sin mantenimiento 0x44"); }   // nadie renueva la orden
+        else if (runLeft <= 0) stop("se acabó el tiempo pedido");
       }
       uint32_t d = ST_DUR[st];
       switch (st) {
-        case FAN:  if (t >= d) set(GLOW); break;
-        case GLOW: if (t >= d) set(IGN); break;
+        case FAN:  if (t >= d) set(GLOW, "ventilador listo: calienta la bujía"); break;
+        case GLOW: if (t >= d) set(IGN, "bujía caliente: bomba de gasoil en marcha"); break;
         case IGN:
           if (t >= d) {
-            if (!env.noFuel) { fails = 0; set(STAB); }
-            else if (++tries < 2) set(GLOW);                // segundo intento en el mismo arranque
-            else { err(0x02); if (++fails >= 3) { err(0x07); cmd = 0; set(LOCK); } else set(FAIL); }   // la orden, hasta apagarse
+            if (!env.noFuel) { fails = 0; set(STAB, "¡llama!"); }
+            else if (++tries < 2) set(GLOW, "no prende (sin gasoil): segundo intento");
+            else {
+              err(0x02);
+              if (++fails >= 3) { err(0x07); cmd = 0; set(LOCK, "3 arranques fallidos seguidos"); }
+              else { char w[100]; snprintf(w, sizeof w, "no prende tras 2 intentos; arranques fallidos seguidos: %d de 3", fails); set(FAIL, w); }
+            }
           }
           break;
         case STAB: case FULL: case PART:
-          if (env.flameOut) { err(0x03); set(FAIL); env.flameOut = false; break; }   // se apagó la llama (la orden, hasta apagarse)
-          if (st == STAB && t >= d) set(temp >= T_PART ? PART : FULL);
-          else if (st == FULL && temp >= T_PART) set(PART);
-          else if (st == PART && temp >= T_PAUSE) set(PAUSE);
+          if (env.flameOut) { err(0x03); set(FAIL, "se apagó la llama"); env.flameOut = false; break; }
+          if (st == STAB && t >= d) set(temp >= T_PART ? PART : FULL, temp >= T_PART ? "llama estable y agua ya a 75 °C" : "llama estable");
+          else if (st == FULL && temp >= T_PART) set(PART, "agua a 75 °C: baja la potencia");
+          else if (st == PART && temp >= T_PAUSE) set(PAUSE, "agua a 85 °C: apaga la llama y espera");
           break;
-        case PAUSE: if (temp <= T_RESUME) { tries = 0; set(FAN); } break;
-        case AFTER: case FAIL: if (t >= d) { set(OFF); cmd = 0; } break;   // apagada del todo: suelta la orden
+        case PAUSE: if (temp <= T_RESUME) { tries = 0; set(FAN, "agua bajó a 70 °C: vuelve a arrancar"); } break;
+        case AFTER: case FAIL:
+          if (t >= d) { set(OFF, cmd ? "fin del postbarrido; suelta la orden" : "fin del postbarrido"); cmd = 0; }
+          break;
         default: break;
       }
     }

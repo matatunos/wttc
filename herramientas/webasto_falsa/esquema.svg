@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 760" font-family="Segoe UI, Roboto, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 800" font-family="Segoe UI, Roboto, Arial, sans-serif">
   <!-- Esquema de la Webasto falsa (herramientas/webasto_falsa): conexión A, directa, y B, por el bus con dos TJA1020.
        Dibujado a mano para el README. Código generado íntegramente con Claude (Anthropic). -->
   <style>
@@ -8,7 +8,7 @@
     .w{fill:none;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}.pin{fill:#e0b84a}
     .tag{font-size:12px;font-weight:700;text-anchor:middle;dominant-baseline:central}
   </style>
-  <rect class="bg" width="1000" height="760" rx="14"/>
+  <rect class="bg" width="1000" height="800" rx="14"/>
 
   <!-- ===================== A) Directa ===================== -->
   <text x="30" y="42" class="t">A) Directa, sin transceptores (la más fácil)</text>
@@ -39,6 +39,7 @@
   <circle cx="475" cy="255" r="12" fill="#14171f" stroke="#9aa3b5" stroke-width="2.5"/><text x="475" y="255" class="tag" fill="#9aa3b5">3</text>
   <text x="475" y="305" text-anchor="middle" class="s">① lo que contesta la Webasto falsa · ② lo que manda WTTC · ③ masa común</text>
   <text x="475" y="325" text-anchor="middle" class="s">todo a 3,3 V: no hace falta nada más (el eco del bus lo devuelve la Webasto falsa)</text>
+  <text x="475" y="347" text-anchor="middle" class="p" style="fill:#ff9f1c">Alimentación: cada ESP32 por su propio USB (al ordenador o a un cargador). No unas sus 5 V: basta la masa ③.</text>
 
   <line x1="30" y1="360" x2="970" y2="360" stroke="#323a52" stroke-width="2" stroke-dasharray="8 6"/>
 
@@ -88,5 +89,7 @@
   <text x="550" y="665" text-anchor="middle" class="p">Fuente 12 V</text><text x="550" y="685" text-anchor="middle" class="s">(+ y −)</text>
   <path class="w" d="M520 640 V560" stroke="#e04848"/><path class="w" d="M580 640 V605" stroke="#9aa3b5"/>
   <circle cx="520" cy="560" r="5" fill="#e04848"/><circle cx="580" cy="605" r="5" fill="#9aa3b5"/>
-  <text x="30" y="735" class="s">En los dos casos: la Webasto falsa se maneja por su consola USB (fallos, batería, temperatura, tiempo acelerado) · ver README.md</text>
+  <text x="30" y="728" class="p" style="fill:#ff9f1c">Alimentación: los dos ESP32, por su USB. La fuente de 12 V solo alimenta los TJA1020 (el bus).</text>
+  <text x="30" y="748" class="p" style="fill:#ff9f1c">WTTC también puede tomar los 5 V de su LM2596 desde esa fuente, como en la furgo (y entonces, sin su USB).</text>
+  <text x="30" y="778" class="s">En los dos casos: la Webasto falsa se maneja por su consola USB (fallos, batería, temperatura, tiempo acelerado) · ver README.md</text>
 </svg>

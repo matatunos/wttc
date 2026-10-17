@@ -10,8 +10,8 @@
 #wfsvg .wf-tja{fill:#1e5a3c;stroke:#2e8a5c;stroke-width:2}#wfsvg .wf-w{fill:none;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
 #wfsvg .wf-pin{fill:#e0b84a}#wfsvg .wf-tag{font-size:12px;font-weight:700;text-anchor:middle;dominant-baseline:central}
 </style>
-<div class="wirebox"><svg id="wfsvg" class="wire" viewBox="0 0 1000 760" role="img" aria-label="<?= t('wfAria') ?>" font-family="Segoe UI, Roboto, Arial, sans-serif">
-<rect class="wf-bg" width="1000" height="760" rx="14"/>
+<div class="wirebox"><svg id="wfsvg" class="wire" viewBox="0 0 1000 800" role="img" aria-label="<?= t('wfAria') ?>" font-family="Segoe UI, Roboto, Arial, sans-serif">
+<rect class="wf-bg" width="1000" height="800" rx="14"/>
 
   <!-- ===================== A) Directa ===================== -->
   <text x="30" y="42" class="wf-t"><?= t('wfA') ?></text>
@@ -42,6 +42,7 @@
   <circle cx="475" cy="255" r="12" fill="#14171f" stroke="#9aa3b5" stroke-width="2.5"/><text x="475" y="255" class="wf-tag" fill="#9aa3b5">3</text>
   <text x="475" y="305" text-anchor="middle" class="wf-s"><?= t('wfLeg1') ?></text>
   <text x="475" y="325" text-anchor="middle" class="wf-s"><?= t('wfLeg2') ?></text>
+  <text x="475" y="347" text-anchor="middle" class="wf-p" style="fill:#ff9f1c"><?= t('wfPowA') ?></text>
 
   <line x1="30" y1="360" x2="970" y2="360" stroke="#323a52" stroke-width="2" stroke-dasharray="8 6"/>
 
@@ -91,5 +92,7 @@
   <text x="550" y="665" text-anchor="middle" class="wf-p"><?= t('wfPsu') ?></text><text x="550" y="685" text-anchor="middle" class="wf-s"><?= t('wfPsuSub') ?></text>
   <path class="wf-w" d="M520 640 V560" stroke="#e04848"/><path class="wf-w" d="M580 640 V605" stroke="#9aa3b5"/>
   <circle cx="520" cy="560" r="5" fill="#e04848"/><circle cx="580" cy="605" r="5" fill="#9aa3b5"/>
-  <text x="30" y="735" class="wf-s"><?= t('wfFoot') ?></text>
+  <text x="30" y="728" class="wf-p" style="fill:#ff9f1c"><?= t('wfPowB') ?></text>
+  <text x="30" y="748" class="wf-p" style="fill:#ff9f1c"><?= t('wfPowB2') ?></text>
+  <text x="30" y="778" class="wf-s"><?= t('wfFoot') ?></text>
 </svg></div>

@@ -2,6 +2,7 @@
 // mismo código que arma y comprueba las tramas en la placa) hablando con la Webasto falsa
 // (herramientas/webasto_falsa/webasto_modelo.h, la del emulador en un segundo ESP32).
 // Código generado íntegramente con Claude (Anthropic). Lo ejecuta GitHub Actions como logica_test.cpp.
+#include <string>
 #include "../WTTC/logica.h"
 #include "../../herramientas/webasto_falsa/webasto_modelo.h"
 #include <cstdio>
@@ -145,7 +146,24 @@ static void pruebasRegulacion() {
   CHECK(w.cab > w.env.amb + 10);                            // y dentro ha subido
 }
 
+// Registro: el modelo cuenta lo que hace y por qué (lo escribe el emulador por su consola)
+static std::string registro;
+static void apunta(const char* m) { registro += m; registro += "\n"; }
+static void pruebasRegistro() {
+  wf::Webasto w; w.onLog = apunta; uint8_t r[64];
+  const uint8_t m30[1] = {30};
+  bus(w, 0x21, m30, 1, r);
+  CHECK(registro.find("encender 30 min: aceptado") != std::string::npos);
+  CHECK(registro.find("estado: apagada → ventilador (empieza el arranque)") != std::string::npos);
+  bus(w, 0x21, m30, 1, r);                                  // ya arrancando: se ignora, y lo dice
+  CHECK(registro.find("IGNORADO, está ventilador") != std::string::npos);
+  registro.clear();
+  run(w, 25, false);                                        // sin mantenimiento: a los 20 s se apaga con 0x92
+  CHECK(registro.find("AVERÍA 0x92 guardada") != std::string::npos && registro.find("20 s sin mantenimiento") != std::string::npos);
+}
+
 int main() {
+  pruebasRegistro();
   pruebasLector();
   pruebasArranque();
   pruebasMantenimiento();

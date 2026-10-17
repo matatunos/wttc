@@ -6,6 +6,14 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.3.12 — 2026-10-17
+
+Versión de prueba (sin probar con una Webasto real).
+
+- **La Webasto falsa cuenta todo lo que pasa** por su consola USB: cada orden de WTTC y su respuesta, traducidas (encender, mantenimiento con el tiempo desde el anterior, sensores con sus valores, averías…); cada cambio de estado de la caldera y por qué (bujía caliente, ¡llama!, agua a 85 °C, fin del postbarrido…); las averías al guardarse; las órdenes que ignora y por qué; avisos si WTTC no renueva la orden, si llegan tramas malas o si en 30 s no llega nada (con lo que hay que revisar). Con hora en cada línea, nivel de detalle `log 0`–`log 3` (guardado) y la orden `resumen`.
+- Los dibujos de conexión de la Webasto falsa dicen cómo se alimenta cada placa: cada ESP32 por su USB; la fuente de 12 V, solo para el bus.
+- El firmware de la placa no cambia (solo el número de versión).
+
 ## 0.3.11 — 2026-10-17
 
 Versión de prueba (sin probar con una Webasto real).

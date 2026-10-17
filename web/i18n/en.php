@@ -112,6 +112,9 @@ TXT,
 'wfBus' => 'W-Bus (LIN to LIN)',
 'wfPsu' => '12 V supply',
 'wfPsuSub' => '(+ and −)',
+'wfPowA' => 'Power: each ESP32 from its own USB (computer or charger). Do not join their 5 V: the ground ③ is enough.',
+'wfPowB' => 'Power: both ESP32 from their USB. The 12 V supply only feeds the TJA1020s (the bus).',
+'wfPowB2' => 'WTTC can also take 5 V from its LM2596 on that supply, as in the van (and then without its USB).',
 'wfFoot' => 'In both cases: the fake Webasto is driven from its USB console (faults, battery, temperature, faster time)',
 'wireHint' => <<<'TXT'
 Boards may come with the terminals in other places: <b>go by what is printed next to each terminal or pin</b>, not by its position in the drawing. The drawing shows the <b>ESP32-S3 DevKitC-1</b>: all the pins WTTC uses are on the same side. Screw-terminal bases have them labelled (the 5 V one sometimes says “5Vin”). Since version 0.2.0 only the <b>ESP32-S3</b> is supported. What is inside the <b>dashed box</b> (display and thermometer, wires ⑫–⑮; “heat” button, ⑯–⑰, and CO sensor, ⑱–⑳) is <b>optional</b>: the build works without it.

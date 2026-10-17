@@ -18,6 +18,10 @@ las tramas (`firmware/pruebas/webasto_test.cpp`): arranque, mantenimiento, apaga
 
 ![Esquema de conexión de la Webasto falsa](esquema.svg)
 
+**Alimentación:** cada ESP32 va por su propio USB (al ordenador, o uno al ordenador para ver la consola y el otro a un
+cargador). En la conexión A no se unen sus 5 V: basta la masa común. En la B, la fuente de 12 V solo alimenta los dos
+TJA1020 (el bus); WTTC puede tomar sus 5 V del LM2596 conectado a esa fuente, como en la furgo, y entonces sin su USB.
+
 ### A) Directa, sin transceptores (la más fácil)
 
 Solo tres cables, todo a 3,3 V. **Quita antes la placa TJA1020 de WTTC** o desconecta sus TX y RX: los dos no pueden
@@ -67,6 +71,26 @@ placa y súbelo. Abre el monitor serie a **115200**: verás las tramas que llega
 | `traza off` | deja de escribir cada trama |
 | `eco si` / `eco no` | eco del bus: sí para la conexión directa (A, de fábrica), no por el bus (B). Se guarda |
 | `pines 16 17` | pines RX y TX del W-Bus (se guardan) |
+| `resumen` | tramas recibidas, contestadas, sin contestar y malas, bytes sueltos, arranques, y el estado |
+| `log 0`…`log 3` | cuánto escribe (se guarda): 0 solo lo importante · 1 además cada orden de WTTC y su respuesta, traducidas (de fábrica) · 2 además los bytes y el ruido del bus · 3 además el estado cada 10 s |
+
+### Qué escribe por la consola
+
+Cada línea lleva la hora desde que arrancó (y la simulada, con `rapido`) y una marca:
+
+```
+[00:01:12.418] < encender 30 min
+[00:01:12.418] . encender 30 min: aceptado (arranque nº 1; mantenimiento cada <20 s o se apaga)
+[00:01:12.418] . estado: apagada → ventilador (empieza el arranque)
+[00:01:12.470] > «vale, 30 min»
+[00:01:17.502] < mantenimiento: «sigue con la orden 0x21» · el anterior hace 5.0 s
+[00:01:24.420] . estado: ventilador → bujía (ventilador listo: calienta la bujía)
+[00:02:44.431] ! AVERÍA 0x02 guardada: no arranca (sin gasoil) (1 vez)
+```
+
+`<` lo que pide WTTC · `>` lo que le contesta · `.` lo que hace la caldera y por qué · `!` avisos (averías, tramas
+malas, WTTC que no renueva la orden, nada recibido en 30 s con lo que hay que revisar) · `$` lo escrito en la consola ·
+`=` estado completo.
 
 ## Pruebas para hacer con WTTC
 

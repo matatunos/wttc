@@ -124,6 +124,9 @@ TXT,
 'wfBus' => 'W-Bus (LIN con LIN)',
 'wfPsu' => 'Fuente 12 V',
 'wfPsuSub' => '(+ y −)',
+'wfPowA' => 'Alimentación: cada ESP32 por su propio USB (al ordenador o a un cargador). No unas sus 5 V: basta la masa ③.',
+'wfPowB' => 'Alimentación: los dos ESP32, por su USB. La fuente de 12 V solo alimenta los TJA1020 (el bus).',
+'wfPowB2' => 'WTTC también puede tomar los 5 V de su LM2596 desde esa fuente, como en la furgo (y entonces, sin su USB).',
 'wfFoot' => 'En los dos casos: la Webasto falsa se maneja por su consola USB (fallos, batería, temperatura, tiempo acelerado)',
 'wireHint' => <<<'TXT'
 Las placas pueden venir con las bornas en otro sitio: <b>guíate por lo que pone impreso al lado de cada borna o pin</b>, no por su posición en el dibujo. El dibujo es del <b>ESP32-S3 DevKitC-1</b>: todos los pines que usa WTTC están en el mismo lado. En las bases con bornas de tornillo vienen rotulados (a veces el de 5 V pone «5Vin»). Desde la versión 0.2.0 solo vale el <b>ESP32-S3</b>. Lo que está en el <b>recuadro discontinuo</b> (pantalla y termómetro, cables ⑫–⑮; botón «calentar», ⑯–⑰, y sensor de CO, ⑱–⑳) es <b>opcional</b>: el montaje funciona sin ello.

@@ -112,6 +112,9 @@ TXT,
 'wfBus' => 'W-Bus (LIN an LIN)',
 'wfPsu' => '12-V-Netzteil',
 'wfPsuSub' => '(+ und −)',
+'wfPowA' => 'Strom: jeder ESP32 über sein eigenes USB (Computer oder Ladegerät). Die 5 V nicht verbinden: die Masse ③ genügt.',
+'wfPowB' => 'Strom: beide ESP32 über USB. Das 12-V-Netzteil versorgt nur die TJA1020 (den Bus).',
+'wfPowB2' => 'WTTC kann die 5 V auch von seinem LM2596 an diesem Netzteil nehmen, wie im Bus (dann ohne sein USB).',
 'wfFoot' => 'In beiden Fällen: die falsche Webasto wird über ihre USB-Konsole bedient (Fehler, Batterie, Temperatur, schnellere Zeit)',
 'wireHint' => <<<'TXT'
 Die Platinen können die Klemmen an anderen Stellen haben: <b>richte dich nach der Beschriftung neben jeder Klemme bzw. jedem Pin</b>, nicht nach der Position in der Zeichnung. Die Zeichnung zeigt den <b>ESP32-S3 DevKitC-1</b>: alle Pins, die WTTC nutzt, liegen auf derselben Seite. Auf Basisplatinen mit Schraubklemmen sind sie beschriftet (der 5-V-Pin heißt manchmal „5Vin“). Seit Version 0.2.0 wird nur der <b>ESP32-S3</b> unterstützt. Was im <b>gestrichelten Kasten</b> steht (Display und Thermometer, Kabel ⑫–⑮; „Heizen“-Taste, ⑯–⑰, und CO-Sensor, ⑱–⑳), ist <b>optional</b>: der Aufbau funktioniert auch ohne.
