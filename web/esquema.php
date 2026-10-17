@@ -4,7 +4,8 @@
 // De esta página salen los PDF descargas/WTTC-esquema-<idioma>.pdf: los hace wttc-publicar.sh con Gotenberg (Chromium)
 // cada vez que cambia el esquema. El contenido es el mismo que la sección «Montaje» de la portada (montaje.inc.php).
 // Idioma: ?l=es|en|de.
-$lang = in_array($_GET['l'] ?? 'es', ['es', 'en', 'de'], true) ? $_GET['l'] : 'es';
+$lang = $_GET['l'] ?? 'es';
+if (!in_array($lang, ['es', 'en', 'de'], true)) $lang = 'es';
 $version = trim((string)@file_get_contents(__DIR__ . '/descargas/VERSION')) ?: '';
 require __DIR__ . '/i18n/t.php';
 $home = 'https://wttc.favala.es/' . ($lang === 'es' ? '' : "$lang/");

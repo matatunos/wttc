@@ -7,7 +7,8 @@
 // Caddy permita «serial» a esta web (Permissions-Policy de wttc.favala.es).
 require_once __DIR__ . '/api/db.php';
 wttc_public_only();
-$lang = in_array($_GET['l'] ?? 'es', ['es', 'en', 'de'], true) ? $_GET['l'] : 'es';
+$lang = $_GET['l'] ?? 'es';
+if (!in_array($lang, ['es', 'en', 'de'], true)) $lang = 'es';
 wttc_visit($lang === 'es' ? 'consola' : 'consola-' . $lang);
 $HOME = ['es' => '/', 'en' => '/en/', 'de' => '/de/'][$lang];
 $INST = ['es' => '/instalar.php', 'en' => '/en/install.php', 'de' => '/de/installieren.php'][$lang];
