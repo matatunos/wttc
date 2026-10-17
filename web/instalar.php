@@ -134,6 +134,7 @@ $tr = fn($k) => strtr($T[$k], ['{home}' => $HOME[$lang]]);
   esp-web-install-button button.go:hover{filter:brightness(1.08)}
   code{font-family:ui-monospace,monospace;font-size:.88em}
   .wirebox{margin:12px 0}
+  @media (min-width:700px){svg.wire{min-width:0}}   /* aquí cabe entero: se ajusta al ancho (en el móvil, se desliza) */
 </style>
 </head>
 <body><div class="wrap">
