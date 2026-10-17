@@ -38,7 +38,7 @@ $TX = [
   'notes' => 'A tener en cuenta',
   'notesList' => '<li>Reinstalar así <b>no borra</b> la configuración, los programas ni el PIN.</li><li>Las versiones siguientes se instalan sin cable: app o web de la placa → <b>Buscar actualizaciones</b>.</li><li>La ventana de instalación está en inglés (es la herramienta <a href="https://esphome.github.io/esp-web-tools/" target="_blank" rel="noopener">ESP Web Tools</a>).</li><li>Antes de montarla en la furgo, mira el <a href="{home}#montaje">esquema de conexiones</a> y la <a href="{home}#responsabilidad">descarga de responsabilidad</a>.</li>',
   'fTitle' => 'La Webasto falsa: un segundo ESP32 que hace de caldera',
-  'fIntro' => 'Para probar WTTC en la mesa, sin furgoneta ni gasoil: otro ESP32 (vale el clásico o un S3) se hace pasar por la Thermo Top C en el W-Bus. Arranca, prende, regula, hace el postbarrido y da averías; por su consola USB (115200) se le provocan fallos y se acelera el tiempo. Se instala igual que WTTC, en <b>la otra placa</b>. Conexión y órdenes: <a href="{home}#webasto-falsa">en la web</a> y en <a href="https://github.com/matatunos/wttc/tree/main/herramientas/webasto_falsa" target="_blank" rel="noopener">su README</a>. De fábrica escucha por IO16, contesta por IO17 y devuelve el eco (conexión directa); para la conexión por el bus, escribe <code>eco no</code> en su consola, y <code>pines 16 17</code> para cambiar los pines.',
+  'fIntro' => 'Para probar WTTC en la mesa, sin furgoneta ni gasoil: otro ESP32 (vale el clásico o un S3) se hace pasar por la Thermo Top C en el W-Bus. Arranca, prende, regula, hace el postbarrido y da averías; por su consola USB (115200) se le provocan fallos y se acelera el tiempo. Se instala igual que WTTC, en <b>la otra placa</b>. Cómo conectarla, en el dibujo de abajo; sus órdenes, en <a href="https://github.com/matatunos/wttc/tree/main/herramientas/webasto_falsa" target="_blank" rel="noopener">su README</a>. De fábrica escucha por IO16, contesta por IO17 y devuelve el eco (conexión directa); para la conexión por el bus, escribe <code>eco no</code> en su consola, y <code>pines 16 17</code> para cambiar los pines.',
   'fBtn' => 'Instalar la Webasto falsa',
   'fNoPkg' => 'Llega con la próxima versión de WTTC. Mientras tanto, con Arduino IDE: herramientas/webasto_falsa del repositorio.',
   'back' => '← WTTC: controla la Thermo Top C desde el móvil',
@@ -60,7 +60,7 @@ $TX = [
   'notes' => 'Good to know',
   'notesList' => '<li>Reinstalling this way <b>does not erase</b> the settings, schedules or PIN.</li><li>Later versions are installed without a cable: app or the board\'s web page → <b>Check for updates</b>.</li><li>The installation window is in English (it is the <a href="https://esphome.github.io/esp-web-tools/" target="_blank" rel="noopener">ESP Web Tools</a> tool).</li><li>Before fitting it in the van, look at the <a href="{home}#montaje">wiring diagram</a> and the <a href="{home}#responsabilidad">disclaimer of liability</a>.</li>',
   'fTitle' => 'The fake Webasto: a second ESP32 acting as the heater',
-  'fIntro' => 'To test WTTC on the bench, without a van or diesel: another ESP32 (a classic one or an S3) pretends to be the Thermo Top C on the W-Bus. It starts, ignites, regulates, runs the after-run and reports faults; from its USB console (115200) you trigger failures and speed up time. It installs like WTTC, on <b>the other board</b>. Wiring and commands: <a href="{home}#webasto-falsa">on the website</a> and in <a href="https://github.com/matatunos/wttc/tree/main/herramientas/webasto_falsa" target="_blank" rel="noopener">its README</a>. By default it listens on IO16, answers on IO17 and returns the echo (direct wiring); for wiring through the bus, type <code>eco no</code> in its console, and <code>pines 16 17</code> to change the pins.',
+  'fIntro' => 'To test WTTC on the bench, without a van or diesel: another ESP32 (a classic one or an S3) pretends to be the Thermo Top C on the W-Bus. It starts, ignites, regulates, runs the after-run and reports faults; from its USB console (115200) you trigger failures and speed up time. It installs like WTTC, on <b>the other board</b>. How to wire it, in the drawing below; its commands, in <a href="https://github.com/matatunos/wttc/tree/main/herramientas/webasto_falsa" target="_blank" rel="noopener">its README</a>. By default it listens on IO16, answers on IO17 and returns the echo (direct wiring); for wiring through the bus, type <code>eco no</code> in its console, and <code>pines 16 17</code> to change the pins.',
   'fBtn' => 'Install the fake Webasto',
   'fNoPkg' => 'It comes with the next WTTC version. Meanwhile, use Arduino IDE: herramientas/webasto_falsa in the repository.',
   'back' => '← WTTC: control the Thermo Top C from your phone',
@@ -82,7 +82,7 @@ $TX = [
   'notes' => 'Gut zu wissen',
   'notesList' => '<li>Eine Neuinstallation auf diese Weise <b>löscht nicht</b> Einstellungen, Zeitpläne oder PIN.</li><li>Spätere Versionen werden ohne Kabel installiert: App oder Webseite der Platine → <b>Nach Updates suchen</b>.</li><li>Das Installationsfenster ist auf Englisch (es ist das Werkzeug <a href="https://esphome.github.io/esp-web-tools/" target="_blank" rel="noopener">ESP Web Tools</a>).</li><li>Vor dem Einbau den <a href="{home}#montaje">Schaltplan</a> und den <a href="{home}#responsabilidad">Haftungsausschluss</a> ansehen.</li>',
   'fTitle' => 'Die falsche Webasto: ein zweiter ESP32 als Heizung',
-  'fIntro' => 'Um WTTC auf dem Tisch zu testen, ohne Bus und ohne Diesel: ein weiterer ESP32 (ein klassischer oder ein S3) gibt sich am W-Bus als Thermo Top C aus. Er startet, zündet, regelt, macht den Nachlauf und meldet Fehler; über seine USB-Konsole (115200) löst man Fehler aus und beschleunigt die Zeit. Er wird wie WTTC installiert, auf <b>der anderen Platine</b>. Anschluss und Befehle: <a href="{home}#webasto-falsa">auf der Website</a> und in <a href="https://github.com/matatunos/wttc/tree/main/herramientas/webasto_falsa" target="_blank" rel="noopener">seiner README</a>. Ab Werk hört er auf IO16, antwortet auf IO17 und gibt das Echo zurück (direkte Verbindung); für die Verbindung über den Bus in seiner Konsole <code>eco no</code> eingeben, und <code>pines 16 17</code>, um die Pins zu ändern.',
+  'fIntro' => 'Um WTTC auf dem Tisch zu testen, ohne Bus und ohne Diesel: ein weiterer ESP32 (ein klassischer oder ein S3) gibt sich am W-Bus als Thermo Top C aus. Er startet, zündet, regelt, macht den Nachlauf und meldet Fehler; über seine USB-Konsole (115200) löst man Fehler aus und beschleunigt die Zeit. Er wird wie WTTC installiert, auf <b>der anderen Platine</b>. Wie man ihn anschließt, zeigt die Zeichnung unten; seine Befehle stehen in <a href="https://github.com/matatunos/wttc/tree/main/herramientas/webasto_falsa" target="_blank" rel="noopener">seiner README</a>. Ab Werk hört er auf IO16, antwortet auf IO17 und gibt das Echo zurück (direkte Verbindung); für die Verbindung über den Bus in seiner Konsole <code>eco no</code> eingeben, und <code>pines 16 17</code>, um die Pins zu ändern.',
   'fBtn' => 'Falsche Webasto installieren',
   'fNoPkg' => 'Kommt mit der nächsten WTTC-Version. Bis dahin mit der Arduino IDE: herramientas/webasto_falsa im Repository.',
   'back' => '← WTTC: Thermo Top C per Handy steuern',
@@ -110,6 +110,7 @@ $tr = fn($k) => strtr($T[$k], ['{home}' => $HOME[$lang]]);
 <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/montaje.css">
 <?php if ($ver): ?><script type="module" src="/vendor/esp-web-tools/10.4.0/install-button.js"></script><?php endif; ?>
 <style>
   :root{--bg-page:#0f1117;--bg-card:#1a1d27;--text:#e2e8f8;--muted:#7a84a8;--border:#2e3350;--warn:#e0a93a;--warn-bg:rgba(224,169,58,.12);
@@ -132,6 +133,7 @@ $tr = fn($k) => strtr($T[$k], ['{home}' => $HOME[$lang]]);
     font-size:1.05rem;font-weight:700;cursor:pointer}
   esp-web-install-button button.go:hover{filter:brightness(1.08)}
   code{font-family:ui-monospace,monospace;font-size:.88em}
+  .wirebox{margin:12px 0}
 </style>
 </head>
 <body><div class="wrap">
@@ -166,6 +168,9 @@ $installBtn = function (string $manifest, string $label, string $ev) use ($h, $T
 <ul><?= $tr('notesList') ?></ul>
 <h2 id="webasto-falsa"><?= $h($T['fTitle']) ?></h2>
 <p><?= $tr('fIntro') ?></p>
+<?php $version = $ver; require __DIR__ . '/i18n/t.php'; ?>
+<!-- Cómo conectarla con la placa de WTTC: el mismo dibujo que la portada (falsa.inc.php) -->
+<?php require __DIR__ . '/falsa.inc.php'; ?>
 <div class="card">
 <?php if ($manF): ?>
   <?php $installBtn($manF, $T['fBtn'], 'falsa'); ?>
