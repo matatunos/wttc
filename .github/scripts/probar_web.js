@@ -74,13 +74,23 @@ for (const lang of ['es', 'en', 'de']) {
   const P = el('list').innerHTML;
   assert.strictEqual((P.match(/data-k="cold"/g) || []).length, 3, 'falta «solo si hace frío»');
   assert.ok(/value="10" selected/.test(P) && /Se saltará la próxima vez/.test(P) && (P.match(/data-k="dup"/g) || []).length == 3, 'frío, saltar o duplicar mal pintados');
-  assert.ok(!el('schWarn').hidden && /07:00.*07:15/.test(el('schWarn').textContent), 'no avisa de que 07:00 y 07:15 se pisan el lunes');
+  assert.ok(!el('schWarn').hidden && /No se puede guardar.*07:00.*07:15/.test(el('schWarn').textContent), 'no avisa de que 07:00 y 07:15 se pisan el lunes');
+  assert.ok(el('save').disabled, 'con programas que se pisan se puede guardar');
   assert.ok(el('pauseD').value.length == 10 && /pausa/.test(el('next').textContent), 'no se ve la pausa');
   assert.ok(/5 encendidos.*0,48/.test(el('depLearn').textContent), 'no se ve la antelación aprendida: ' + el('depLearn').textContent);
   console.log('programador: ' + el('schWarn').textContent + ' | ' + el('next').textContent + ' | ' + el('depLearn').textContent);
+  const antes = sb.lastPost;
+  await el('save').onclick();
+  assert.ok(sb.lastPost === antes, 'se han mandado programas que se pisan (prohibido desde la 0.3.17)');
+  console.log('programador: solape bloqueado OK');
+  // Separados (el del lunes a las 10:00), sí se guardan
+  cur = state({ lang: 'es', on: false, pause: now + 86400 * 3, dlr: 48, dln: 5,
+    sch: [[1, 31, 420, 30, 0, 10, 1], [1, 1, 600, 30, 0, null, 0], [1, 96, 480, 120, 148]] }); W.st = cur; W.render();
+  assert.ok(el('schWarn').hidden, 'avisa de solape sin haberlo: ' + el('schWarn').textContent);
+  el('save').disabled = false;
   await el('save').onclick();
   const q = new URLSearchParams(sb.lastPost.b);
-  assert.ok(sb.lastPost.p == '/api/sched' && q.get('list') == '1,31,420,30,0,10;1,1,435,30,0;1,96,480,120,148' && q.get('skip') == '1' && +q.get('pause') > now,
+  assert.ok(sb.lastPost.p == '/api/sched' && q.get('list') == '1,31,420,30,0,10;1,1,600,30,0;1,96,480,120,148' && q.get('skip') == '1' && +q.get('pause') > now,
     'guardar programas manda mal: ' + sb.lastPost.b);
   console.log('programador: guardar OK (' + decodeURIComponent(sb.lastPost.b) + ')');
   console.log('Web de la placa: OK');

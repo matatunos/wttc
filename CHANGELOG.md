@@ -6,6 +6,14 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.3.17 — 2026-10-17
+
+Versión de prueba (sin probar con una Webasto real).
+
+- **Prohibido que los programas se pisen.** Antes solo se avisaba; ahora no se pueden guardar (ni desde la web, ni desde la app, ni por Bluetooth: la placa lo comprueba siempre). Cada programa ocupa su rato: uno normal, de su hora a su final; uno con «hora de salida», los 90 minutos antes de la salida (lo más pronto que puede encender). Entre el final de uno y el principio del siguiente tiene que haber **al menos 5 minutos** (el postbarrido de la Webasto y margen), también cruzando la medianoche (domingo por la noche y lunes de madrugada, por ejemplo). La web y la app marcan en rojo los dos que chocan.
+- **«Salgo a las…» tampoco puede pisar un programa**, ni un programa la salida que ya esté puesta.
+- **Programas guardados con versiones anteriores que se pisen**: al arrancar, la placa desactiva el segundo de cada pareja y lo apunta en el registro («Programa de las 16:15 desactivado: se pisaba con el de las 16:05»).
+
 ## 0.3.16 — 2026-10-17
 
 Versión de prueba (sin probar con una Webasto real).

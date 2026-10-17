@@ -386,7 +386,39 @@ static void pruebasConsola() {
   CHECK(lineas(L, largo, u) == 0 && lineas(L, "\n", u) == 1 && strlen(u) == 159);   // recorta, no se sale
 }
 
+
+// Programas que se pisan (prohibido): ventanas de la semana, separación de SCHED_GAP, salida y medianoche
+static void pruebasChoque() {
+  int i, j;
+  const uint8_t TODOS = 0x7F, LUN = 1, MAR = 2, DOM = 64;
+  ProgV a[] = {{true, TODOS, 16 * 60 + 5, 30, false}, {true, TODOS, 16 * 60 + 15, 30, false}};
+  CHECK(progChoque(a, 2, i, j) && i == 0 && j == 1);          // 16:05–16:35 y 16:15: se pisan (el caso de la mesa)
+  a[1].start = 16 * 60 + 38;                                   // 16:38: solo 3 min tras el final → falta separación
+  CHECK(progChoque(a, 2, i, j));
+  a[1].start = 16 * 60 + 40;                                   // 16:40: 5 min tras el final → vale
+  CHECK(!progChoque(a, 2, i, j));
+  a[1].en = false; a[1].start = 16 * 60 + 15;                  // desactivado: no cuenta
+  CHECK(!progChoque(a, 2, i, j));
+  a[1].en = true; a[0].days = LUN; a[1].days = MAR;            // mismos horarios, días distintos: vale
+  CHECK(!progChoque(a, 2, i, j));
+  ProgV m[] = {{true, LUN, 23 * 60 + 50, 30, false}, {true, MAR, 10, 30, false}};
+  CHECK(progChoque(m, 2, i, j));                               // lunes 23:50–00:20 del martes y martes 00:10
+  ProgV dom[] = {{true, DOM, 23 * 60 + 40, 30, false}, {true, LUN, 5, 30, false}};
+  CHECK(progChoque(dom, 2, i, j));                             // domingo 23:40 → lunes 00:10 pisa el lunes 00:05
+  ProgV s[] = {{true, TODOS, 7 * 60, 30, false}, {true, TODOS, 8 * 60, 30, true}};
+  CHECK(progChoque(s, 2, i, j));                               // salida a las 8:00: puede encender desde las 6:30
+  s[0].start = 6 * 60;                                         // 6:00–6:30 y salida 8:00 (desde 6:30): falta separación
+  CHECK(progChoque(s, 2, i, j));
+  s[0].start = 5 * 60 + 50;                                    // 5:50–6:20 y salida 8:00: 10 min de margen → vale
+  CHECK(!progChoque(s, 2, i, j));
+  int k;
+  CHECK(ventanaChocaProg(s, 2, 2 * 1440 + 6 * 60, 10, k) && k == 0);        // salida suelta el miércoles 6:00 (5:50–6:20)
+  CHECK(ventanaChocaProg(s, 2, 2 * 1440 + 6 * 60 + 25, 10, k) && k == 1);   // 6:25: choca con la salida de las 8:00
+  CHECK(!ventanaChocaProg(s, 2, 2 * 1440 + 12 * 60, 30, k));
+}
+
 int main() {
+  pruebasChoque();
   pruebasConsola();
   pruebasCo();
   pruebasAverias();

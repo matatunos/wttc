@@ -1232,22 +1232,33 @@ class MainActivity : Activity(), BleLink.Listener {
         }.show()
     }
 
-    // Aviso si dos programas activos se pisan el mismo día (la salida cuenta desde una hora antes, cuando puede encender)
-    private fun overlapWarn(): String {
-        val a = progs.filter { it.en && it.days != 0 }
-        fun r(p: Prog) = if (p.x and 128 != 0) (p.start - 60) to p.start else p.start to (p.start + p.dur)
-        for (i in a.indices) for (j in i + 1 until a.size) {
-            val d = a[i].days and a[j].days
-            if (d == 0) continue
-            val x = r(a[i]); val y = r(a[j])
-            if (x.first < y.second && y.first < x.second)
-                return getString(R.string.prog_overlap, hm(a[i].start), hm(a[j].start), (0 until 7).filter { (d shr it) and 1 == 1 }.joinToString(", ") { dayLetters[it] })
+    // Programas que se pisan: PROHIBIDO (0.3.17). Lo mismo que progChoque() del firmware (logica.h) y choque() de su web:
+    // cada programa ocupa una ventana de la semana (normal: de su hora a su final; «hora de salida»: los 90 min antes,
+    // lo más pronto que puede encender), con 5 min de separación (postbarrido + margen), cruzando la medianoche.
+    // Devuelve el primer par que se pisa (índices en progs) o null. La placa lo comprueba igualmente al guardar.
+    private val SEM = 7 * 1440; private val GAP = 5; private val DEPMAX = 90
+    private fun ms(m: Int) = ((m % SEM) + SEM) % SEM
+    private fun progChoque(): Pair<Int, Int>? {
+        val a = progs.withIndex().filter { it.value.en && it.value.days != 0 }
+        fun v(p: Prog, d: Int) = ms(d * 1440 + p.start - (if (p.x and 128 != 0) DEPMAX else 0)) to (if (p.x and 128 != 0) DEPMAX else p.dur)
+        for (i in a.indices) for (j in i + 1 until a.size) for (p in 0 until 7) {
+            if ((a[i].value.days shr p) and 1 == 0) continue
+            for (q in 0 until 7) {
+                if ((a[j].value.days shr q) and 1 == 0) continue
+                val (x, lx) = v(a[i].value, p); val (y, ly) = v(a[j].value, q)
+                if (ms(y - x) < lx + GAP || ms(x - y) < ly + GAP) return a[i].index to a[j].index
+            }
         }
-        return ""
+        return null
+    }
+    private fun overlapWarn(): String {
+        val c = progChoque() ?: return ""
+        return getString(R.string.prog_overlap, hm(progs[c.first].start), hm(progs[c.second].start), GAP, DEPMAX)
     }
 
     // Manda los programas a la placa en el formato de texto del firmware
     private fun saveProgs() {
+        if (progChoque() != null) { progWarn(); toast(overlapWarn()); return }   // no se guardan programas que se pisan
         if (fwSch2) {
             val list = progs.joinToString(";") { "${if (it.en) 1 else 0},${it.days},${it.start},${it.dur},${it.x}" + (it.cold?.let { c -> ",$c" } ?: "") }
             val skip = progs.withIndex().fold(0) { m, (i, p) -> if (p.skip) m or (1 shl i) else m }

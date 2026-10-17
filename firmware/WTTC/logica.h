@@ -387,3 +387,56 @@ inline bool lineaFeed(LineaSerie& L, char c) {
   if (L.n < (int)sizeof L.buf - 1) L.buf[L.n++] = c;
   return false;
 }
+
+// ============================================================================================================
+// Programas que se pisan: PROHIBIDO (0.3.17). Cada programa ocupa una ventana de la semana: uno normal, de su hora
+// a su final (su duración); uno con «hora de salida», los DEP_MAX_LEAD minutos antes de la salida (lo más pronto que
+// puede encender). Entre el final de una ventana y el principio de otra tiene que haber SCHED_GAP minutos (el
+// postbarrido de la Webasto, unos 2,5 min, más margen): si no, tendría que arrancar mientras se enfría, o dos
+// programas se pelearían por el mismo encendido. Se mira toda la semana, también cruzando la medianoche.
+// Lo mismo hacen la web de la placa (web.h, choque()) y la app (MainActivity.kt, progChoque()): si cambia, cambiarlo
+// en los tres sitios.
+// ============================================================================================================
+const int SCHED_GAP = 5;
+const int SEMANA_MIN = 7 * 1440;
+struct ProgV { bool en; uint8_t days; uint16_t start, dur; bool dep; };
+inline int modSemana(int m) { return ((m % SEMANA_MIN) + SEMANA_MIN) % SEMANA_MIN; }
+inline void progVentana(const ProgV& p, int dia, int& ini, int& largo) {
+  largo = p.dep ? DEP_MAX_LEAD : p.dur;
+  ini = modSemana(dia * 1440 + p.start - (p.dep ? DEP_MAX_LEAD : 0));
+}
+// ¿Se pisan dos ventanas [a, a+la) y [b, b+lb) de la semana, con gap minutos de separación?
+inline bool ventanasChocan(int a, int la, int b, int lb, int gap) {
+  return modSemana(b - a) < la + gap || modSemana(a - b) < lb + gap;
+}
+// Primer par de programas activos que se pisan: true y sus índices (i < j)
+inline bool progChoque(const ProgV* p, int n, int& i, int& j) {
+  for (i = 0; i < n; i++) {
+    if (!p[i].en || !p[i].days) continue;
+    for (j = i + 1; j < n; j++) {
+      if (!p[j].en || !p[j].days) continue;
+      for (int a = 0; a < 7; a++) {
+        if (!(p[i].days >> a & 1)) continue;
+        for (int b = 0; b < 7; b++) {
+          if (!(p[j].days >> b & 1)) continue;
+          int ia, la, ib, lb;
+          progVentana(p[i], a, ia, la); progVentana(p[j], b, ib, lb);
+          if (ventanasChocan(ia, la, ib, lb, SCHED_GAP)) return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+// ¿Pisa una ventana suelta (la salida de «Salgo a las…»: [ini, ini+largo) de la semana) algún programa activo? i = cuál
+inline bool ventanaChocaProg(const ProgV* p, int n, int ini, int largo, int& i) {
+  for (i = 0; i < n; i++) {
+    if (!p[i].en) continue;
+    for (int a = 0; a < 7; a++) {
+      if (!(p[i].days >> a & 1)) continue;
+      int ia, la; progVentana(p[i], a, ia, la);
+      if (ventanasChocan(ia, la, ini, largo, SCHED_GAP)) return true;
+    }
+  }
+  return false;
+}

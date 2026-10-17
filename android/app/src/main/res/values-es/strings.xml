@@ -309,7 +309,7 @@
     <string name="prog_pause_none">Programas sin pausa</string>
     <string name="prog_paused">En pausa hasta el %1$s (vuelven solos)</string>
     <string name="prog_pause_clear">Quitar la pausa</string>
-    <string name="prog_overlap">Ojo: los programas de las %1$s y de las %2$s se pisan (%3$s)</string>
+    <string name="prog_overlap">No se puede guardar: los programas de las %1$s y de las %2$s se pisan. Entre el final de uno y el principio del otro tiene que haber al menos %3$d min (con «hora de salida», cuenta desde %4$d min antes de la salida). Cambia la hora, la duración o los días.</string>
     <string name="prog_tpl_title">Programa nuevo</string>
     <string name="prog_tpl_0">Vacío: 07:00, 30 min, laborables</string>
     <string name="prog_tpl_1">Laborables: salir a las 7:30</string>

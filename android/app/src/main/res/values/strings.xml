@@ -310,7 +310,7 @@
     <string name="prog_pause_none">Programs not paused</string>
     <string name="prog_paused">Paused until %1$s (they resume by themselves)</string>
     <string name="prog_pause_clear">Remove pause</string>
-    <string name="prog_overlap">Note: the programs at %1$s and at %2$s overlap (%3$s)</string>
+    <string name="prog_overlap">Cannot save: the programs at %1$s and at %2$s overlap. There must be at least %3$d min between the end of one and the start of the other (with «leaving time», counting from %4$d min before leaving). Change the time, duration or days.</string>
     <string name="prog_tpl_title">New program</string>
     <string name="prog_tpl_0">Empty: 07:00, 30 min, weekdays</string>
     <string name="prog_tpl_1">Weekdays: leave at 7:30</string>

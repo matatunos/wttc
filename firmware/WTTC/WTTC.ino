@@ -173,7 +173,7 @@ const uint16_t MAX_SESSION  = 240;    // min: ventana máxima de «calentar hast
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
 const uint32_t DISP_MS      = 60000;  // ms que la pantalla sigue encendida (modo automático) tras el último motivo
-#define FW_VERSION "0.3.16"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
+#define FW_VERSION "0.3.17"   // debe coincidir con el fichero VERSION de la raíz del repo (lo comprueba la CI)
 
 // UUID del servicio Bluetooth y sus tres características (la app Android usa exactamente los mismos)
 #define BLE_SVC   "6e0a0001-7c1d-4b9a-9f3e-5a2c8d7e4b10"   // servicio WTTC (la app busca placas por este UUID)
@@ -463,7 +463,7 @@ enum Txt {
   T_CHK_TITLE, T_CHK_V_OK, T_CHK_V_WARN, T_CHK_V_BAD, T_CHK_BUS_OK, T_CHK_NOBUS_ECHO, T_CHK_NOBUS_NOECHO, T_CHK_DEV, T_CHK_MADE, T_CHK_BATT, T_CHK_WATER, T_CHK_GLOW, T_CHK_USE, T_CHK_NOFAULTS, T_CHK_FAULTS, T_CHK_FAULT, T_CHK_FWHEN, T_CHK_FUNK, T_CHK_TIPS, T_CHK_T_LOCK, T_CHK_T_START, T_CHK_T_BATT, T_CHK_T_WATER, T_CHK_T_GLOW, T_CHK_T_FLAME, T_CHK_T_IDLE, T_CHK_HEATING, T_LOG_CHK, T_CHK_CLEARED, T_E_CLR_HEAT, T_E_CLR_FAIL,
   T_CO_WARN, T_CO_ALARM, T_CO_OFF, T_CO_CLEAR, T_CO_LOST, T_CO_BACK, T_E_CO, T_LOG_CO_NOSENS, T_WHY_CO, T_NOTE_CO, T_D_CO,
   T_CHK_CO, T_CHK_CO_LOST, T_CHK_CO_HEAT, T_CO_FORGOT,
-  T_LOG_SCHED_BUSY,
+  T_LOG_SCHED_BUSY, T_E_SCHED_CLASH, T_LOG_SCHED_CLASH_OFF, T_E_DEP_CLASH,
   T_COUNT
 };
 
@@ -724,6 +724,9 @@ const char* const TXT[T_COUNT][L_N] = {
   /* T_CHK_CO_HEAT */ {"Sensor de CO: calentándose (3 min tras conectarlo)", "CO sensor: warming up (3 min after connecting)", "CO-Sensor: wärmt sich auf (3 Min. nach dem Anschließen)"},
   /* T_CO_FORGOT */ {"Sensor de CO olvidado: ya no se echa en falta", "CO sensor forgotten: it is no longer expected", "CO-Sensor vergessen: er wird nicht mehr erwartet"},
   /* T_LOG_SCHED_BUSY */ {"Programa de las %s: ya estaba calentando, no hace nada", "Schedule at %s: already heating, nothing to do", "Zeitplan um %s: heizt bereits, nichts zu tun"},
+  /* T_E_SCHED_CLASH */ {"No se ha guardado: los programas de las %s y de las %s se pisan. Entre el final de uno y el principio del otro tiene que haber al menos %d min (con «hora de salida», cuenta desde %d min antes de la salida).", "Not saved: the programs at %s and at %s overlap. There must be at least %d min between the end of one and the start of the other (with «leaving time», counting from %d min before leaving).", "Nicht gespeichert: die Programme um %s und um %s überschneiden sich. Zwischen dem Ende des einen und dem Beginn des anderen müssen mindestens %d Min. liegen (mit «Abfahrtszeit» ab %d Min. vor der Abfahrt)."},
+  /* T_LOG_SCHED_CLASH_OFF */ {"Programa de las %s desactivado: se pisaba con el de las %s", "Program at %s disabled: it overlapped the one at %s", "Programm um %s deaktiviert: es überschnitt sich mit dem um %s"},
+  /* T_E_DEP_CLASH */ {"Esa salida se pisa con el programa de las %s: elige otra hora o desactiva ese programa.", "That departure overlaps the program at %s: choose another time or disable that program.", "Diese Abfahrt überschneidet sich mit dem Programm um %s: andere Zeit wählen oder das Programm deaktivieren."},
 };
 
 // Texto en el idioma elegido
@@ -2483,38 +2486,66 @@ void saveSched() {
 // Se descartan las entradas mal formadas o fuera de rango; la duración se limita a MAX_MIN (MAX_SESSION con objetivo).
 // full = false: viene de una app anterior a la 0.3.6 («setsched»), que no conoce «solo si hace frío»: los programas que
 // siguen igual (misma hora y días) conservan su condición
-void applySched(const String& a, const String& L, const String& skip, const String& pause, bool full) {
-  Sched oldS[MAX_SCHED]; int8_t oldC[MAX_SCHED]; uint8_t oldN = nSch;
-  memcpy(oldS, sch, sizeof oldS); memcpy(oldC, schC, sizeof oldC);
-  autoOn = a == "1";
-  nSch = 0;
-  if (skip.length()) schSkip = (uint8_t)skip.toInt();
-  if (pause.length()) { long p = pause.toInt(); schPause = p > (long)time(nullptr) ? (uint32_t)p : 0; }
+// Guarda los programas que llegan de la web o la app. Si dos activos se pisan (progChoque, logica.h), NO guarda nada y
+// devuelve por qué; si todo va bien, "".
+String applySched(const String& a, const String& L, const String& skip, const String& pause, bool full) {
+  Sched nS[MAX_SCHED] = {}; uint8_t nX[MAX_SCHED] = {}; int8_t nC[MAX_SCHED] = {}; int n = 0;
   int p = 0;
-  while (p < (int)L.length() && nSch < MAX_SCHED) {
+  while (p < (int)L.length() && n < MAX_SCHED) {
     int q = L.indexOf(';', p);
     if (q < 0) q = L.length();
     String it = L.substring(p, q);
     p = q + 1;
     int e, d, st, du, x = 0, cold = SCH_NOCOLD;
     if (sscanf(it.c_str(), "%d,%d,%d,%d,%d,%d", &e, &d, &st, &du, &x, &cold) >= 4 && st >= 0 && st < 1440 && du > 0) {
-      schC[nSch] = cold >= -20 && cold <= 30 ? (int8_t)cold : SCH_NOCOLD;   // fuera de rango: sin condición
-      if (!full) for (int o = 0; o < oldN; o++) if (oldS[o].start == st && oldS[o].days == (d & 0x7F)) { schC[nSch] = oldC[o]; break; }
+      nC[n] = cold >= -20 && cold <= 30 ? (int8_t)cold : SCH_NOCOLD;   // fuera de rango: sin condición
+      if (!full) for (int o = 0; o < nSch; o++) if (sch[o].start == st && sch[o].days == (d & 0x7F)) { nC[n] = schC[o]; break; }
       x &= SX_DEP | SX_TGT;
       int tg = x & SX_TGT;
       if (tg && (tg < TGT_MIN || tg > TGT_MAX)) x &= SX_DEP;   // objetivo fuera de rango: sin termostato
-      sch[nSch].en = e ? 1 : 0;
-      sch[nSch].days = d & 0x7F;                  // solo los 7 bits de los días
-      sch[nSch].start = st;                       // minutos desde las 00:00
-      sch[nSch].dur = min(du, (int)((x & SX_TGT) ? MAX_SESSION : MAX_MIN));
-      schX[nSch] = x;
-      depDone[nSch] = 0;
-      nSch++;
+      nS[n].en = e ? 1 : 0;
+      nS[n].days = d & 0x7F;                      // solo los 7 bits de los días
+      nS[n].start = st;                           // minutos desde las 00:00
+      nS[n].dur = min(du, (int)((x & SX_TGT) ? MAX_SESSION : MAX_MIN));
+      nX[n] = x;
+      n++;
     }
   }
+  ProgV v[MAX_SCHED]; int ci, cj;
+  progArray(v, nS, nX, n);
+  if (progChoque(v, n, ci, cj)) return trf(T_E_SCHED_CLASH, hm(nS[ci].start).c_str(), hm(nS[cj].start).c_str(), SCHED_GAP, DEP_MAX_LEAD);
+  if (depOnce && a == "1") {                      // y tampoco la salida suelta que haya («Salgo a las…»)
+    time_t dt = (time_t)depOnce * 60; struct tm tm; localtime_r(&dt, &tm);
+    if (ventanaChocaProg(v, n, modSemana(((tm.tm_wday + 6) % 7) * 1440 + tm.tm_hour * 60 + tm.tm_min - DEP_MAX_LEAD), DEP_MAX_LEAD, ci))
+      return trf(T_E_DEP_CLASH, hm(nS[ci].start).c_str());
+  }
+  autoOn = a == "1";
+  if (skip.length()) schSkip = (uint8_t)skip.toInt();
+  if (pause.length()) { long pz = pause.toInt(); schPause = pz > (long)time(nullptr) ? (uint32_t)pz : 0; }
+  nSch = n;
+  memcpy(sch, nS, sizeof(Sched) * n); memcpy(schX, nX, n); memcpy(schC, nC, n);
+  for (int i = 0; i < n; i++) depDone[i] = 0;
   schSkip &= (1 << nSch) - 1;                     // solo los programas que hay
   saveSched();
   addLog(trf(T_LOG_SCHED, nSch));
+  return "";
+}
+
+// Los programas en el formato de progChoque (logica.h)
+void progArray(ProgV* v, const Sched* sc, const uint8_t* x, int n) {
+  for (int i = 0; i < n; i++) v[i] = {sc[i].en != 0, sc[i].days, sc[i].start, sc[i].dur, (x[i] & SX_DEP) != 0};
+}
+
+// Al arrancar: programas guardados por versiones anteriores que se pisan → se desactiva el segundo de cada par y se
+// apunta (desde la 0.3.17 no se pueden guardar así)
+void schedFixClash() {
+  ProgV v[MAX_SCHED]; int ci, cj; bool cambio = false;
+  progArray(v, sch, schX, nSch);
+  while (progChoque(v, nSch, ci, cj)) {
+    sch[cj].en = 0; v[cj].en = false; cambio = true;
+    addLog(trf(T_LOG_SCHED_CLASH_OFF, hm(sch[cj].start).c_str(), hm(sch[ci].start).c_str()));
+  }
+  if (cambio) saveSched();
 }
 
 // Los programas en el mismo formato de texto, para la app ("1|1,31,420,30;0,96,600,15,148,8|2|0"): opciones y frío solo
@@ -3058,7 +3089,14 @@ String runCmd(String c) {
     int nf = sscanf(a.c_str(), "%d:%d %d", &h, &mi, &tg);
     if (!timeValid() || nf < 2 || h < 0 || h > 23 || mi < 0 || mi > 59 || (tg && (tg < TGT_MIN || tg > TGT_MAX)))
       return String("dep:err ") + tr(T_E_DEP);
-    depSet(depNext(h, mi), tg);
+    // Tampoco puede pisar un programa (puede encender desde DEP_MAX_LEAD min antes de la salida)
+    uint32_t dm = depNext(h, mi);
+    time_t dt = (time_t)dm * 60; struct tm tm; localtime_r(&dt, &tm);
+    ProgV v[MAX_SCHED]; int ci;
+    progArray(v, sch, schX, nSch);
+    if (autoOn && ventanaChocaProg(v, nSch, modSemana(((tm.tm_wday + 6) % 7) * 1440 + h * 60 + mi - DEP_MAX_LEAD), DEP_MAX_LEAD, ci))
+      return String("dep:err ") + trf(T_E_DEP_CLASH, hm(sch[ci].start).c_str());
+    depSet(dm, tg);
     return "dep:ok";
   }
   if (k == "state") return "state:" + stateJson();
@@ -3082,8 +3120,8 @@ String runCmd(String c) {
       int d = skip.indexOf('|');
       if (d >= 0) { pause = skip.substring(d + 1); skip = skip.substring(0, d); }
     }
-    applySched(a.substring(0, b), list, skip, pause, k == "setsched2");
-    return k + ":ok";
+    String e = applySched(a.substring(0, b), list, skip, pause, k == "setsched2");
+    return e.length() ? k + ":err " + e : k + ":ok";
   }
   if (k == "errors") return "errors:" + errorsJson();
   if (k == "check") { bool was = heaterOn; String m = checkNow(a == "tg"); return was ? "check:err " + m : "check:" + chkJson(); }          // chequeo de la Webasto (0.3.8)
@@ -3805,8 +3843,8 @@ void handleOff() {
 
 // POST /api/sched (auto, list): guardar programas
 void handleSched() {
-  applySched(server.arg("auto"), server.arg("list"), server.arg("skip"), server.arg("pause"), true);
-  server.send(200, "text/plain", "ok");
+  String e = applySched(server.arg("auto"), server.arg("list"), server.arg("skip"), server.arg("pause"), true);
+  if (e.length()) server.send(409, "text/plain; charset=utf-8", e); else server.send(200, "text/plain", "ok");
 }
 
 // POST /api/time (epoch): poner en hora desde el navegador
@@ -4138,6 +4176,7 @@ void setup() {
   pinMode(BTN_PIN, INPUT_PULLUP);
   pinMode(HEAT_BTN_PIN, INPUT_PULLUP);            // botón «calentar» (opcional): sin botón, se queda en alto
   hwProbe();
+  schedFixClash();                                // programas guardados que se pisan (de antes de la 0.3.17): se desactivan
   dispWake();
   // El PIN Bluetooth sale aquí: es la forma de conocerlo la primera vez (o en la web, Configuración)
   printMotd();                                    // cómo conectarse y con qué claves (también con la orden «info»)

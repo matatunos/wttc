@@ -309,7 +309,7 @@
     <string name="prog_pause_none">Programme nicht pausiert</string>
     <string name="prog_paused">Pausiert bis %1$s (laufen danach von selbst weiter)</string>
     <string name="prog_pause_clear">Pause aufheben</string>
-    <string name="prog_overlap">Achtung: die Programme um %1$s und um %2$s überschneiden sich (%3$s)</string>
+    <string name="prog_overlap">Speichern nicht möglich: die Programme um %1$s und um %2$s überschneiden sich. Zwischen dem Ende des einen und dem Beginn des anderen müssen mindestens %3$d Min. liegen (mit «Abfahrtszeit» ab %4$d Min. vor der Abfahrt). Uhrzeit, Dauer oder Tage ändern.</string>
     <string name="prog_tpl_title">Neues Programm</string>
     <string name="prog_tpl_0">Leer: 07:00, 30 min, werktags</string>
     <string name="prog_tpl_1">Werktags: Abfahrt 7:30</string>
