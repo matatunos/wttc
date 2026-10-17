@@ -99,11 +99,11 @@ struct Webasto {
   }
   // Encender: solo desde apagada del todo; calentando, en postbarrido o en fallo se ignora (no alarga el tiempo)
   void on(uint8_t min) {
-    if (st == LOCK) { say("encender %u min: IGNORADO, está bloqueada (se borra con 0x56 03 o «borrar»)", min); err(0x07); return; }
-    if (st != OFF) { say("encender %u min: IGNORADO, está %s (solo enciende desde apagada del todo)", min, ST_NAME[st]); return; }
+    if (st == LOCK) { say("encender %d min: IGNORADO, está bloqueada (se borra con 0x56 03 o «borrar»)", min); err(0x07); return; }
+    if (st != OFF) { say("encender %d min: IGNORADO, está %s (solo enciende desde apagada del todo)", min, ST_NAME[st]); return; }
     cmd = 0x21; runLeft = (int32_t)min * 60000; refresh = 0;
     tries = 0; starts++;
-    say("encender %u min: aceptado (arranque nº %lu; mantenimiento cada <20 s o se apaga)", min, (unsigned long)starts);
+    say("encender %d min: aceptado (arranque nº %lu; mantenimiento cada <20 s o se apaga)", min, (unsigned long)starts);
     set(FAN, "empieza el arranque");
   }
 

@@ -6,6 +6,11 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.3.13 — 2026-10-17
+
+Versión de prueba. Es la 0.3.12 (abajo) con su firmware: la Release 0.3.12 salió solo con la app, porque el análisis
+estático paró la compilación por unos formatos de texto de la Webasto falsa.
+
 ## 0.3.12 — 2026-10-17
 
 Versión de prueba (sin probar con una Webasto real).

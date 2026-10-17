@@ -89,7 +89,7 @@ String secs(uint32_t ms) { char b[16]; snprintf(b, sizeof b, "%.1f s", ms / 1000
 String asks(uint8_t c, const uint8_t* d, int n) {
   char b[90];
   switch (c) {
-    case 0x21: snprintf(b, sizeof b, "encender %u min", n ? d[0] : 0); break;
+    case 0x21: snprintf(b, sizeof b, "encender %d min", n ? d[0] : 0); break;
     case 0x10: snprintf(b, sizeof b, "apagar"); break;
     case 0x44: {
       uint32_t ago = st.lastKaAt ? millis() - st.lastKaAt : 0;
@@ -113,18 +113,18 @@ String asks(uint8_t c, const uint8_t* d, int n) {
 // Qué le contesta, en texto
 String says(uint8_t c, const uint8_t* d, int n) {
   char b[160];
-  if (c == 0x21) snprintf(b, sizeof b, "«vale, %u min»%s", n ? d[0] : 0, w.cmd && wf::active(w.st) ? "" : " (pero no ha arrancado: ver arriba)");
+  if (c == 0x21) snprintf(b, sizeof b, "«vale, %d min»%s", n ? d[0] : 0, w.cmd && wf::active(w.st) ? "" : " (pero no ha arrancado: ver arriba)");
   else if (c == 0x10) snprintf(b, sizeof b, "«apagando» → %s", wf::ST_NAME[w.st]);
   else if (c == 0x44) snprintf(b, sizeof b, n && d[0] == 0 ? "«sigo con la orden»" : "«no tengo esa orden» (WTTC entenderá que se ha apagado)");
   else if (c == 0x50 && n >= 9 && d[0] == 0x05)
-    snprintf(b, sizeof b, "agua %d °C · %.2f V · llama %s · %u W · bujía %.2f Ω", d[1] - 50, ((d[2] << 8) | d[3]) / 1000.0f,
+    snprintf(b, sizeof b, "agua %d °C · %.2f V · llama %s · %d W · bujía %.2f Ω", d[1] - 50, ((d[2] << 8) | d[3]) / 1000.0f,
              d[4] ? "sí" : "no", (d[5] << 8) | d[6], ((d[7] << 8) | d[8]) / 1000.0f);
   else if (c == 0x56 && n >= 2 && d[0] == 0x01) {
     if (!d[1]) snprintf(b, sizeof b, "ninguna avería guardada");
     else {
-      int k = snprintf(b, sizeof b, "%u averías:", d[1]);
+      int k = snprintf(b, sizeof b, "%d averías:", d[1]);
       for (int i = 0; i < d[1] && 3 + 2 * i < n && k < (int)sizeof b - 20; i++)
-        k += snprintf(b + k, sizeof b - k, " 0x%02X×%u", d[2 + 2 * i], d[3 + 2 * i]);
+        k += snprintf(b + k, sizeof b - k, " 0x%02X×%d", d[2 + 2 * i], d[3 + 2 * i]);
     }
   }
   else if (c == 0x56 && n && d[0] == 0x03) snprintf(b, sizeof b, "averías borradas");
@@ -135,7 +135,7 @@ String says(uint8_t c, const uint8_t* d, int n) {
 void printState() {
   const char mark = '=';
   String e;
-  for (int i = 0; i < w.errN; i++) { char t[16]; snprintf(t, sizeof t, " 0x%02X×%u", w.errCode[i], w.errCnt[i]); e += t; }
+  for (int i = 0; i < w.errN; i++) { char t[16]; snprintf(t, sizeof t, " 0x%02X×%d", w.errCode[i], w.errCnt[i]); e += t; }
   lg(mark, "%s · agua %.1f °C · dentro %.1f °C · fuera %.1f °C · %.2f V · llama %s · %u W", wf::ST_NAME[w.st], w.temp, w.cab,
        w.env.amb, w.volt(), w.flame() ? "sí" : "no", (unsigned)w.pw);
   if (w.cmd) lg(mark, "  orden 0x21: quedan %ld s · último mantenimiento hace %s (a los 20 s se apaga)",
