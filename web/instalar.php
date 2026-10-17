@@ -22,10 +22,10 @@ $manF = $ver && is_file(__DIR__ . "$vdir/falsa.json") ? "$vdir/falsa.json" : '';
 
 $TX = [
 'es' => [
-  'title' => 'Instalar WTTC desde el navegador (ESP32 y ESP32-S3)',
+  'title' => 'Instalar WTTC desde el navegador (ESP32-S3) y la Webasto falsa',
   'desc' => 'Graba el firmware de WTTC en tu ESP32 o ESP32-S3 desde Chrome o Edge, sin Arduino IDE: pincha la placa por USB, pulsa Instalar y en un minuto está lista.',
   'h1' => 'Instalar WTTC desde el navegador',
-  'intro' => 'Sin Arduino IDE ni nada que instalar: pincha la placa al ordenador por USB, pulsa <b>Instalar</b> y el navegador graba la última versión de WTTC. Detecta solo si es un <b>ESP32-S3</b> o un <b>ESP32</b> y graba el programa que le toca.',
+  'intro' => 'Sin Arduino IDE ni nada que instalar: pincha la placa al ordenador por USB, pulsa <b>Instalar</b> y el navegador graba la última versión de WTTC. WTTC necesita un <b>ESP32-S3</b>; la Webasto falsa (más abajo) vale para cualquier ESP32.',
   'need' => 'Qué necesitas',
   'needList' => '<li><b>Chrome, Edge u Opera en un ordenador</b> (Windows, Linux o macOS). Firefox y Safari no pueden hablar con el puerto USB.</li><li>Un <b>cable USB de datos</b> (muchos de cargar no llevan datos).</li><li>En el <b>ESP32-S3</b>, el USB marcado <b>UART</b> o <b>COM</b> (el otro es el USB del propio chip).</li><li>En Windows, si no aparece ningún puerto, el driver del chip USB: <a href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers" target="_blank" rel="noopener">CP210x</a> o <a href="https://www.wch.cn/downloads/CH343SER_ZIP.html" target="_blank" rel="noopener">CH343</a>.</li>',
   'btn' => 'Instalar WTTC',
@@ -44,10 +44,10 @@ $TX = [
   'back' => '← WTTC: controla la Thermo Top C desde el móvil',
 ],
 'en' => [
-  'title' => 'Install WTTC from the browser (ESP32 and ESP32-S3)',
+  'title' => 'Install WTTC from the browser (ESP32-S3) and the fake Webasto',
   'desc' => 'Flash the WTTC firmware to your ESP32 or ESP32-S3 from Chrome or Edge, no Arduino IDE needed: plug the board in over USB, click Install and it is ready in a minute.',
   'h1' => 'Install WTTC from the browser',
-  'intro' => 'No Arduino IDE and nothing to install: plug the board into your computer over USB, click <b>Install</b> and the browser flashes the latest WTTC version. It detects by itself whether it is an <b>ESP32-S3</b> or an <b>ESP32</b> and flashes the right program.',
+  'intro' => 'No Arduino IDE and nothing to install: plug the board into your computer over USB, click <b>Install</b> and the browser flashes the latest WTTC version. WTTC needs an <b>ESP32-S3</b>; the fake Webasto (below) works on any ESP32.',
   'need' => 'What you need',
   'needList' => '<li><b>Chrome, Edge or Opera on a computer</b> (Windows, Linux or macOS). Firefox and Safari cannot talk to the USB port.</li><li>A <b>USB data cable</b> (many charging cables carry no data).</li><li>On the <b>ESP32-S3</b>, the USB port marked <b>UART</b> or <b>COM</b> (the other one is the chip\'s own USB).</li><li>On Windows, if no port shows up, the driver for the USB chip: <a href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers" target="_blank" rel="noopener">CP210x</a> or <a href="https://www.wch.cn/downloads/CH343SER_ZIP.html" target="_blank" rel="noopener">CH343</a>.</li>',
   'btn' => 'Install WTTC',
@@ -66,10 +66,10 @@ $TX = [
   'back' => '← WTTC: control the Thermo Top C from your phone',
 ],
 'de' => [
-  'title' => 'WTTC im Browser installieren (ESP32 und ESP32-S3)',
+  'title' => 'WTTC im Browser installieren (ESP32-S3) und die falsche Webasto',
   'desc' => 'Die WTTC-Firmware aus Chrome oder Edge auf deinen ESP32 oder ESP32-S3 flashen, ohne Arduino IDE: Platine per USB anschließen, Installieren klicken, in einer Minute fertig.',
   'h1' => 'WTTC im Browser installieren',
-  'intro' => 'Ohne Arduino IDE und ohne etwas zu installieren: die Platine per USB an den Computer anschließen, <b>Installieren</b> klicken, und der Browser flasht die neueste WTTC-Version. Er erkennt selbst, ob es ein <b>ESP32-S3</b> oder ein <b>ESP32</b> ist, und flasht das passende Programm.',
+  'intro' => 'Ohne Arduino IDE und ohne etwas zu installieren: die Platine per USB an den Computer anschließen, <b>Installieren</b> klicken, und der Browser flasht die neueste WTTC-Version. WTTC braucht einen <b>ESP32-S3</b>; die falsche Webasto (weiter unten) läuft auf jedem ESP32.',
   'need' => 'Was du brauchst',
   'needList' => '<li><b>Chrome, Edge oder Opera auf einem Computer</b> (Windows, Linux oder macOS). Firefox und Safari können nicht mit dem USB-Anschluss sprechen.</li><li>Ein <b>USB-Datenkabel</b> (viele Ladekabel übertragen keine Daten).</li><li>Beim <b>ESP32-S3</b> den mit <b>UART</b> oder <b>COM</b> beschrifteten USB-Anschluss (der andere ist das USB des Chips selbst).</li><li>Unter Windows, falls kein Port erscheint, den Treiber des USB-Chips: <a href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers" target="_blank" rel="noopener">CP210x</a> oder <a href="https://www.wch.cn/downloads/CH343SER_ZIP.html" target="_blank" rel="noopener">CH343</a>.</li>',
   'btn' => 'WTTC installieren',
