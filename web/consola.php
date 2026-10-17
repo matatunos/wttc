@@ -343,7 +343,10 @@ $('xTxt').onclick = () => {
 function resumen(p){
   const L = p.lines.filter(l => !l.mia).map(l => l.s);
   const n = re => L.filter(s => re.test(s)).length;
-  const avisos = L.filter(s => /\] ! |AVER[IÍ]A|[Ee]rror|no responde|no contesta|falló|⛔|bloquead/.test(s));
+  // Avisos: en la falsa, sus líneas «!»; en WTTC, las de su registro («17/10 15:42  …») con palabras de fallo. No cuentan
+  // la ayuda ni la cabecera (líneas que empiezan por espacios, con palabras como «bloqueada» o «errores»)
+  const avisos = L.filter(s => /^\[\d{2}:\d{2}:\d{2}\.\d{3}(?: · sim [\d:]+)?\] ! /.test(s)
+    || (/^\d{2}\/\d{2} \d{2}:\d{2} /.test(s) && /AVER[IÍ]A|[Aa]verías: (?!ninguna)|[Ee]rror|no responde|falló|⛔|bloquead|batería baja/.test(s)));
   const estados = L.filter(s => /estado: .*→/.test(s)).map(s => s.replace(/^.*estado: /, ''));
   const t = p.lines.length ? (p.lines[p.lines.length - 1].t - p.lines[0].t) / 1000 : 0;
   return {L, avisos, estados, req: n(/\] < /), res: n(/\] > /), dur: `${Math.floor(t / 60)} min ${Math.round(t % 60)} s`};

@@ -7,3 +7,4 @@ copia lo que hace falta: el código de instalación de la placa no se publica (c
 | Fecha | Prueba | Firmware | Resultado |
 |---|---|---|---|
 | 2026-10-17 | [Encendido de 15 minutos](2026-10-17-encendido-15-min.md) | WTTC 0.3.14 · Webasto falsa 0.3.14 | ✅ |
+| 2026-10-17 | [Encendido a mano y programa](2026-10-17-encendido-y-programa.md) | WTTC 0.3.14 · Webasto falsa 0.3.14 | ✅ |

@@ -489,10 +489,12 @@ $('pauseD').onchange=()=>touch(false);
 // Interruptor general de los programas
 $('auto').onchange=()=>touch(false);
 // Guardar programas en la placa (formato "activo,días,inicio,duración;…")
-$('save').onclick=async()=>{const pd=$('pauseD').value,pz=pd?Math.floor(new Date(pd+'T00:00').getTime()/1000):0;
+// (bloqueado mientras guarda: varias pulsaciones seguidas lo guardaban varias veces, 2026-10-17)
+let saving=false;
+$('save').onclick=async()=>{if(saving)return;saving=true;$('save').disabled=true;const pd=$('pauseD').value,pz=pd?Math.floor(new Date(pd+'T00:00').getTime()/1000):0;
  try{await api('/api/sched',{auto:$('auto').checked?1:0,list:sched.map(s=>[s.en?1:0,s.days,s.start,s.dur,s.x||0].concat(s.cold==null?[]:[s.cold]).join(',')).join(';'),
   skip:sched.reduce((m,s,i)=>s.skip?m|1<<i:m,0),pause:pz});
- dirty=false;$('save').disabled=true;$('save').textContent=T('saved');setTimeout(()=>$('save').textContent=T('saveSched'),1500);poll()}catch(e){say(T('saveFail')+e.message)}};
+ dirty=false;$('save').textContent=T('saved');setTimeout(()=>$('save').textContent=T('saveSched'),1500);poll()}catch(e){$('save').disabled=!dirty;say(T('saveFail')+e.message)}finally{saving=false}};
 // Calcula y muestra el próximo encendido programado
 function next(){if(!st)return;const act=sched.filter(s=>s.en&&s.days);
  if(!act.length){$('next').textContent=T(sched.length?'noneActive':'noSched');return}

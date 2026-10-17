@@ -6,6 +6,13 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.3.15 — 2026-10-17
+
+Versión de prueba (sin probar con una Webasto real).
+
+- **«Guardar programas» se bloquea mientras guarda**: varias pulsaciones seguidas lo guardaban varias veces (visto en una prueba en la mesa).
+- En la web: **consola serie** (wttc.favala.es/consola.php) para ver por USB las dos placas a la vez, con colores, y guardarlo en .txt o .md.
+
 ## 0.3.14 — 2026-10-17
 
 Versión de prueba (sin probar con una Webasto real).
