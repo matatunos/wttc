@@ -108,6 +108,7 @@ TXT,
 'wfAria' => 'Esquema de conexión de la Webasto falsa: directa con tres cables, o por el bus con un segundo TJA1020',
 'consolaUsb' => <<<'TXT'
 <h3 class="usbh">Ver el registro por USB (consola serie)</h3>
+<p><b>Lo más fácil: la <a href="/consola.php">consola de esta web</a></b> (Chrome o Edge en un ordenador): conecta las dos placas a la vez, sabe cuál es cada una, pinta cada línea de un color y lo guarda en .txt o .md. Sin instalar nada.</p>
 <p>Las dos placas (WTTC y la Webasto falsa) cuentan por su USB todo lo que hacen. Para verlo en Windows, con <a href="https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html" target="_blank" rel="noopener">PuTTY</a>:</p>
 <ol>
 <li>Conecta la placa al ordenador por USB (en el ESP32-S3, el USB marcado <b>UART</b> o <b>COM</b>).</li>

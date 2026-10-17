@@ -96,6 +96,7 @@ TXT,
 'wfAria' => 'Connection diagram of the fake Webasto: direct with three wires, or over the bus with a second TJA1020',
 'consolaUsb' => <<<'TXT'
 <h3 class="usbh">Seeing the log over USB (serial console)</h3>
+<p><b>Easiest: this site’s <a href="/consola.php?l=en">serial console</a></b> (Chrome or Edge on a computer): connects both boards at once, knows which is which, colours every line and saves it as .txt or .md. Nothing to install.</p>
 <p>Both boards (WTTC and the fake Webasto) report everything they do over their USB. To see it on Windows, with <a href="https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html" target="_blank" rel="noopener">PuTTY</a>:</p>
 <ol>
 <li>Plug the board into the computer over USB (on the ESP32-S3, the USB port marked <b>UART</b> or <b>COM</b>).</li>

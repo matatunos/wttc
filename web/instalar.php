@@ -41,6 +41,8 @@ $TX = [
   'fIntro' => 'Para probar WTTC en la mesa, sin furgoneta ni gasoil: otro ESP32 (vale el clásico o un S3) se hace pasar por la Thermo Top C en el W-Bus. Arranca, prende, regula, hace el postbarrido y da averías; por su consola USB (115200) se le provocan fallos y se acelera el tiempo. Se instala igual que WTTC, en <b>la otra placa</b>. Cómo conectarla, en el dibujo de abajo; sus órdenes, en <a href="https://github.com/matatunos/wttc/tree/main/herramientas/webasto_falsa" target="_blank" rel="noopener">su README</a>. De fábrica escucha por IO16, contesta por IO17 y devuelve el eco (conexión directa); para la conexión por el bus, escribe <code>eco no</code> en su consola, y <code>pines 16 17</code> para cambiar los pines.',
   'fBtn' => 'Instalar la Webasto falsa',
   'fNoPkg' => 'Llega con la próxima versión de WTTC. Mientras tanto, con Arduino IDE: herramientas/webasto_falsa del repositorio.',
+  'conBtn' => 'Consola serie: ver el registro',
+  'conSub' => 'sin instalar nada; las dos placas a la vez, con colores, y se guarda en .txt o .md',
   'back' => '← WTTC: controla la Thermo Top C desde el móvil',
 ],
 'en' => [
@@ -63,6 +65,8 @@ $TX = [
   'fIntro' => 'To test WTTC on the bench, without a van or diesel: another ESP32 (a classic one or an S3) pretends to be the Thermo Top C on the W-Bus. It starts, ignites, regulates, runs the after-run and reports faults; from its USB console (115200) you trigger failures and speed up time. It installs like WTTC, on <b>the other board</b>. How to wire it, in the drawing below; its commands, in <a href="https://github.com/matatunos/wttc/tree/main/herramientas/webasto_falsa" target="_blank" rel="noopener">its README</a>. By default it listens on IO16, answers on IO17 and returns the echo (direct wiring); for wiring through the bus, type <code>eco no</code> in its console, and <code>pines 16 17</code> to change the pins.',
   'fBtn' => 'Install the fake Webasto',
   'fNoPkg' => 'It comes with the next WTTC version. Meanwhile, use Arduino IDE: herramientas/webasto_falsa in the repository.',
+  'conBtn' => 'Serial console: see the log',
+  'conSub' => 'nothing to install; both boards at once, in colour, saved as .txt or .md',
   'back' => '← WTTC: control the Thermo Top C from your phone',
 ],
 'de' => [
@@ -85,6 +89,8 @@ $TX = [
   'fIntro' => 'Um WTTC auf dem Tisch zu testen, ohne Bus und ohne Diesel: ein weiterer ESP32 (ein klassischer oder ein S3) gibt sich am W-Bus als Thermo Top C aus. Er startet, zündet, regelt, macht den Nachlauf und meldet Fehler; über seine USB-Konsole (115200) löst man Fehler aus und beschleunigt die Zeit. Er wird wie WTTC installiert, auf <b>der anderen Platine</b>. Wie man ihn anschließt, zeigt die Zeichnung unten; seine Befehle stehen in <a href="https://github.com/matatunos/wttc/tree/main/herramientas/webasto_falsa" target="_blank" rel="noopener">seiner README</a>. Ab Werk hört er auf IO16, antwortet auf IO17 und gibt das Echo zurück (direkte Verbindung); für die Verbindung über den Bus in seiner Konsole <code>eco no</code> eingeben, und <code>pines 16 17</code>, um die Pins zu ändern.',
   'fBtn' => 'Falsche Webasto installieren',
   'fNoPkg' => 'Kommt mit der nächsten WTTC-Version. Bis dahin mit der Arduino IDE: herramientas/webasto_falsa im Repository.',
+  'conBtn' => 'Serielle Konsole: Protokoll ansehen',
+  'conSub' => 'ohne Installation; beide Platinen gleichzeitig, farbig, als .txt oder .md speichern',
   'back' => '← WTTC: Thermo Top C per Handy steuern',
 ],
 ];
@@ -134,6 +140,8 @@ $tr = fn($k) => strtr($T[$k], ['{home}' => $HOME[$lang]]);
   esp-web-install-button button.go:hover{filter:brightness(1.08)}
   code{font-family:ui-monospace,monospace;font-size:.88em}
   .wirebox{margin:12px 0}
+  .conlink{margin:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap}.conlink span{color:var(--muted);font-size:.85rem}
+  .cbtn{background:var(--bg-card);border:1px solid var(--acc);border-radius:10px;padding:8px 14px;text-decoration:none;color:var(--text);font-weight:600}
   .usb h3{font-size:1.05rem;margin:22px 0 8px}.usb .hint{color:var(--muted);font-size:.85rem}
   @media (min-width:700px){svg.wire{min-width:0}}   /* aquí cabe entero: se ajusta al ancho (en el móvil, se desliza) */
 </style>
@@ -145,6 +153,7 @@ $tr = fn($k) => strtr($T[$k], ['{home}' => $HOME[$lang]]);
 <a class="back" href="<?= $HOME[$lang] ?>"><?= $h($T['back']) ?></a>
 <h1><?= $h($T['h1']) ?></h1>
 <p><?= $T['intro'] ?></p>
+<p class="conlink"><a class="cbtn" href="/consola.php<?= $lang === 'es' ? '' : '?l=' . $lang ?>">🖥️ <?= $h($T['conBtn']) ?></a> <span><?= $h($T['conSub']) ?></span></p>
 <?php
 // Botón de ESP Web Tools para un manifiesto. $ev: prefijo de los eventos de estadísticas (api/evento.php)
 $installBtn = function (string $manifest, string $label, string $ev) use ($h, $T) { ?>

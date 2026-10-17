@@ -96,6 +96,7 @@ TXT,
 'wfAria' => 'Anschlussplan der falschen Webasto: direkt mit drei Kabeln oder über den Bus mit einem zweiten TJA1020',
 'consolaUsb' => <<<'TXT'
 <h3 class="usbh">Das Protokoll über USB ansehen (serielle Konsole)</h3>
+<p><b>Am einfachsten: die <a href="/consola.php?l=de">serielle Konsole dieser Website</a></b> (Chrome oder Edge auf einem Computer): verbindet beide Platinen gleichzeitig, erkennt welche welche ist, färbt jede Zeile und speichert als .txt oder .md. Nichts zu installieren.</p>
 <p>Beide Platinen (WTTC und die falsche Webasto) melden über ihr USB alles, was sie tun. Unter Windows mit <a href="https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html" target="_blank" rel="noopener">PuTTY</a>:</p>
 <ol>
 <li>Die Platine per USB an den Computer anschließen (beim ESP32-S3 den mit <b>UART</b> oder <b>COM</b> beschrifteten USB-Anschluss).</li>
