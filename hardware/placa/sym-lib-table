@@ -1,0 +1,4 @@
+(sym_lib_table
+	(version 7)
+	(lib (name "wttc-placa") (type "KiCad") (uri "${KIPRJMOD}/wttc-placa.kicad_sym") (options "") (descr "Símbolos propios de la placa WTTC (TJA1021T)"))
+)

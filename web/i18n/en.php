@@ -15,7 +15,7 @@ Replaces the original timer of the Thermo Top C auxiliary heater with an ESP32 t
       <br><b>All of WTTC's code and content</b> (firmware, app, server, this website and its documentation) <b>is generated entirely with Claude</b> (Anthropic). Further down are the <a href="#descargas">downloads</a>, the <a href="#montaje">wiring</a>
       and the <a href="#uso">user guide</a>. How many people use it? <a href="{stats}">Public statistics</a> (in Spanish). Have a board? <a href="/mi.php">My statistics</a> (in Spanish).
       Is your Webasto showing a fault? <a href="{faults}">Thermo Top C fault codes</a>.
-      Going to build it? <a href="{install}">Install the firmware from the browser</a>, no Arduino IDE needed.
+      Going to build it? <a href="{install}">Install the firmware from the browser</a>, no Arduino IDE needed. No wires or modules? There is a <a href="{board}">board you can order ready-made</a> (untested design).
 TXT,
 'aviso' => <<<'TXT'
     <b>⚠️ First of all: this is a personal project, not a product.</b> WTTC controls a heater that burns diesel

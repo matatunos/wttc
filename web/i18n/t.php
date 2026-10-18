@@ -14,5 +14,6 @@ function t(string $k): string {
         '{stats}' => '/estadisticas.php',
         '{faults}' => ['es' => '/averias.php', 'en' => '/en/fault-codes.php', 'de' => '/de/fehlercodes.php'][$GLOBALS['lang']],
         '{install}' => ['es' => '/instalar.php', 'en' => '/en/install.php', 'de' => '/de/installieren.php'][$GLOBALS['lang']],
+        '{board}' => ['es' => '/placa.php', 'en' => '/en/board.php', 'de' => '/de/platine.php'][$GLOBALS['lang']],
     ]);
 }

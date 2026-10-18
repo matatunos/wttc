@@ -36,5 +36,17 @@
     <xhtml:link rel="alternate" hreflang="es" href="https://wttc.favala.es/instalar.php"/>
     <xhtml:link rel="alternate" hreflang="en" href="https://wttc.favala.es/en/install.php"/>
     <xhtml:link rel="alternate" hreflang="de" href="https://wttc.favala.es/de/installieren.php"/></url>
+  <url><loc>https://wttc.favala.es/placa.php</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://wttc.favala.es/placa.php"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://wttc.favala.es/en/board.php"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://wttc.favala.es/de/platine.php"/></url>
+  <url><loc>https://wttc.favala.es/en/board.php</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://wttc.favala.es/placa.php"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://wttc.favala.es/en/board.php"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://wttc.favala.es/de/platine.php"/></url>
+  <url><loc>https://wttc.favala.es/de/platine.php</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://wttc.favala.es/placa.php"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://wttc.favala.es/en/board.php"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://wttc.favala.es/de/platine.php"/></url>
   <url><loc>https://wttc.favala.es/estadisticas.php</loc></url>
 </urlset>

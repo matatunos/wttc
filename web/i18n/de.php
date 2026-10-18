@@ -15,7 +15,7 @@ Ersetzt die originale Zeitschaltuhr der Standheizung Thermo Top C durch einen ES
       <br><b>Der gesamte Code und Inhalt von WTTC</b> (Firmware, App, Server, diese Webseite und ihre Dokumentation) <b>ist vollständig mit Claude erzeugt</b> (Anthropic). Weiter unten findest du die <a href="#descargas">Downloads</a>, den <a href="#montaje">Einbau</a>
       und die <a href="#uso">Bedienungsanleitung</a>. Wie viele nutzen es? <a href="{stats}">Öffentliche Statistik</a> (auf Spanisch). Du hast eine Platine? <a href="/mi.php">Meine Statistiken</a> (auf Spanisch).
       Zeigt deine Webasto einen Fehler? <a href="{faults}">Fehlercodes der Thermo Top C</a>.
-      Willst du es bauen? <a href="{install}">Die Firmware im Browser installieren</a>, ohne Arduino IDE.
+      Willst du es bauen? <a href="{install}">Die Firmware im Browser installieren</a>, ohne Arduino IDE. Ohne Kabel und Module? Es gibt eine <a href="{board}">fertig bestellbare Platine</a> (ungetestetes Design).
 TXT,
 'aviso' => <<<'TXT'
     <b>⚠️ Vorab: Das ist ein privates Projekt, kein Produkt.</b> WTTC steuert eine Heizung, die in deinem Fahrzeug Diesel

@@ -1,0 +1,7 @@
+salida/
+fabricacion/gerber/
+*-backups/
+*.kicad_prl
+fp-info-cache
+_autosave-*
+logs/

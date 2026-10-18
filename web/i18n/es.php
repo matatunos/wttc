@@ -17,7 +17,7 @@ Sustituye el temporizador original de la calefacción auxiliar Thermo Top C por 
       <br><b>Todo el código y el contenido de WTTC</b> (firmware, app, servidor, esta web y su documentación) <b>están generados íntegramente con Claude</b> (Anthropic). Más abajo están las <a href="#descargas">descargas</a>, el <a href="#montaje">montaje</a>
       y las <a href="#uso">instrucciones de uso</a>. ¿Cuánta gente lo usa? <a href="{stats}">Estadísticas públicas</a>. ¿Tienes una placa? <a href="/mi.php">Mis estadísticas</a>.
       ¿Tu Webasto da una avería? <a href="{faults}">Códigos de avería de la Thermo Top C</a>.
-      ¿Lo vas a montar? <a href="{install}">Instala el firmware desde el navegador</a>, sin Arduino IDE.
+      ¿Lo vas a montar? <a href="{install}">Instala el firmware desde el navegador</a>, sin Arduino IDE. ¿Sin cables ni módulos? Hay una <a href="{board}">placa para encargarla hecha</a> (diseño sin probar).
 TXT,
 'aviso' => <<<'TXT'
     <b>⚠️ Antes de nada: esto es un proyecto personal, no un producto.</b> WTTC manda sobre una calefacción que quema gasoil

@@ -6,6 +6,7 @@
 # (server/scripts/post-commit) antes de wttc-publicar.sh; también se puede lanzar suelto.
 #
 #   web/                        → WEB_DIR            (páginas, textos en 3 idiomas, simulador, informes PDF, iconos)
+#   hardware/placa/fabricacion/ → WEB_DIR/placa      (imágenes y ficheros de la placa portadora, para placa.php)
 #   server/*.php, server/api/   → WEB_DIR, WEB_DIR/api (estadísticas públicas, mis estadísticas y sus API)
 #   server/privado/wttc-stats/  → TOOLS_DIR/wttc-stats (vista privada, con login del portal)
 #   server/scripts/*.sh         → /usr/local/bin     (publicación del firmware y del instalador web, avisos por Telegram)
@@ -28,6 +29,9 @@ CRON_DIR=/etc/cron.d
 rsync -a --checksum "$REPO/web/" "$WEB_DIR/"
 rsync -a --checksum "$REPO/server/estadisticas.php" "$REPO/server/mi.php" "$WEB_DIR/"
 rsync -a --checksum "$REPO/server/api/" "$WEB_DIR/api/"
+# Placa portadora (placa.php): imágenes y ficheros de fabricación que genera hardware/placa/generar.sh
+mkdir -p "$WEB_DIR/placa"
+rsync -a --checksum --exclude gerber/ "$REPO/hardware/placa/fabricacion/" "$WEB_DIR/placa/"
 
 # ---------- vista privada ----------
 mkdir -p "$TOOLS_DIR/wttc-stats"
