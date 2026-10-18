@@ -138,7 +138,10 @@ void printState() {
   for (int i = 0; i < w.errN; i++) { char t[16]; snprintf(t, sizeof t, " 0x%02X×%d", w.errCode[i], w.errCnt[i]); e += t; }
   lg(mark, "%s · agua %.1f °C · dentro %.1f °C · fuera %.1f °C · %.2f V · llama %s · %u W", wf::ST_NAME[w.st], w.temp, w.cab,
        w.env.amb, w.volt(), w.flame() ? "sí" : "no", (unsigned)w.pw);
-  if (w.cmd) lg(mark, "  orden 0x21: quedan %ld s · último mantenimiento hace %s (a los 20 s se apaga)",
+  // Apagándose (postbarrido) la orden sigue vigente pero ya no hace falta mantenerla: el tiempo desde el último
+  // mantenimiento deja de contar, y enseñarlo parecía decir que WTTC lo seguía mandando (prueba del 18/10/2026)
+  if (w.cmd && !wf::active(w.st)) lg(mark, "  orden 0x21: apagándose, ya no hace falta mantenimiento (se suelta al acabar el postbarrido)");
+  else if (w.cmd) lg(mark, "  orden 0x21: quedan %ld s · último mantenimiento hace %s (a los 20 s se apaga)",
                   (long)(w.runLeft > 0 ? w.runLeft / 1000 : 0), secs(w.refresh).c_str());
   else lg(mark, "  sin orden de calentar");
   lg(mark, "  averías:%s · intentos en este arranque %d · arranques fallidos seguidos %d de 3", w.errN ? e.c_str() : " ninguna", w.tries, w.fails);
