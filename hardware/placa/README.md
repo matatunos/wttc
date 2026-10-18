@@ -55,7 +55,10 @@ Los ficheros están en [`fabricacion/`](fabricacion/). Lo más cómodo: **un paq
    Todas las piezas llevan su código LCSC. Las «extended» cobran unos 3 $ cada una por pedido; el resto son
    «basic». En ningún caso va la ESP32-S3 (se compra aparte y se pincha) ni los módulos opcionales (pantalla,
    termómetro, sensor de CO).
-3. **Revisa el giro de las piezas en su vista previa.** KiCad y JLCPCB no siempre coinciden en el ángulo cero: es
+3. **Revisa la vista previa.** Tiene que verse la placa verde con las piezas encima (si solo salen las piezas, no ha
+   cogido el Gerber: vuelve a subir `wttc-placa-gerber.zip`). Las posiciones del CPL son el centro de cada pieza y
+   ya llevan sumados los giros que JLCPCB suele necesitar (SOIC +270°, SOT-23 +180°, tiras y zócalos +270°).
+   **Revisa el giro de las piezas en su vista previa.** KiCad y JLCPCB no siempre coinciden en el ángulo cero: es
    normal tener que girar a mano el regulador (SOT-23-6), el transceptor (SOIC-8) o los diodos en su pantalla, hasta
    que el punto del pin 1 y la raya del cátodo coincidan con la serigrafía.
 4. Con el juego «smd», lo de agujero pasante **lo sueldas tú** en un rato: la borna, los dos zócalos de 22 y las tiras

@@ -9,6 +9,7 @@ Generado con Claude (Anthropic). Uso: python3 hardware/placa/generar/listas.py
 """
 import csv
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -19,8 +20,59 @@ FAB = os.path.join(PROY, "fabricacion")
 JUEGOS = {"smd": ("smd",), "todo": ("smd", "tht")}
 
 
+# Giro que JLCPCB necesita sumar a algunas huellas de KiCad (sus modelos tienen otro «cero»). Los mismos que usa la
+# base de datos de giros de los complementos para JLCPCB más usados; lo demás va tal cual. Hay que revisarlo en su
+# vista previa de todas formas.
+GIRO_JLC = [(r"^SOIC-", 270), (r"^SOT-23", 180), (r"^PinHeader_1x\d+_P2\.54mm_Vertical", 270),
+            (r"^PinSocket_1x\d+_P2\.54mm_Vertical", 270)]
+
+
+def _bloque(t, i):
+    prof, dentro, k = 0, False, i
+    while k < len(t):
+        c = t[k]
+        if dentro:
+            if c == "\\":
+                k += 1
+            elif c == '"':
+                dentro = False
+        elif c == '"':
+            dentro = True
+        elif c == "(":
+            prof += 1
+        elif c == ")":
+            prof -= 1
+            if prof == 0:
+                return k + 1
+        k += 1
+    raise ValueError("paréntesis sin cerrar")
+
+
+def centros():
+    """{ref: (x, y, giro, huella)} con el CENTRO de cada pieza (el de sus pads), que es lo que JLCPCB espera en el CPL.
+    KiCad exporta el origen de la huella, que en tiras, zócalos y bornas es el pin 1 (y salían descolocados). Lee la
+    placa (.kicad_pcb) directamente: no hace falta KiCad. Coordenadas como las del Gerber (y hacia arriba, negativa)."""
+    import math
+    t = open(os.path.join(PROY, "wttc-placa.kicad_pcb"), encoding="utf-8").read()
+    r = {}
+    for m in re.finditer(r'\(footprint "([^"]+)"', t):
+        b = t[m.start():_bloque(t, m.start())]
+        ref = re.search(r'\(property "Reference" "([^"]+)"', b).group(1)
+        at = re.search(r'\n\s*\(at ([-\d.]+) ([-\d.]+)(?: ([-\d.]+))?\)', b)
+        fx, fy, rot = float(at.group(1)), float(at.group(2)), float(at.group(3) or 0)
+        th = math.radians(rot)
+        xs, ys = [], []
+        for pm in re.finditer(r'\(pad "[^"]*" \w+ \w+\s*\(at ([-\d.]+) ([-\d.]+)', b):
+            px, py = float(pm.group(1)), float(pm.group(2))
+            xs.append(fx + px * math.cos(th) + py * math.sin(th))
+            ys.append(fy - px * math.sin(th) + py * math.cos(th))
+        if xs:
+            r[ref] = ((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2, rot, m.group(1).split(":")[1])
+    return r
+
+
 def escribir():
-    pos = {r["Ref"]: r for r in csv.DictReader(open(os.path.join(PROY, "salida", "pos.csv"), encoding="utf-8"))}
+    pos = centros()
     for viejo in ("wttc-placa-bom-jlcpcb.csv", "wttc-placa-cpl.csv"):    # nombres de antes de los dos juegos
         if os.path.exists(os.path.join(FAB, viejo)):
             os.remove(os.path.join(FAB, viejo))
@@ -29,11 +81,13 @@ def escribir():
         with open(os.path.join(FAB, f"wttc-placa-cpl-{juego}.csv"), "w", newline="", encoding="utf-8") as f:
             w = csv.writer(f); w.writerow(["Designator", "Mid X", "Mid Y", "Layer", "Rotation"])
             for p in piezas:
-                r = pos[p["ref"]]
-                w.writerow([p["ref"], r["PosX"] + "mm", r["PosY"] + "mm", "Top", r["Rot"]])
+                x, y, rot, fpn = pos[p["ref"]]
+                rot += sum(g for patron, g in GIRO_JLC if re.match(patron, fpn))
+                w.writerow([p["ref"], f"{x:.3f}mm", f"{-y:.3f}mm", "Top", f"{rot % 360:.0f}"])
         jlc = {}                                    # una línea por pieza (código LCSC)
         for p in piezas:
             nombre = p["mpn"] if p["montaje"] == "tht" else p["val"]   # tiras y zócalos: su referencia, no su uso
+            nombre = nombre.replace("µ", "u")       # JLCPCB no lee la «µ» (salía «碌»)
             jlc.setdefault(p["lcsc"], [nombre, [], p["fp"].split(":")[1]])[1].append(p["ref"])
         with open(os.path.join(FAB, f"wttc-placa-bom-jlcpcb-{juego}.csv"), "w", newline="", encoding="utf-8") as f:
             w = csv.writer(f); w.writerow(["Comment", "Designator", "Footprint", "LCSC Part #"])
