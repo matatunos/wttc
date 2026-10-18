@@ -17,8 +17,21 @@ $ver = is_array($man) ? (string)($man['version'] ?? '') : '';
 // Manifiesto de esa misma versión (wttc-instalador.sh, desde la 0.3.10): lo que la página dice y lo que se graba
 // coinciden aunque salga otra versión con la página abierta. Si no está, el de siempre
 $vdir = '/descargas/instalar/' . rawurlencode($ver);
-$manW = $ver && is_file(__DIR__ . "$vdir/wttc.json") ? "$vdir/wttc.json" : '/descargas/instalar/manifest.json';
-$manF = $ver && is_file(__DIR__ . "$vdir/falsa.json") ? "$vdir/falsa.json" : '';   // la Webasto falsa (0.3.11+)
+// Solo se ofrece un manifiesto si están TODOS sus ficheros: el navegador pone la placa en modo grabación antes de
+// descargarlos, y si uno falta (404) la placa se queda ahí, sin programa, hasta reiniciarla a mano (18/10/2026: la
+// 0.3.17 se publicó sin el paquete de WTTC). Si el de la versión no está completo, el de siempre; si tampoco, ninguno
+$manOk = function (string $m): bool {
+    $j = @json_decode((string)@file_get_contents(__DIR__ . $m), true);
+    if (!is_array($j) || empty($j['builds'])) return false;
+    foreach ($j['builds'] as $b) foreach ($b['parts'] ?? [[]] as $pt) {
+        $f = (string)($pt['path'] ?? '');
+        if ($f === '' || str_contains($f, '..') || !is_file(__DIR__ . dirname($m) . '/' . $f)) return false;
+    }
+    return true;
+};
+$manW = '';
+foreach ($ver ? ["$vdir/wttc.json", '/descargas/instalar/manifest.json'] : [] as $m) if ($manOk($m)) { $manW = $m; break; }
+$manF = $ver && $manOk("$vdir/falsa.json") ? "$vdir/falsa.json" : '';   // la Webasto falsa (0.3.11+)
 
 $TX = [
 'es' => [
@@ -164,7 +177,7 @@ $installBtn = function (string $manifest, string $label, string $ev) use ($h, $T
   </esp-web-install-button>
 <?php }; ?>
 <div class="card">
-<?php if ($ver): ?>
+<?php if ($manW): ?>
   <?php $installBtn($manW, $T['btn'], ''); ?>
   <p class="muted"><?= $h(sprintf($T['version'], $ver)) ?></p>
 <?php else: ?>
