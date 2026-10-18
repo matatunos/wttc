@@ -51,6 +51,31 @@ def escribir():
         w = csv.writer(f); w.writerow(["Referencias", "Cantidad", "Valor", "Pieza", "LCSC", "Montaje", "Descripción", "Huella"])
         for (val, fpn, lcsc, mpn, mon, desc), refs in grupos.items():
             w.writerow([" ".join(refs), len(refs), val, mpn, lcsc, quien[mon], desc, fpn])
+    paquetes()
+
+
+LEEME = {
+    "todo": "Juego «todo»: llega ENTERA, solo hay que pinchar la ESP32-S3-DevKitC-1 (se compra aparte).\n"
+            "Montaje en JLCPCB: «PCB Assembly», Standard, cara de arriba (Top side).\n",
+    "smd": "Juego «smd»: llega con las piezas pequeñas; la borna, los dos zócalos de 22 y las tiras se sueldan a mano.\n"
+           "Montaje en JLCPCB: «PCB Assembly», Economic, cara de arriba (Top side).\n",
+}
+
+
+def paquetes():
+    """Un .zip por juego con lo que hay que subir a JLCPCB: Gerber, BOM, CPL y un LEEME."""
+    import zipfile
+    for juego, txt in LEEME.items():
+        z = os.path.join(FAB, f"wttc-placa-encargo-{juego}.zip")
+        with zipfile.ZipFile(z, "w", zipfile.ZIP_DEFLATED) as f:
+            for nom in ("wttc-placa-gerber.zip", f"wttc-placa-bom-jlcpcb-{juego}.csv", f"wttc-placa-cpl-{juego}.csv"):
+                f.write(os.path.join(FAB, nom), nom)
+            f.writestr("LEEME.txt", "WTTC · placa portadora v0.1 (DISEÑO SIN PROBAR) · https://wttc.favala.es/placa.php\n\n" + txt +
+                       "\n1. En jlcpcb.com → Order now: sube wttc-placa-gerber.zip (tal cual, sin descomprimir).\n"
+                       f"2. Activa PCB Assembly y sube wttc-placa-bom-jlcpcb-{juego}.csv (BOM) y wttc-placa-cpl-{juego}.csv (CPL).\n"
+                       "3. Revisa el giro de las piezas en su vista previa (pin 1 y raya del cátodo como en la serigrafía).\n"
+                       "La ESP32-S3 y los módulos opcionales (pantalla, termómetro, sensor de CO) no van en el encargo.\n")
+        print(f"paquete: {os.path.basename(z)}")
 
 
 if __name__ == "__main__":

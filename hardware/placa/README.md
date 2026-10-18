@@ -37,7 +37,10 @@ masa. El esquema completo: [wttc-placa-esquema.pdf](fabricacion/wttc-placa-esque
 
 ## Encargarla en JLCPCB
 
-Los ficheros están en [`fabricacion/`](fabricacion/):
+Los ficheros están en [`fabricacion/`](fabricacion/). Lo más cómodo: **un paquete por juego**,
+[`wttc-placa-encargo-todo.zip`](fabricacion/wttc-placa-encargo-todo.zip) (llega entera) o
+[`wttc-placa-encargo-smd.zip`](fabricacion/wttc-placa-encargo-smd.zip) (solo piezas pequeñas). Cada uno trae el
+.zip de Gerber, su BOM, su CPL y un LEEME. **Descomprime el paquete**, pero el .zip de Gerber de dentro súbelo tal cual.
 
 1. En [jlcpcb.com](https://jlcpcb.com) → «Order now», sube **`wttc-placa-gerber.zip`**. Lo detecta solo: 2 capas,
    95 × 62 mm. Lo demás, tal cual (1,6 mm, HASL sin plomo si lo prefieres).

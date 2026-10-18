@@ -39,7 +39,7 @@ $TX = [
   ],
   'pins' => 'Los pines son los del firmware: <b>no hay que cambiar nada en WTTC</b>. Placa de 95 × 62 mm, dos caras, con planos de masa en las dos y cuatro taladros M3.',
   'files' => 'Ficheros',
-  'f' => ['gerber' => 'Gerber y taladros (.zip)', 'bomT' => 'BOM «todo»', 'cplT' => 'CPL «todo»', 'bomS' => 'BOM «smd»', 'cplS' => 'CPL «smd»', 'lista' => 'Lista de materiales completa', 'sch' => 'Esquema (PDF)', 'src' => 'Proyecto KiCad y generador (GitHub)'],
+  'f' => ['pkT' => 'Encargo «todo» (entera, .zip)', 'pkS' => 'Encargo «smd» (.zip)', 'gerber' => 'Solo Gerber (.zip)', 'bomT' => 'BOM «todo»', 'cplT' => 'CPL «todo»', 'bomS' => 'BOM «smd»', 'cplS' => 'CPL «smd»', 'lista' => 'Lista de materiales completa', 'sch' => 'Esquema (PDF)', 'src' => 'Proyecto KiCad y generador (GitHub)'],
   'order' => 'Encargarla en JLCPCB',
   'orderList' => '<li>En <a href="https://jlcpcb.com" target="_blank" rel="noopener">jlcpcb.com</a> → «Order now», sube el <b>.zip de Gerber</b>. Lo detecta solo: 2 capas, 95 × 62 mm. Lo demás, tal cual (1,6 mm de grosor).</li><li>Activa <b>«PCB Assembly»</b> en la cara de arriba (<b>Top side</b>) y sube la <b>BOM</b> y el <b>CPL</b> de uno de los dos juegos:<ul><li><b>«todo»</b> (montaje «Standard»): llega <b>entera</b>, solo hay que pinchar la ESP32-S3.</li><li><b>«smd»</b> (montaje «Economic», más barato): llega con las piezas pequeñas; la borna, los zócalos y las tiras los sueldas tú.</li></ul>Todas las piezas llevan su código LCSC. Las «extended» cobran unos 3 $ cada una por pedido. En ningún caso va la ESP32-S3 (se compra aparte y se pincha) ni los módulos opcionales.</li><li><b>Revisa el giro de las piezas en su vista previa</b>: KiCad y JLCPCB no siempre coinciden en el ángulo cero. Es normal tener que girar a mano el regulador, el transceptor o algún diodo hasta que el pin 1 y la raya del cátodo coincidan con la serigrafía.</li><li>Con el juego «smd», lo de agujero pasante lo sueldas tú: la borna, los dos zócalos de 22 y las tiras de pines.</li>',
   'price' => 'A ojo (octubre de 2026): unos 40–50 $ por cinco placas, dos de ellas montadas, más el envío. Lo que más pesa son las tarifas fijas del montaje, no las piezas.',
@@ -74,7 +74,7 @@ $TX = [
   ],
   'pins' => 'The pins are the firmware’s: <b>nothing changes in WTTC</b>. 95 × 62 mm, two layers, ground planes on both and four M3 holes.',
   'files' => 'Files',
-  'f' => ['gerber' => 'Gerbers and drills (.zip)', 'bomT' => 'BOM «todo» (all)', 'cplT' => 'CPL «todo» (all)', 'bomS' => 'BOM «smd»', 'cplS' => 'CPL «smd»', 'lista' => 'Full bill of materials', 'sch' => 'Schematic (PDF)', 'src' => 'KiCad project and generator (GitHub)'],
+  'f' => ['pkT' => 'Order «todo» (complete, .zip)', 'pkS' => 'Order «smd» (.zip)', 'gerber' => 'Gerbers only (.zip)', 'bomT' => 'BOM «todo» (all)', 'cplT' => 'CPL «todo» (all)', 'bomS' => 'BOM «smd»', 'cplS' => 'CPL «smd»', 'lista' => 'Full bill of materials', 'sch' => 'Schematic (PDF)', 'src' => 'KiCad project and generator (GitHub)'],
   'order' => 'Ordering from JLCPCB',
   'orderList' => '<li>At <a href="https://jlcpcb.com" target="_blank" rel="noopener">jlcpcb.com</a> → «Order now», upload the <b>Gerber .zip</b>. It is detected automatically: 2 layers, 95 × 62 mm. Leave the rest as is (1.6 mm thick).</li><li>Enable <b>«PCB Assembly»</b> on the <b>Top side</b> and upload the <b>BOM</b> and <b>CPL</b> of one of the two sets:<ul><li><b>«todo»</b> (all, «Standard» assembly): it arrives <b>complete</b>, you only plug in the ESP32-S3.</li><li><b>«smd»</b> («Economic» assembly, cheaper): it arrives with the small parts; you solder the terminal block, sockets and headers.</li></ul>Every part has its LCSC code. «Extended» parts cost about $3 each per order. The ESP32-S3 (bought separately and plugged in) and the optional modules are never included.</li><li><b>Check the part rotations in their preview</b>: KiCad and JLCPCB do not always agree on the zero angle. It is normal to rotate the regulator, the transceiver or a diode by hand until pin 1 and the cathode band match the silkscreen.</li><li>With the «smd» set, the through-hole parts are yours to solder: the terminal block, the two 22-pin sockets and the pin headers.</li>',
   'price' => 'Rough figure (October 2026): about $40–50 for five boards, two of them assembled, plus shipping. Most of it is the fixed assembly fees, not the parts.',
@@ -109,7 +109,7 @@ $TX = [
   ],
   'pins' => 'Die Pins sind die der Firmware: <b>an WTTC ändert sich nichts</b>. 95 × 62 mm, zwei Lagen, Masseflächen auf beiden und vier M3-Bohrungen.',
   'files' => 'Dateien',
-  'f' => ['gerber' => 'Gerber und Bohrdaten (.zip)', 'bomT' => 'BOM «todo» (alles)', 'cplT' => 'CPL «todo» (alles)', 'bomS' => 'BOM «smd»', 'cplS' => 'CPL «smd»', 'lista' => 'Vollständige Stückliste', 'sch' => 'Schaltplan (PDF)', 'src' => 'KiCad-Projekt und Generator (GitHub)'],
+  'f' => ['pkT' => 'Bestellung «todo» (komplett, .zip)', 'pkS' => 'Bestellung «smd» (.zip)', 'gerber' => 'Nur Gerber (.zip)', 'bomT' => 'BOM «todo» (alles)', 'cplT' => 'CPL «todo» (alles)', 'bomS' => 'BOM «smd»', 'cplS' => 'CPL «smd»', 'lista' => 'Vollständige Stückliste', 'sch' => 'Schaltplan (PDF)', 'src' => 'KiCad-Projekt und Generator (GitHub)'],
   'order' => 'Bei JLCPCB bestellen',
   'orderList' => '<li>Auf <a href="https://jlcpcb.com" target="_blank" rel="noopener">jlcpcb.com</a> → «Order now» die <b>Gerber-.zip</b> hochladen. Wird automatisch erkannt: 2 Lagen, 95 × 62 mm. Den Rest so lassen (1,6 mm dick).</li><li><b>«PCB Assembly»</b> auf der Oberseite (<b>Top side</b>) aktivieren und <b>BOM</b> und <b>CPL</b> eines der beiden Sätze hochladen:<ul><li><b>«todo»</b> (alles, Bestückung «Standard»): kommt <b>komplett</b>, nur noch den ESP32-S3 aufstecken.</li><li><b>«smd»</b> (Bestückung «Economic», günstiger): kommt mit den kleinen Teilen; Schraubklemme, Buchsen- und Stiftleisten lötest du selbst.</li></ul>Alle Teile haben ihren LCSC-Code. «Extended»-Teile kosten etwa 3 $ pro Teil und Bestellung. Der ESP32-S3 (separat kaufen und aufstecken) und die optionalen Module sind nie dabei.</li><li><b>Die Drehung der Teile in der Vorschau prüfen</b>: KiCad und JLCPCB sind sich beim Nullwinkel nicht immer einig. Es ist normal, Regler, Transceiver oder eine Diode von Hand zu drehen, bis Pin 1 und der Kathodenring zum Bestückungsdruck passen.</li><li>Mit dem Satz «smd» lötest du die bedrahteten Teile selbst: Schraubklemme, die zwei 22-poligen Buchsenleisten und die Stiftleisten.</li>',
   'price' => 'Grob (Oktober 2026): etwa 40–50 $ für fünf Platinen, zwei davon bestückt, plus Versand. Das meiste sind die festen Bestückungsgebühren, nicht die Teile.',
@@ -124,7 +124,7 @@ $TX = [
 ],
 ];
 $T = $TX[$lang];
-$fich = [['gerber', 'wttc-placa-gerber.zip'], ['bomT', 'wttc-placa-bom-jlcpcb-todo.csv'], ['cplT', 'wttc-placa-cpl-todo.csv'],
+$fich = [['pkT', 'wttc-placa-encargo-todo.zip'], ['pkS', 'wttc-placa-encargo-smd.zip'], ['gerber', 'wttc-placa-gerber.zip'], ['bomT', 'wttc-placa-bom-jlcpcb-todo.csv'], ['cplT', 'wttc-placa-cpl-todo.csv'],
          ['bomS', 'wttc-placa-bom-jlcpcb-smd.csv'], ['cplS', 'wttc-placa-cpl-smd.csv'],
          ['lista', 'lista-de-materiales.csv'], ['sch', 'wttc-placa-esquema.pdf']];
 ?><!DOCTYPE html>
@@ -193,7 +193,7 @@ $fich = [['gerber', 'wttc-placa-gerber.zip'], ['bomT', 'wttc-placa-bom-jlcpcb-to
 
 <h2><?= $h($T['files']) ?></h2>
 <div class="bajar">
-<?php foreach ($fich as $i => [$k, $f]): ?>  <a<?= $i === 0 ? ' class="prim"' : '' ?> href="<?= $F . $f . $v($f) ?>" download><?= $h($T['f'][$k]) ?></a>
+<?php foreach ($fich as $i => [$k, $f]): ?>  <a<?= $i < 2 ? ' class="prim"' : '' ?> href="<?= $F . $f . $v($f) ?>" download><?= $h($T['f'][$k]) ?></a>
 <?php endforeach; ?>  <a href="<?= $GH ?>" target="_blank" rel="noopener"><?= $h($T['f']['src']) ?></a>
 </div>
 
