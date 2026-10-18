@@ -35,7 +35,8 @@ def fila(nombres):
 
 # Cada pieza: referencia, símbolo (biblioteca:nombre), valor, huella, LCSC ("" = se suelda a mano o no se monta),
 # pines {número: red o None (sin conectar)}, bloque del esquema y descripción para la lista de materiales.
-# Notas de montaje: "smd" lo monta JLCPCB; "tht" (bornas, zócalos, tiras) se suelda a mano en dos minutos.
+# Notas de montaje: "smd" lo monta JLCPCB siempre; "tht" (bornas, zócalos, tiras) lo monta JLCPCB en el juego «todo»
+# (montaje Standard) o se suelda a mano con el juego «smd»; "pcb" es de la propia placa (taladros, puente).
 PIEZAS = [
     # ---------------- Entrada del vehículo y protecciones ----------------
     dict(ref="J1", sym="Connector_Generic:Conn_01x03", val="Vehículo: 12V GND WBUS",
@@ -114,18 +115,18 @@ PIEZAS = [
          mpn="SM04B-SRSS-TB(LF)(SN)", montaje="smd", bloque="opc",
          pines={"1": "GND", "2": "+3V3", "3": "SDA", "4": "SCL"}, desc="I2C con conector Qwiic/STEMMA QT (GND 3V3 SDA SCL)"),
     dict(ref="J5", sym="Connector_Generic:Conn_01x04", val="Pantalla: GND 3V3 SCL SDA",
-         fp="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical", lcsc="", mpn="Tira macho 1×4", montaje="tht",
+         fp="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical", lcsc="C2691448", mpn="PZ254V-11-04P", montaje="tht",
          bloque="opc", pines={"1": "GND", "2": "+3V3", "3": "SCL", "4": "SDA"},
          desc="Pantalla OLED I2C (orden de las de 0,96\"/1,3\")"),
     dict(ref="J6", sym="Connector_Generic:Conn_01x04", val="Termómetro: 3V3 GND SCL SDA",
-         fp="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical", lcsc="", mpn="Tira macho 1×4", montaje="tht",
+         fp="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical", lcsc="C2691448", mpn="PZ254V-11-04P", montaje="tht",
          bloque="opc", pines={"1": "+3V3", "2": "GND", "3": "SCL", "4": "SDA"}, desc="SHT31 / AHT20 (VIN GND SCL SDA)"),
     dict(ref="J7", sym="Connector_Generic:Conn_01x04", val="Sensor CO: 5V GND TXD RXD",
-         fp="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical", lcsc="", mpn="Tira macho 1×4", montaje="tht",
+         fp="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical", lcsc="C2691448", mpn="PZ254V-11-04P", montaje="tht",
          bloque="opc", pines={"1": "+5V", "2": "GND", "3": "CO_TX", "4": "CO_RX"},
          desc="ZE07-CO: VIN 5 V, GND, su TXD → IO15, su RXD ← IO6"),
     dict(ref="J8", sym="Connector_Generic:Conn_01x02", val="Botón externo",
-         fp="Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", lcsc="", mpn="Tira macho 1×2", montaje="tht",
+         fp="Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", lcsc="C492401", mpn="PZ254V-11-02P", montaje="tht",
          bloque="opc", pines={"1": "BOTON", "2": "GND"}, desc="Pulsador «calentar» externo (IO7 a masa)"),
     dict(ref="SW1", sym="Switch:SW_Push", val="Calentar", fp="Button_Switch_SMD:SW_Push_1P1T_XKB_TS-1187A",
          lcsc="C318884", mpn="TS-1187A-B-A-B", montaje="smd", bloque="opc", pines={"1": "BOTON", "2": "GND"},

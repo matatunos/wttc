@@ -6,7 +6,6 @@ saca los ficheros para encargarla (JLCPCB). Generado con Claude (Anthropic). Se 
 Placa de 95 × 62 mm, dos caras, 1,6 mm. La ESP32-S3-DevKitC-1 va pinchada arriba con la antena hacia el borde derecho,
 sobresaliendo (sin cobre debajo de la antena). Todo lo demás, en la cara de arriba. Planos de masa en las dos caras.
 """
-import csv
 import json
 import os
 import re
@@ -333,30 +332,8 @@ def fabricacion():
     pos = os.path.join(SAL, "pos.csv")
     subprocess.run(["kicad-cli", "pcb", "export", "pos", "--side", "front", "--format", "csv", "--units", "mm",
                     "-o", pos, PCB], check=True, stdout=subprocess.DEVNULL)
-    smd = {p["ref"]: p for p in PIEZAS if p["montaje"] == "smd" and p["lcsc"]}
-    with open(os.path.join(FAB, "wttc-placa-cpl.csv"), "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f); w.writerow(["Designator", "Mid X", "Mid Y", "Layer", "Rotation"])
-        for row in csv.DictReader(open(pos, encoding="utf-8")):
-            if row["Ref"] in smd:
-                w.writerow([row["Ref"], row["PosX"] + "mm", row["PosY"] + "mm", "Top", row["Rot"]])
-    grupos = {}
-    for p in PIEZAS:
-        if p["montaje"] == "pcb":
-            continue
-        k = (p["val"], p["fp"].split(":")[1], p["lcsc"], p["mpn"], p["montaje"], p["desc"])
-        grupos.setdefault(k, []).append(p["ref"])
-    jlc = {}                                    # para JLCPCB, una línea por pieza (código LCSC)
-    for p in PIEZAS:
-        if p["montaje"] == "smd" and p["lcsc"]:
-            jlc.setdefault(p["lcsc"], [p["val"], [], p["fp"].split(":")[1]])[1].append(p["ref"])
-    with open(os.path.join(FAB, "wttc-placa-bom-jlcpcb.csv"), "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f); w.writerow(["Comment", "Designator", "Footprint", "LCSC Part #"])
-        for lcsc, (val, refs, fpn) in jlc.items():
-            w.writerow([val, ",".join(refs), fpn, lcsc])
-    with open(os.path.join(FAB, "lista-de-materiales.csv"), "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f); w.writerow(["Referencias", "Cantidad", "Valor", "Pieza", "LCSC", "Montaje", "Descripción", "Huella"])
-        for (val, fpn, lcsc, mpn, mon, desc), refs in grupos.items():
-            w.writerow([" ".join(refs), len(refs), val, mpn, lcsc, {"smd": "JLCPCB", "tht": "a mano"}[mon], desc, fpn])
+    import listas                               # BOM y CPL en dos juegos (smd / todo) y lista de materiales
+    listas.escribir()
     # Imágenes: placa vista desde arriba y desde abajo, y el esquema en SVG para la web
     for lado in ("top", "bottom"):
         subprocess.run(["kicad-cli", "pcb", "render", "--side", lado, "--width", "1600", "--height", "1100",

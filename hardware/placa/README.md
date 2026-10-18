@@ -41,21 +41,31 @@ Los ficheros están en [`fabricacion/`](fabricacion/):
 
 1. En [jlcpcb.com](https://jlcpcb.com) → «Order now», sube **`wttc-placa-gerber.zip`**. Lo detecta solo: 2 capas,
    95 × 62 mm. Lo demás, tal cual (1,6 mm, HASL sin plomo si lo prefieres).
-2. Activa **«PCB Assembly»**, cara de arriba (**Top side**), y sube **`wttc-placa-bom-jlcpcb.csv`** (lista de
-   piezas) y **`wttc-placa-cpl.csv`** (posiciones). Todas tienen su código LCSC. 7 son «extended» (cobran unos
-   3 $ cada una por pedido) y el resto, «basic».
+2. Activa **«PCB Assembly»**, cara de arriba (**Top side**), y sube la lista de piezas (BOM) y la de posiciones
+   (CPL) de **uno de los dos juegos**:
+
+   | Juego | Ficheros | Montaje en JLCPCB | Llega |
+   |---|---|---|---|
+   | **smd** | `wttc-placa-bom-jlcpcb-smd.csv` y `wttc-placa-cpl-smd.csv` | «Economic» (el barato) | Con las 24 piezas pequeñas. Tú sueldas la borna, los zócalos y las tiras (unos 60 puntos grandes). |
+   | **todo** | `wttc-placa-bom-jlcpcb-todo.csv` y `wttc-placa-cpl-todo.csv` | «Standard» (sueldan también las de agujero pasante; algo más caro) | **Entera**: solo hay que pinchar la ESP32-S3. |
+
+   Todas las piezas llevan su código LCSC. Las «extended» cobran unos 3 $ cada una por pedido; el resto son
+   «basic». En ningún caso va la ESP32-S3 (se compra aparte y se pincha) ni los módulos opcionales (pantalla,
+   termómetro, sensor de CO).
 3. **Revisa el giro de las piezas en su vista previa.** KiCad y JLCPCB no siempre coinciden en el ángulo cero: es
    normal tener que girar a mano el regulador (SOT-23-6), el transceptor (SOIC-8) o los diodos en su pantalla, hasta
    que el punto del pin 1 y la raya del cátodo coincidan con la serigrafía.
-4. Lo de agujero pasante **lo sueldas tú** en un rato: la borna, los dos zócalos de 22 y las tiras de pines (su lista
-   está en [lista-de-materiales.csv](fabricacion/lista-de-materiales.csv), columna «a mano»).
+4. Con el juego «smd», lo de agujero pasante **lo sueldas tú** en un rato: la borna, los dos zócalos de 22 y las tiras
+   de pines (en [lista-de-materiales.csv](fabricacion/lista-de-materiales.csv) están todas, con su código LCSC por
+   si las compras en LCSC).
 
-Precio orientativo (octubre de 2026): unos 40–50 $ por cinco placas, dos de ellas montadas, más el envío. Lo que más
-pesa son las tarifas fijas del montaje, no las piezas.
+Precio orientativo (octubre de 2026, sin comprobar en su web): unos 40–50 $ por cinco placas, dos de ellas montadas
+con el juego «smd», más el envío; con «todo» sube algo. Lo que más pesa son las tarifas fijas del montaje, no las
+piezas.
 
 ## Montaje y primera prueba
 
-1. Suelda la borna, los zócalos y las tiras. Los pines de masa van unidos al plano sin «radios»: piden un soldador
+1. Con el juego «smd», suelda la borna, los zócalos y las tiras. Los pines de masa van unidos al plano sin «radios»: piden un soldador
    con algo de potencia.
 2. **Sin la ESP32 pinchada**, conecta 12 V a la borna y mide: unos **5,0 V** entre 5V y GND de J7, y algo menos de
    12 V (lo que se lleva el diodo de polaridad) en la pata 7 (VBAT) del TJA1021. Si no, desconecta y revisa.
