@@ -9,6 +9,10 @@
 # Release aún no tiene los paquetes, lo vuelve a intentar en la siguiente pasada. Guarda solo las dos últimas versiones.
 # Nada se compila aquí: solo se descargan y copian ficheros (unos pocos MB).
 set -euo pipefail
+# Una sola pasada a la vez: dos a la vez (la del cron y una lanzada a mano) se pisaban la carpeta temporal y la 0.3.17
+# se publicó sin el paquete de WTTC (wttc.json y instalar-esp32s3/ no estaban: «bootloader.bin failed: 404»)
+exec 9>/run/wttc-instalador.lock
+flock -n 9 || exit 0
 WEB=/root/tools-vps/appdata/www/tools/wttc
 DST=$WEB/descargas/instalar
 v=$(tr -d ' \r\n' < "$WEB/descargas/VERSION")
