@@ -168,7 +168,13 @@ const uint32_t WIFI_ASK_MS  = 900000; // ms que la Wi-Fi está encendida al pedi
 const uint32_t WIFI_TAIL_MS = 600000; // modo «mientras calienta»: ms que sigue encendida tras apagarse la calefacción
 const uint8_t  TGT_MIN      = 5;      // °C: objetivos admitidos para el termostato (más de 25 °C dentro no tiene sentido)
 const uint8_t  TGT_MAX      = 25;
-const uint16_t MAX_SESSION  = 240;    // min: ventana máxima de «calentar hasta X °C» (se enciende y apaga dentro de ella)
+const uint16_t MAX_SESSION  = 720;    // min: ventana máxima de «calentar hasta X °C» (se enciende y apaga dentro de ella; 12 h
+                                      // desde la 0.3.18, para dormir dentro: «20 °C de 22:00 a 7:00»)
+// Ventanas de más de NIGHT_MIN = «noche» (alguien duerme dentro): solo con el sensor de CO montado y mandando datos y con
+// la batería mínima en NIGHT_MINV o más (para que por la mañana arranque el motor). No se deja a elección: sin eso no se
+// guardan, no empiezan y, si el sensor deja de mandar datos de noche, se apaga y avisa (0.3.18)
+const uint16_t NIGHT_MIN    = 240;
+const float    NIGHT_MINV   = 12.0;
 // Constantes del termostato (TH_*): en logica.h, para que las pruebas usen los mismos valores
 const float    BATT_RUN_DROP = 0.5;   // V: calentando, se apaga si la batería baja de la mínima menos esto (con carga baja más)
 const uint32_t BATT_GRACE   = 180000; // ms: al arrancar la bujía tira mucho; la batería no se vigila hasta pasado este tiempo
@@ -345,6 +351,7 @@ int snFails = 0;
 bool thActive = false, thReached = false;
 uint8_t thTarget = 0;
 uint32_t thUntil = 0;
+bool thNight = false;                 // la sesión en marcha es de «noche» (más de NIGHT_MIN): vigila el sensor de CO
 String thSrc;
 float thBest = NAN;                   // la temperatura más alta de dentro en este encendido, y cuándo subió por última vez
 uint32_t thBestAt = 0;
@@ -464,6 +471,7 @@ enum Txt {
   T_CO_WARN, T_CO_ALARM, T_CO_OFF, T_CO_CLEAR, T_CO_LOST, T_CO_BACK, T_E_CO, T_LOG_CO_NOSENS, T_WHY_CO, T_NOTE_CO, T_D_CO,
   T_CHK_CO, T_CHK_CO_LOST, T_CHK_CO_HEAT, T_CO_FORGOT,
   T_LOG_SCHED_BUSY, T_E_SCHED_CLASH, T_LOG_SCHED_CLASH_OFF, T_E_DEP_CLASH,
+  T_E_NIGHT_CO, T_E_NIGHT_BATT, T_E_NIGHT_MINV, T_LOG_NIGHT_NOCO, T_LOG_NIGHT_NOBATT, T_WHY_NIGHT_CO,
   T_COUNT
 };
 
@@ -727,6 +735,12 @@ const char* const TXT[T_COUNT][L_N] = {
   /* T_E_SCHED_CLASH */ {"No se ha guardado: los programas de las %s y de las %s se pisan. Entre el final de uno y el principio del otro tiene que haber al menos %d min (con «hora de salida», cuenta desde %d min antes de la salida).", "Not saved: the programs at %s and at %s overlap. There must be at least %d min between the end of one and the start of the other (with «leaving time», counting from %d min before leaving).", "Nicht gespeichert: die Programme um %s und um %s überschneiden sich. Zwischen dem Ende des einen und dem Beginn des anderen müssen mindestens %d Min. liegen (mit «Abfahrtszeit» ab %d Min. vor der Abfahrt)."},
   /* T_LOG_SCHED_CLASH_OFF */ {"Programa de las %s desactivado: se pisaba con el de las %s", "Program at %s disabled: it overlapped the one at %s", "Programm um %s deaktiviert: es überschnitt sich mit dem um %s"},
   /* T_E_DEP_CLASH */ {"Esa salida se pisa con el programa de las %s: elige otra hora o desactiva ese programa.", "That departure overlaps the program at %s: choose another time or disable that program.", "Diese Abfahrt überschneidet sich mit dem Programm um %s: andere Zeit wählen oder das Programm deaktivieren."},
+  /* T_E_NIGHT_CO */ {"No se ha guardado: el programa de las %s dura más de %d h con temperatura (para dormir dentro), y eso solo se permite con el sensor de CO montado y mandando datos.", "Not saved: the program at %s lasts more than %d h with a temperature (for sleeping inside), which is only allowed with the CO sensor fitted and sending data.", "Nicht gespeichert: das Programm um %s dauert mit Temperatur länger als %d Std. (zum Schlafen im Fahrzeug); das ist nur mit eingebautem CO-Sensor erlaubt, der Daten sendet."},
+  /* T_E_NIGHT_BATT */ {"No se ha guardado: el programa de las %s dura más de %d h; para eso la batería mínima tiene que ser de %s V o más (Configuración), para que por la mañana arranque el motor.", "Not saved: the program at %s lasts more than %d h; that needs a minimum battery of %s V or more (Settings), so the engine still starts in the morning.", "Nicht gespeichert: das Programm um %s dauert länger als %d Std.; dafür muss die Mindestspannung %s V oder mehr betragen (Einstellungen), damit der Motor morgens noch anspringt."},
+  /* T_E_NIGHT_MINV */ {"Hay programas de más de %d h con temperatura (para dormir dentro): la batería mínima no puede bajar de %s V.", "There are programs longer than %d h with a temperature (for sleeping inside): the minimum battery cannot go below %s V.", "Es gibt Programme mit Temperatur über %d Std. (zum Schlafen im Fahrzeug): die Mindestspannung darf nicht unter %s V liegen."},
+  /* T_LOG_NIGHT_NOCO */ {"No empieza la ventana de %d min (noche): el sensor de CO no está mandando datos", "The %d min window (night) does not start: the CO sensor is not sending data", "Das %d-Min.-Fenster (Nacht) beginnt nicht: der CO-Sensor sendet keine Daten"},
+  /* T_LOG_NIGHT_NOBATT */ {"No empieza la ventana de %d min (noche): la batería mínima es menor de %s V", "The %d min window (night) does not start: the minimum battery is below %s V", "Das %d-Min.-Fenster (Nacht) beginnt nicht: die Mindestspannung liegt unter %s V"},
+  /* T_WHY_NIGHT_CO */ {"el sensor de CO ha dejado de mandar datos durante la noche: se apaga la calefacción", "the CO sensor stopped sending data during the night: the heater is switched off", "der CO-Sensor sendet in der Nacht keine Daten mehr: die Heizung wird ausgeschaltet"},
 };
 
 // Texto en el idioma elegido
@@ -1694,6 +1708,18 @@ bool coAllows() {
   return false;
 }
 
+// ¿Puede empezar una ventana de termostato de «minutes» minutos? "" = sí; si no, por qué (para el registro o la web).
+// Más de NIGHT_MIN es «noche»: el sensor de CO tiene que estar mandando datos (y ya calentado) y la batería mínima en
+// NIGHT_MINV o más
+String nightBlock(uint16_t minutes) {
+  if (minutes <= NIGHT_MIN) return "";
+  if (!coSeen || millis() - coSeenAt < CO_PREHEAT) return trf(T_LOG_NIGHT_NOCO, minutes);
+  if (minVolt < NIGHT_MINV) return trf(T_LOG_NIGHT_NOBATT, minutes, num(NIGHT_MINV, 1).c_str());
+  return "";
+}
+// ¿Programa de «noche»? (activo, con temperatura, sin hora de salida y de más de NIGHT_MIN)
+bool nightSched(const Sched& s, uint8_t x) { return s.en && (x & SX_TGT) && !(x & SX_DEP) && s.dur > NIGHT_MIN; }
+
 // ============================================================================================================
 // Pantalla OLED I2C de 128×64 (opcional; dirección 0x3C). Controlador mínimo propio para no depender de librerías:
 // la imagen se compone en fb[] y se manda entera. La SH1106 (1,3") y la SSD1306 (0,96") se manejan casi igual
@@ -2177,6 +2203,9 @@ void endSession(bool log) {
 bool startSession(uint16_t minutes, uint8_t tgt, const char* src) {
   if (isnan(cabT)) { addLog(tr(T_LOG_TH_NOSENS)); return false; }
   minutes = constrain(minutes, 1, MAX_SESSION);
+  String nb = nightBlock(minutes);
+  if (nb.length()) { addLog(nb); notify(nb); return false; }
+  thNight = minutes > NIGHT_MIN;
   thActive = true; thReached = false; thTarget = tgt; thSrc = src;
   thUntil = millis() + minutes * 60000UL;
   addLog(trf(T_LOG_TH_ON, degs(tgt, 0).c_str(), minutes));
@@ -2193,6 +2222,15 @@ void thermoTick() {
   uint32_t now = millis();
   if (!thActive || now - last < 5000) return;
   last = now;
+  if (thNight && !coSeen) {                                  // de noche sin sensor de CO: se apaga y avisa
+    String m = tr(T_WHY_NIGHT_CO);
+    endSession(true);
+    if (heaterOn) { runEnd = RE_CO; stopHeater(m.c_str(), false); }
+    stopNote = hhmm() + m;
+    addLog(m);
+    notify(m);
+    return;
+  }
   ThIn in;
   in.heaterOn = heaterOn; in.now = now; in.until = thUntil; in.heatStart = heatStart; in.lastHeatOff = lastHeatOff;
   in.cab = cabT; in.target = thTarget; in.best = thBest; in.bestAt = thBestAt; in.warm = heatWarm; in.reached = thReached;
@@ -2361,6 +2399,8 @@ String heatOnDo(int m, int tg, const char* src) {
   if (tg) {
     if (tg < TGT_MIN || tg > TGT_MAX) return tr(T_E_TARGET);
     if (isnan(cabT)) return tr(T_E_NOSENS);
+    String nb = nightBlock(constrain(m > 0 ? m : 60, 1, MAX_SESSION));
+    if (nb.length()) return nb;
     endSession(false);
     return startSession(m > 0 ? m : 60, tg, src) ? "" : tr(T_E_ON);
   }
@@ -2514,6 +2554,11 @@ String applySched(const String& a, const String& L, const String& skip, const St
   ProgV v[MAX_SCHED]; int ci, cj;
   progArray(v, nS, nX, n);
   if (progChoque(v, n, ci, cj)) return trf(T_E_SCHED_CLASH, hm(nS[ci].start).c_str(), hm(nS[cj].start).c_str(), SCHED_GAP, DEP_MAX_LEAD);
+  for (int i = 0; i < n; i++) {                   // «noche»: sensor de CO mandando datos y batería mínima suficiente
+    if (!nightSched(nS[i], nX[i])) continue;
+    if (!coSeen) return trf(T_E_NIGHT_CO, hm(nS[i].start).c_str(), NIGHT_MIN / 60);
+    if (minVolt < NIGHT_MINV) return trf(T_E_NIGHT_BATT, hm(nS[i].start).c_str(), NIGHT_MIN / 60, num(NIGHT_MINV, 1).c_str());
+  }
   if (depOnce && a == "1") {                      // y tampoco la salida suelta que haya («Salgo a las…»)
     time_t dt = (time_t)depOnce * 60; struct tm tm; localtime_r(&dt, &tm);
     if (ventanaChocaProg(v, n, modSemana(((tm.tm_wday + 6) % 7) * 1440 + tm.tm_hour * 60 + tm.tm_min - DEP_MAX_LEAD), DEP_MAX_LEAD, ci))
@@ -2599,7 +2644,10 @@ int cfgSet(String k, String v, String& err) {
     else { strlcpy(tgChat, v.c_str(), sizeof tgChat); prefs.putString("tgchat", tgChat); }   // vacío = avisos desactivados
   } else if (k == "minvolt") {
     float f = v.toFloat();
+    bool night = false;
+    for (int i = 0; i < nSch; i++) night |= nightSched(sch[i], schX[i]);
     if (f < 10.5 || f > 13.0) { err = tr(T_E_MINVOLT); r = 0; }
+    else if (night && f < NIGHT_MINV) { err = trf(T_E_NIGHT_MINV, NIGHT_MIN / 60, num(NIGHT_MINV, 1).c_str()); r = 0; }
     else { minVolt = f; prefs.putFloat("minv", minVolt); }
   } else if (k == "lang") {
     int l = -1;

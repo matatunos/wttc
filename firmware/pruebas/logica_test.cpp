@@ -415,6 +415,22 @@ static void pruebasChoque() {
   CHECK(ventanaChocaProg(s, 2, 2 * 1440 + 6 * 60, 10, k) && k == 0);        // salida suelta el miércoles 6:00 (5:50–6:20)
   CHECK(ventanaChocaProg(s, 2, 2 * 1440 + 6 * 60 + 25, 10, k) && k == 1);   // 6:25: choca con la salida de las 8:00
   CHECK(!ventanaChocaProg(s, 2, 2 * 1440 + 12 * 60, 30, k));
+  // Noches (0.3.18: termostato hasta 12 h): «de lunes a viernes, de 22:00 a 7:00» = ventana de 540 min que cruza la medianoche
+  const uint8_t LV = 0x1F;                                     // lunes a viernes
+  ProgV n[] = {{true, LV, 22 * 60, 540, false}, {true, MAR, 6 * 60, 30, false}};
+  CHECK(progChoque(n, 2, i, j));                               // la del lunes llega al martes 7:00: el martes 6:00 la pisa
+  n[1].start = 7 * 60 + 5;                                     // martes 7:05: 5 min tras el final → vale
+  CHECK(!progChoque(n, 2, i, j));
+  n[1].start = 7 * 60 + 2;                                     // 7:02: solo 2 min → falta separación
+  CHECK(progChoque(n, 2, i, j));
+  ProgV v[] = {{true, (uint8_t)(1 << 4), 22 * 60, 540, false}, {true, (uint8_t)(1 << 5), 6 * 60 + 30, 30, false}};
+  CHECK(progChoque(v, 2, i, j));                               // viernes 22:00 → sábado 7:00 pisa el sábado 6:30
+  ProgV d[] = {{true, DOM, 22 * 60, 720, false}, {true, LUN, 9 * 60, 60, false}};
+  CHECK(progChoque(d, 2, i, j));                               // domingo 22:00 + 12 h = lunes 10:00: pisa el lunes 9:00
+  d[1].start = 10 * 60 + 5;
+  CHECK(!progChoque(d, 2, i, j));                              // lunes 10:05: vale (cruza el cambio de semana)
+  ProgV sola[] = {{true, TODOS, 22 * 60, 720, false}};
+  CHECK(!progChoque(sola, 1, i, j));                           // la misma noche todos los días no se pisa a sí misma
 }
 
 int main() {

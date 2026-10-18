@@ -344,8 +344,10 @@ function setLang(l){if(!I18N[l])return;lang=l;document.documentElement.lang=l;
  document.querySelectorAll('[data-t]').forEach(e=>e.textContent=T(e.dataset.t));
  document.querySelectorAll('[data-ta]').forEach(e=>e.setAttribute('aria-label',T(e.dataset.ta)));seg()}
 // Duraciones del botón principal y de los programas (el firmware limita a 60 min). Con objetivo de temperatura
-// (termostato) la duración es la ventana máxima, hasta 4 h. Objetivos que se ofrecen (el firmware admite 5–25 °C)
-const DURS=[15,30,45,60],SDURS=[15,30,45,60],TDURS=[60,120,180,240],TGTS=[10,12,14,16,17,18,19,20,21,22,23,24,25];
+// (termostato) la duración es la ventana máxima: hasta 4 h desde el botón y hasta 12 h en los programas (0.3.18: una
+// noche; más de 4 h solo con el sensor de CO y la batería mínima en 12 V o más, lo comprueba la placa al guardar).
+// Objetivos que se ofrecen (el firmware admite 5–25 °C)
+const DURS=[15,30,45,60],SDURS=[15,30,45,60],TDURS=[60,120,180,240],PTDURS=[60,120,180,240,360,480,540,600,720],TGTS=[10,12,14,16,17,18,19,20,21,22,23,24,25];
 // Estado: st = último /api/state; sched = programas en edición; dirty = cambios sin guardar;
 // dur = duración elegida; synced = ya se puso en hora; busy = esperando la respuesta de encender/apagar
 let st=null,sched=[],dirty=false,dur=30,synced=false,busy=false,tgt=0;
@@ -445,7 +447,7 @@ function render(){if(!st)return;
 // Pinta la lista de programas (hora, duración, interruptor, borrar y días)
 function list(){$('list').innerHTML=sched.map((s,i)=>`<div class="row"><div class="rtop">
 <input type="time" value="${hm(s.start)}" data-i="${i}" data-k="start" aria-label="${T('aTime')}">
-<select data-i="${i}" data-k="dur" aria-label="${T('aDur')}"${s.x&128?' hidden':''}>${(s.x&63?TDURS:SDURS).map(d=>`<option value="${d}"${d==s.dur?' selected':''}>${fmtDur(d)}</option>`).join('')}</select>
+<select data-i="${i}" data-k="dur" aria-label="${T('aDur')}"${s.x&128?' hidden':''}>${(s.x&63?PTDURS:SDURS).map(d=>`<option value="${d}"${d==s.dur?' selected':''}>${fmtDur(d)}</option>`).join('')}</select>
 <label class="sw"><input type="checkbox"${s.en?' checked':''} data-i="${i}" data-k="en" aria-label="${T('aEn')}"><i></i></label>
 <button class="x" data-i="${i}" data-k="del" aria-label="${T('aDel')}">×</button></div>
 <div class="days">${T('days').map((d,j)=>`<button class="${s.days>>j&1?'sel':''}" data-i="${i}" data-k="day" data-j="${j}">${d}</button>`).join('')}</div>
@@ -484,7 +486,7 @@ $('list').addEventListener('change',e=>{const t=e.target,i=+t.dataset.i,k=t.data
  if(k=='start'&&t.value){const p=t.value.split(':');sched[i].start=+p[0]*60+ +p[1]}else if(k=='dur')sched[i].dur=+t.value;else if(k=='en')sched[i].en=t.checked;
  // Modo (encender a la hora / hora de salida) y objetivo: x = 128 si es salida + °C del objetivo. Cambian la lista de duraciones
  else if(k=='mode'||k=='tg'){const s=sched[i];s.x=k=='mode'?(+t.value|(s.x&63)):((s.x&128)|+t.value);
-  const L=s.x&63?TDURS:SDURS;if(!L.includes(s.dur))s.dur=s.x&63?120:30;touch();return}
+  const L=s.x&63?PTDURS:SDURS;if(!L.includes(s.dur))s.dur=s.x&63?120:30;touch();return}
  touch(false)});
 // Añadir un programa (por defecto: 07:00, 30 min, de lunes a viernes)
 // Plantillas: vacío (07:00, 30 min, L–V) o una de uso habitual (las que llevan objetivo, solo con termómetro)

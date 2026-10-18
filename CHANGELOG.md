@@ -6,6 +6,14 @@ Formato: la versión más reciente arriba. Cada versión publicada tiene su Rele
 **Mientras la versión empiece por 0, es una versión de prueba**: compila y funciona en el simulador, pero aún no se
 ha comprobado con una Webasto real. La 1.0.0 llegará cuando alguien lo haya probado montado en un vehículo.
 
+## 0.3.18 — 2026-10-18
+
+Versión de prueba (sin probar con una Webasto real).
+
+- **Programas para dormir dentro: con temperatura, hasta 12 horas.** Por ejemplo «mantener 20 °C de 22:00 a 7:00, de lunes a viernes» (temporada de esquí). Dentro de esa ventana hace de termostato como siempre: enciende si hace frío, apaga al llegar y vuelve a encender al enfriarse, con encendidos de 60 minutos como mucho.
+- **Las ventanas de más de 4 horas («noche») exigen el sensor de CO y batería**, sin elección: solo se guardan con el sensor de CO montado y mandando datos y con la batería mínima en **12,0 V o más** (para que por la mañana arranque el motor). Mientras haya alguno, la batería mínima no se puede bajar de 12,0 V. Si llega la hora y el sensor no está mandando datos, no empieza; si **deja de mandar datos durante la noche, apaga la calefacción y avisa**.
+- La **Webasto falsa** ya no enseña en su registro un «último mantenimiento hace 3,3 s» congelado durante el postbarrido (parecía que WTTC seguía mandándolo): dice que apagándose ya no hace falta.
+
 ## 0.3.17 — 2026-10-17
 
 Versión de prueba (sin probar con una Webasto real).

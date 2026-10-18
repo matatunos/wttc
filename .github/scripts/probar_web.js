@@ -36,6 +36,9 @@ for (const lang of ['es', 'en', 'de']) {
   assert.ok(el('st').textContent.length > 2, 'estado de una letra: ¿T() con una lista?');
   assert.strictEqual((L.match(/data-k="day"/g) || []).length, 21, 'faltan los días de los programas');
   assert.strictEqual((L.match(/data-k="(mode|tg)"/g) || []).length, 6, 'faltan las opciones de los programas');
+  // Con temperatura, la ventana llega a 12 h (0.3.18: una noche); sin ella, a 60 min
+  assert.ok(L.includes('<option value="720"') && L.includes('<option value="540"'), 'un programa con temperatura no ofrece ventanas de noche (hasta 12 h)');
+  assert.strictEqual((L.match(/<option value="720"/g) || []).length, 2, 'ventanas de 12 h en programas sin temperatura');
   assert.ok(/\d/.test(el('cab').innerHTML) && el('depSt').textContent.length > 10, 'falta la temperatura de dentro o la salida');
   cur = state({ lang, on: false, ph: 0, tgt: 0, ct: null, ch: null, dep: 0 }); W.st = cur; W.render();
   console.log(`[${lang}] apagada sin termómetro: ${el('st').textContent} | Hasta oculto=${el('tgtRow').hidden} dentro oculto=${el('cab').hidden} | botón: ${el('big').textContent}`);

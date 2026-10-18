@@ -659,7 +659,7 @@ const FW = <?= json_encode($version ?: '0.1.0') ?>;   // versión del firmware s
 const FUEL_L_KWH = 0.124, MAX_MIN = 60, KEEPALIVE_MS = 5000, SENSOR_MS = 8000, MAX_SCHED = 8, PAUSE_TEMP = 65, NOFLAME_MS = 300000;
 const TH_STALL = 1500000, TH_STALL_C = 0.5;
 const TH_MINRUN_WARM = 300000, TH_WARM_C = 30;
-const MAX_SESSION = 240, TH_HYST = 1.5, TH_MINRUN = 900000, TH_REST = 180000, BATT_RUN_DROP = 0.5, BATT_GRACE = 180000, SX_DEP = 0x80, SX_TGT = 0x3F;
+const MAX_SESSION = 720, NIGHT_MIN = 240, TH_HYST = 1.5, TH_MINRUN = 900000, TH_REST = 180000, BATT_RUN_DROP = 0.5, BATT_GRACE = 180000, SX_DEP = 0x80, SX_TGT = 0x3F;
 const PH_OFF = 0, PH_START = 1, PH_FLAME = 2, PH_PAUSE = 3, PH_LOST = 4;
 const prefs = { sch: [], auto: true, ssid: '', pass: '', tgtok: '', tgchat: '', name: 'WTTC', appass: 'calefaccion',
   pin: 100000 + Math.floor(Math.random() * 900000), wifimode: 0, minvolt: 12.0, lang: Math.max(0, LANGS.indexOf(PAGE_LANG)),
@@ -1241,6 +1241,13 @@ function route(path, method, args) {
   }
   if (path === '/api/off' && method === 'POST') { endSession(true); const ok = stopHeater(tf('T_SRC_MANUAL'), true); return [200, ok ? 'ok' : tf('T_W_OFF_NOCONF')]; }
   if (path === '/api/sched' && method === 'POST') {
+    // Ventanas de «noche» (más de NIGHT_MIN con temperatura, 0.3.18): la placa solo las guarda con el sensor de CO
+    // mandando datos, y el simulador no tiene sensor de CO: no se guardan (con el mismo aviso que la placa)
+    for (const it of a('list').split(';')) {
+      const p = it.split(',').map(x => parseInt(x));
+      if (p.length >= 5 && p[0] && (p[4] & SX_TGT) && !(p[4] & SX_DEP) && p[3] > NIGHT_MIN)
+        return [400, trf('T_E_NIGHT_CO', pad(Math.floor(p[2] / 60)) + ':' + pad(p[2] % 60), NIGHT_MIN / 60)];
+    }
     prefs.auto = a('auto') === '1';
     prefs.sch = [];
     for (const it of a('list').split(';')) {

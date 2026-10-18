@@ -85,9 +85,12 @@ class MainActivity : Activity(), BleLink.Listener {
     }
 
     // Duraciones que se ofrecen (el firmware no admite más de 60 min) y letras de los días (lunes primero). Con objetivo
-    // de temperatura (termostato) la duración es la ventana máxima, hasta 4 h. Objetivos (el firmware admite 5–25 °C)
+    // de temperatura (termostato) la duración es la ventana máxima: hasta 4 h al encender y hasta 12 h en los programas
+    // (0.3.18: una noche; más de 4 h solo con el sensor de CO y la batería mínima en 12 V o más, lo comprueba la placa
+    // al guardar). Objetivos (el firmware admite 5–25 °C)
     private val durations = intArrayOf(15, 30, 45, 60)
     private val tDurations = intArrayOf(60, 120, 180, 240)
+    private val ptDurations = intArrayOf(60, 120, 180, 240, 360, 480, 540, 600, 720)
     private val targets = intArrayOf(10, 12, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25)
     private var tgt = 0                // objetivo elegido (0 = encendido normal)
     private var depMin = 8 * 60        // hora de salida elegida (minutos del día)
@@ -1284,8 +1287,8 @@ class MainActivity : Activity(), BleLink.Listener {
                 TimePickerDialog(this, { _, h, m -> p.start = h * 60 + m; touchProgs(); drawProgs() }, p.start / 60, p.start % 60, true).show()
             }.apply { textSize = 22f; setTypeface(typeface, Typeface.BOLD); minWidth = 0; minimumWidth = 0 }
             // Cerrado, el desplegable usa la plantilla compacta; abierto, la de lista (si no, «30 min» no cabe y sale «30..»)
-            // Con objetivo de temperatura la duración es la ventana (hasta 4 h); con hora de salida no se usa
-            val durs = if (p.x and 63 > 0) tDurations else durations
+            // Con objetivo de temperatura la duración es la ventana (hasta 12 h); con hora de salida no se usa
+            val durs = if (p.x and 63 > 0) ptDurations else durations
             val durSp = Spinner(this).apply {
                 adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_item, durs.map { fmtDur(it) })
                     .apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
@@ -1345,7 +1348,7 @@ class MainActivity : Activity(), BleLink.Listener {
                     val x = (p.x and 128) or (if (pos == 0) 0 else targets[pos - 1])
                     if (x != p.x) {
                         p.x = x
-                        val l = if (x and 63 > 0) tDurations else durations
+                        val l = if (x and 63 > 0) ptDurations else durations
                         if (p.dur !in l) p.dur = if (x and 63 > 0) 120 else 30
                         touchProgs(); drawProgs()
                     }

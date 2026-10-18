@@ -74,6 +74,9 @@ Hechas automáticamente: la web con el simulador y la app en un emulador Android
 - Con el termómetro opcional, **calentar hasta una temperatura** (5–25 °C): apaga al llegar y vuelve a encender si se
   enfría (cada encendido dura como mínimo 15 min con el motor frío y 5 con el agua ya templada, desde 30 °C); si dentro no sube, se
   rinde y avisa en vez de gastar en balde.
+- **Para dormir dentro**: un programa con temperatura puede durar **hasta 12 horas** («20 °C de 22:00 a 7:00, de lunes a
+  viernes»). Más de 4 horas solo se puede guardar con el **sensor de CO montado y mandando datos** y la **batería mínima
+  en 12 V o más**; si de noche el sensor deja de mandar datos, apaga y avisa.
 - **Estado real**: arrancando, calentando, en pausa (agua caliente) o sin respuesta. Si la Webasto se apaga por su
   cuenta, lo detecta y muestra sus códigos de avería.
 - Temperatura del agua, tensión de batería, llama y potencia.
