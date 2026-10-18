@@ -71,7 +71,8 @@ def paquetes():
             for nom in ("wttc-placa-gerber.zip", f"wttc-placa-bom-jlcpcb-{juego}.csv", f"wttc-placa-cpl-{juego}.csv"):
                 f.write(os.path.join(FAB, nom), nom)
             f.writestr("LEEME.txt", "WTTC · placa portadora v0.1 (DISEÑO SIN PROBAR) · https://wttc.favala.es/placa.php\n\n" + txt +
-                       "\n1. En jlcpcb.com → Order now: sube wttc-placa-gerber.zip (tal cual, sin descomprimir).\n"
+                       "\nEste paquete NO se sube a JLCPCB (diría «menor de 10 × 10 mm»): sube lo que lleva dentro.\n"
+                       "1. En jlcpcb.com → Order now: sube wttc-placa-gerber.zip (tal cual, sin descomprimir).\n"
                        f"2. Activa PCB Assembly y sube wttc-placa-bom-jlcpcb-{juego}.csv (BOM) y wttc-placa-cpl-{juego}.csv (CPL).\n"
                        "3. Revisa el giro de las piezas en su vista previa (pin 1 y raya del cátodo como en la serigrafía).\n"
                        "La ESP32-S3 y los módulos opcionales (pantalla, termómetro, sensor de CO) no van en el encargo.\n")
