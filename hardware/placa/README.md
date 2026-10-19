@@ -15,6 +15,10 @@ módulos (placa TJA1020, regulador LM2596 y cables dupont). Diseñada y generada
 
 ![Placa en 3D](fabricacion/placa-3d.png)
 
+Así sale en la vista previa de JLCPCB, con sus piezas (primer pedido, 19/10/2026, juego «todo»):
+
+![Vista previa de JLCPCB](fabricacion/placa-jlcpcb-3d.png)
+
 ## Qué lleva
 
 | Bloque | Piezas | Notas |

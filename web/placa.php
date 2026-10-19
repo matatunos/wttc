@@ -24,6 +24,7 @@ $TX = [
   'intro' => 'Una placa en la que <b>se pincha la ESP32-S3-DevKitC-1</b> y que lleva todo lo demás: entrada del vehículo con protecciones, los 5 V, el transceptor del W-Bus y conectores para las piezas opcionales. Sustituye al montaje con módulos (placa TJA1020, regulador LM2596 y cables dupont): se puede encargar entera, lista para pinchar la ESP32, o con las piezas pequeñas y soldar tú la borna, los zócalos y las tiras.',
   'warn' => '<b>Diseño sin probar.</b> Nadie la ha encargado ni montado todavía. Las comprobaciones de KiCad (eléctrica y de reglas de diseño) salen limpias, pero eso no garantiza que funcione. Si la encargas, <a href="https://github.com/matatunos/wttc/issues">cuéntalo</a>: la primera que se monte dirá si hay que corregir algo.',
   'top' => 'Cara de arriba', 'bottom' => 'Cara de abajo', 'd3' => 'En 3D (sin la ESP32 pinchada)',
+  'jlc' => 'Vista previa de JLCPCB con sus piezas, del primer pedido (19/10/2026): el juego «todo», tal como la montan',
   'what' => 'Qué lleva',
   'cols' => ['Bloque', 'Piezas', 'Notas'],
   'rows' => [
@@ -60,6 +61,7 @@ $TX = [
   'intro' => 'A board that <b>the ESP32-S3-DevKitC-1 plugs into</b>, carrying everything else: vehicle input with protection, 5 V, the W-Bus transceiver and connectors for the optional parts. It replaces the module build (TJA1020 board, LM2596 regulator and dupont wires): it can be ordered complete, ready for the ESP32, or with the small parts only, soldering the terminal block, sockets and headers yourself.',
   'warn' => '<b>Untested design.</b> Nobody has ordered or built one yet. KiCad’s checks (electrical and design rules) are clean, but that does not guarantee it works. If you order it, <a href="https://github.com/matatunos/wttc/issues">tell us</a>: the first one built will show whether anything needs fixing.',
   'top' => 'Top side', 'bottom' => 'Bottom side', 'd3' => 'In 3D (without the ESP32)',
+  'jlc' => 'JLCPCB preview with their parts, from the first order (19 Oct 2026): the «todo» set, as they assemble it',
   'what' => 'What it carries',
   'cols' => ['Block', 'Parts', 'Notes'],
   'rows' => [
@@ -96,6 +98,7 @@ $TX = [
   'intro' => 'Eine Platine, auf die <b>der ESP32-S3-DevKitC-1 gesteckt wird</b> und die alles andere trägt: Fahrzeugeingang mit Schutz, 5 V, den W-Bus-Transceiver und Anschlüsse für die optionalen Teile. Sie ersetzt den Aufbau mit Modulen (TJA1020-Platine, LM2596-Regler und Dupont-Kabel): sie lässt sich komplett bestückt bestellen, fertig für den ESP32, oder nur mit den kleinen Teilen, und Schraubklemme, Buchsen- und Stiftleisten lötest du selbst.',
   'warn' => '<b>Ungetestetes Design.</b> Noch niemand hat sie bestellt oder aufgebaut. Die Prüfungen von KiCad (elektrisch und Designregeln) sind sauber, aber das garantiert nicht, dass sie funktioniert. Wenn du sie bestellst, <a href="https://github.com/matatunos/wttc/issues">erzähl davon</a>: die erste aufgebaute zeigt, ob etwas zu korrigieren ist.',
   'top' => 'Oberseite', 'bottom' => 'Unterseite', 'd3' => 'In 3D (ohne ESP32)',
+  'jlc' => 'JLCPCB-Vorschau mit ihren Teilen, aus der ersten Bestellung (19.10.2026): der Satz «todo», so wie sie ihn bestücken',
   'what' => 'Was drauf ist',
   'cols' => ['Block', 'Teile', 'Hinweise'],
   'rows' => [
@@ -190,6 +193,7 @@ $fich = [['pkT', 'wttc-placa-encargo-todo.zip'], ['pkS', 'wttc-placa-encargo-smd
 
 <div class="fotos">
   <figure class="ancha"><img src="<?= $F ?>placa-3d.png<?= $v('placa-3d.png') ?>" alt="<?= $h($T['d3']) ?>" loading="lazy"><figcaption><?= $h($T['d3']) ?></figcaption></figure>
+  <figure class="ancha"><img src="<?= $F ?>placa-jlcpcb-3d.png<?= $v('placa-jlcpcb-3d.png') ?>" alt="<?= $h($T['jlc']) ?>" loading="lazy"><figcaption><?= $h($T['jlc']) ?></figcaption></figure>
   <figure><img src="<?= $F ?>placa-top.png<?= $v('placa-top.png') ?>" alt="<?= $h($T['top']) ?>" loading="lazy"><figcaption><?= $h($T['top']) ?></figcaption></figure>
   <figure><img src="<?= $F ?>placa-bottom.png<?= $v('placa-bottom.png') ?>" alt="<?= $h($T['bottom']) ?>" loading="lazy"><figcaption><?= $h($T['bottom']) ?></figcaption></figure>
 </div>
