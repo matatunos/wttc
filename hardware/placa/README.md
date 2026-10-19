@@ -65,9 +65,9 @@ Los ficheros están en [`fabricacion/`](fabricacion/). Lo más cómodo: **un paq
    de pines (en [lista-de-materiales.csv](fabricacion/lista-de-materiales.csv) están todas, con su código LCSC por
    si las compras en LCSC).
 
-Precio orientativo (octubre de 2026, sin comprobar en su web): unos 40–50 $ por cinco placas, dos de ellas montadas
-con el juego «smd», más el envío; con «todo» sube algo. Lo que más pesa son las tarifas fijas del montaje, no las
-piezas.
+Precio real de un pedido (19/10/2026, juego «todo»): **87,65 €** sin envío por 5 placas, 2 de ellas montadas. Casi
+todo son tarifas fijas del montaje (preparación 22,90 €, carga de piezas «extended» 27,57 €, plantilla 7,36 €); las
+piezas son unos 8,50 € por placa, así que montar más placas en el mismo pedido sale mucho más barato por unidad.
 
 ## Montaje y primera prueba
 
