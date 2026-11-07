@@ -1,7 +1,10 @@
 #!/bin/sh
-# Hooks post-commit y post-merge del repo local (mismo contenido; git no los copia: los instala server/scripts/deploy-web.sh).
-# Tras cada commit o fusión en main: despliega la web desde el repo y publica el firmware y el simulador.
-# En otras ramas no hace nada: lo que se prueba en una rama no debe llegar a la web pública.
+# Hooks post-commit y post-merge de homelab-scripts (mismo contenido; git no los copia: los instala
+# apps/wttc/server/scripts/deploy-web.sh). Tras un commit o una fusión en main que toque apps/wttc/: despliega la web
+# desde el repo y publica el firmware y el simulador. En otras ramas, o si el cambio es de otra parte del homelab, nada:
+# lo que se prueba en una rama no debe llegar a la web pública.
 [ "$(git rev-parse --abbrev-ref HEAD)" = "main" ] || exit 0
-/root/wttc/server/scripts/deploy-web.sh >/dev/null 2>&1 || echo "deploy-web.sh falló" >&2
+case "$(basename "$0")" in post-merge) desde=ORIG_HEAD ;; *) desde=HEAD~1 ;; esac
+git diff --quiet "$desde" HEAD -- apps/wttc 2>/dev/null && exit 0
+/root/hs-repo/apps/wttc/server/scripts/deploy-web.sh >/dev/null 2>&1 || echo "deploy-web.sh falló" >&2
 /usr/local/bin/wttc-publicar.sh >/dev/null 2>&1 || echo "wttc-publicar.sh falló" >&2

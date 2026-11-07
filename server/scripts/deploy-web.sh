@@ -11,7 +11,7 @@
 #   server/privado/wttc-stats/  → TOOLS_DIR/wttc-stats (vista privada, con login del portal)
 #   server/scripts/*.sh         → /usr/local/bin     (publicación del firmware y del instalador web, avisos por Telegram)
 #   server/scripts/cron.d-*     → /etc/cron.d/
-#   server/scripts/post-commit, post-merge → .git/hooks/ (los hooks no viajan con git: se instalan desde aquí)
+#   server/scripts/post-commit, post-merge → .git/hooks/ de homelab-scripts (los hooks no viajan con git)
 #
 # No se borra nada en producción (sin --delete): allí también viven ficheros GENERADOS que no están en el repo
 # (movil.php y descargas/, de wttc-publicar.sh y wttc-instalador.sh) y librerías de terceros (vendor/).
@@ -19,11 +19,12 @@ set -euo pipefail
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 # ---------- configuración ----------
-REPO=/root/wttc
+REPO=/root/hs-repo/apps/wttc                 # dentro del repo común homelab-scripts (antes repo suelto /root/wttc)
 TOOLS_DIR=/root/tools-vps/appdata/www/tools
 WEB_DIR="$TOOLS_DIR/wttc"
 BIN_DIR=/usr/local/bin
 CRON_DIR=/etc/cron.d
+HOOKS_GIT=$(git -C "$REPO" rev-parse --absolute-git-dir)   # el .git de homelab-scripts
 
 # ---------- web pública ----------
 rsync -a --checksum "$REPO/web/" "$WEB_DIR/"
@@ -44,7 +45,7 @@ done
 cmp -s "$REPO/server/scripts/cron.d-wttc-instalador" "$CRON_DIR/wttc-instalador" \
     || install -m 644 "$REPO/server/scripts/cron.d-wttc-instalador" "$CRON_DIR/wttc-instalador"
 for h in post-commit post-merge; do              # tras un commit y tras una fusión (git merge / git pull) en main
-    cmp -s "$REPO/server/scripts/$h" "$REPO/.git/hooks/$h" || install -m 755 "$REPO/server/scripts/$h" "$REPO/.git/hooks/$h"
+    cmp -s "$REPO/server/scripts/$h" "$HOOKS_GIT/hooks/$h" || install -m 755 "$REPO/server/scripts/$h" "$HOOKS_GIT/hooks/$h"
 done
 
 echo "Web de WTTC desplegada desde el repo"

@@ -1,5 +1,5 @@
 #!/bin/bash
-# wttc-publicar.sh — (fuente: server/scripts/ del repo; lo instala deploy-web.sh) Publica en https://wttc.favala.es lo que hay en el repo local /root/wttc:
+# wttc-publicar.sh — (fuente: server/scripts/ del repo; lo instala deploy-web.sh) Publica en https://wttc.favala.es lo que hay en apps/wttc de homelab-scripts:
 # (generado con Claude, Anthropic; lo lanza el hook post-commit del repo local)
 #   - descargas/WTTC-firmware.zip  (carpeta firmware/WTTC: WTTC.ino + web.h)
 #   - movil.php                    (web del firmware para el simulador, desde web.h)
@@ -10,7 +10,7 @@
 # El APK no se copia: la web enlaza al de su versión en GitHub (releases/download/v<VERSION>/WTTC.apk;
 # no releases/latest, que da 404 mientras todas las Releases sean de prueba).
 set -euo pipefail
-REPO=/root/wttc
+REPO=/root/hs-repo/apps/wttc                 # dentro del repo común homelab-scripts (antes repo suelto /root/wttc)
 WEB=/root/tools-vps/appdata/www/tools/wttc
 mkdir -p "$WEB/descargas"
 python3 - "$REPO" "$WEB" <<'PY'
@@ -127,4 +127,4 @@ PY
     echo "$sum" > "$WEB/descargas/.esquema.sum"
 }
 esquema_pdf || echo "esquema PDF: no se ha rehecho (se quedan los anteriores)" >&2
-echo "Publicado: $(cd "$REPO" && git log -1 --format='%h %s')"
+echo "Publicado: $(cd "$REPO" && git log -1 --format='%h %s' -- .)"
